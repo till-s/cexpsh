@@ -45,7 +45,7 @@
 #ifndef CEXP_CEXPSYMS_P_H
 #define CEXP_CEXPSYMS_P_H
 #include "cexpsyms.h"
-#include <spencer_regexp.h>
+#include <cexp_regex.h>
 
 /* our implementation of the symbol table holds more information
  * that we make public
@@ -103,7 +103,7 @@ cexpSymTblLkAddrIdx(void *addr, int margin, FILE *f, CexpSymTbl t);
  * implementation, i.e. which variant, which headers etc.
  */
 CexpSym
-_cexpSymTblLookupRegex(spencer_regexp *rc, int *pmax, CexpSym s, FILE *f, CexpSymTbl t);
+_cexpSymTblLookupRegex(cexp_regex *rc, int *pmax, CexpSym s, FILE *f, CexpSymTbl t);
 
 #define LOAD_CHUNK    2000
 

@@ -63,7 +63,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <spencer_regexp.h>
+#include <cexp_regex.h>
 
 #include <libelf/libelf.h>
 
@@ -323,18 +323,18 @@ cleanup:
 int
 cexpLoadFile(char *filename, CexpModule new_module)
 {
-CexpSym			found;
-spencer_regexp	*rc;
-int				rval=-1,max;;
+CexpSym		found;
+cexp_regex	*rc;
+int			rval=-1,max;;
 
-	assert(rc=spencer_regcomp("^"CEXP_HELP_TAB_NAME));
+	assert(rc=cexp_regcomp("^"CEXP_HELP_TAB_NAME));
 	if ((new_module->symtbl=cexpSlurpElf(filename))) {
 		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,new_module->symtbl); found++,max=1) {
 			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, new_module->symtbl);
 		}
 		rval=0;
 	}
-	free(rc);
+	cexp_regfree(rc);
 	return rval;
 }
 

@@ -44,7 +44,7 @@
 
 #include <stdio.h>
 #include <assert.h>
-#include <spencer_regexp.h>
+#include <cexp_regex.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -197,7 +197,7 @@ cexpModuleName(CexpModule mod)
  * here is just a wrapper for looping over modules
  */
 CexpSym
-_cexpSymLookupRegex(spencer_regexp *rc, int *pmax, CexpSym s, FILE *f, CexpModule *pmod)
+_cexpSymLookupRegex(cexp_regex *rc, int *pmax, CexpSym s, FILE *f, CexpModule *pmod)
 {
 CexpModule	m=0,mfound;
 int			max=24;
@@ -230,7 +230,7 @@ int			max=24;
     	if (!s) s=m->symtbl->syms;
 		mfound=0;
 		while (s->name && *pmax) {
-      		if (spencer_regexec(rc,s->name)) {
+      		if (cexp_regexec(rc,s->name)) {
 				if (!mfound) {
 					if (f) fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, (unsigned)m);
 					mfound=m; /* print module name only once */
@@ -306,13 +306,13 @@ CexpModule m = mod ? mod : cexpSystemModule;
 CexpModule
 cexpModuleFindByName(char *needle, FILE *f)
 {
-spencer_regexp	*rc=0;
-CexpModule		m,found=0;
+cexp_regex	*rc=0;
+CexpModule	m,found=0;
 
 	if (!f)
 		f=stdout;
 
-	if (!(rc=spencer_regcomp(needle))) {
+	if (!(rc=cexp_regcomp(needle))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n", needle);
 		return 0;
 	}
@@ -320,7 +320,7 @@ CexpModule		m,found=0;
 	__RLOCK();
 
 	for (m=cexpSystemModule; m; m=m->next) {
-		if (spencer_regexec(rc,m->name)) {
+		if (cexp_regexec(rc,m->name)) {
 			/* record first item found */
 			if (!found)
 				found=m;
@@ -330,7 +330,7 @@ CexpModule		m,found=0;
 
 	__RUNLOCK();
 
-	free(rc);
+	cexp_regfree(rc);
 	return found;
 }
 

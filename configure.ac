@@ -4,11 +4,11 @@ AM_MAINTAINER_MODE
 
 dnl if the versions are changed, the AC_CONFIG_SUBDIRS arguments
 dnl below need to be adapted :-(
-LIBELF=libelf-0.8.0
+LIBELF=libelf-0.8.2
 AC_SUBST(LIBELF)
-BINUTILS=binutils-2.13
+BINUTILS=binutils
 AC_SUBST(BINUTILS)
-LIBTECLA=libtecla-1.4.1
+LIBTECLA=libtecla
 AC_SUBST(LIBTECLA)
 
 AC_CANONICAL_BUILD
@@ -52,7 +52,7 @@ if test "$enable_YYDEBUG" != "no" ; then
 fi
 
 if test "$enable_tecla" != "no" ; then
-	AC_CONFIG_SUBDIRS(libtecla-1.4.1)
+	AC_CONFIG_SUBDIRS(libtecla)
 	AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
 	AC_CHECK_LIB(curses,tgetnum,[LIBS="$LIBS -lcurses"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
 else if test "$enable_readline" != "no" ; then
@@ -68,12 +68,12 @@ fi
 dnl we need libelf for the 'xsyms' tool
 if test "$enable_bfd" = "no" -o "$host_os" != "rtems" ; then
 dnl     AC_CONFIG_SUBDIRS needs a literal arg :-(
-	AC_CONFIG_SUBDIRS(libelf-0.8.0)
+	AC_CONFIG_SUBDIRS(libelf-0.8.2)
 fi
 
 if test "$enable_bfd" != "no" ; then
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
-	AC_CONFIG_SUBDIRS(binutils-2.13)
+	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
 	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 fi

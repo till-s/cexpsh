@@ -15,7 +15,7 @@ NOTE: bison is only required if you
 Libraries:
 ----------
  - libbfd, libopcodes, libiberty (vers. 2.13, distributed with Cexp)
- - libelf (vers. 0.8.0 distributed with Cexp)
+ - libelf (vers. 0.8.2 distributed with Cexp)
    NOTE: libelf is only needed
      1) if cexp is configured for using libelf instead of BFD
         (discouraged; reduced functionality but a less restrictive

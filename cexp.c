@@ -148,7 +148,7 @@ int ch;
 #endif
 #endif
 
-#include <spencer_regexp.h>
+#include <cexp_regex.h>
 #include "cexpmod.h"
 #include "vars.h"
 #include "context.h"
@@ -215,9 +215,9 @@ void root(double * res, double n)
 static void *
 varprint(const char *name, CexpSym s, void *arg)
 {
-FILE	*f=stdout;
-spencer_regexp	*rc=arg;
-	if (spencer_regexec(rc,name)) {
+FILE		*f=stdout;
+cexp_regex	*rc=arg;
+	if (cexp_regexec(rc,name)) {
 		cexpSymPrintInfo(s,f);
 	}
 	return 0;
@@ -228,7 +228,7 @@ int
 lkup(char *re)
 {
 extern	CexpSym _cexpSymLookupRegex();
-spencer_regexp	*rc=0;
+cexp_regex		*rc=0;
 CexpSym 		s;
 CexpModule		m;
 int				ch=0,tsaved=0;
@@ -238,7 +238,7 @@ struct termios	tatts,rawatts;
 struct winsize	win;
 #endif
 
-	if (!(rc=spencer_regcomp(re))) {
+	if (!(rc=cexp_regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return -1;
 	}
@@ -291,7 +291,7 @@ struct winsize	win;
 	printf("\nUSER VARIABLES:\n");
 	cexpVarWalk(varprint,(void*)rc);
 
-	if (rc) free(rc);
+	if (rc) cexp_regfree(rc);
 	return 0;
 }
 

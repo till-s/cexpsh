@@ -19,9 +19,9 @@ SYMLIBS=-lbfd -lopcodes -liberty
 SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
 SYMF_SRCS = elfsyms.c
-SYMLIBP=-L@LIBELF@/lib
+SYMLIBP=-Llibelf-local/lib
 SYMLIBS=-lelf
-SYMINCS=-I@LIBELF@/include
+SYMINCS=-Ilibelf-local/include
 endif
 
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h help.c $(SYMF_SRCS) $(TECLA_SRCS)
@@ -46,20 +46,32 @@ CONFIG_THREADS=-DNO_THREAD_PROTECTION
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 #cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
-cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
+cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -l@REGEXPLIB@
 cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=xsyms cexp
-xsyms_LDADD=-Llibelf-0.8.0/lib -lelf
-xsyms_INCLUDES=-Ilibelf-0.8.0/include -Ilibelf-0.8.0/lib
+xsyms_LDADD=-Llibelf-local/lib -lelf
+xsyms_INCLUDES=-Ilibelf-local/include
 else
 bin_PROGRAMS=
 endif
+
+xsyms.o cexp-elfsyms.o libcexp_a-elfsyms.o: install-libelf-local
+
+install-libelf-local:
+	$(MAKE) -C @LIBELF@ prefix=`pwd`/libelf-local install
+
+remove-libelf-local:
+	$(RM) -r libelf-local
+
+clean: remove-libelf-local	
 
 libcexp_a_CFLAGS=$(CONFIGHACKS) $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
 INCLUDES = -I@srcdir@/regexp $(xsyms_INCLUDES)
+
+libcexp_a_DEPENDENCIES=$(SYMDEPS)
 
 #we can't use automake for this because
 # - we _need_ bison

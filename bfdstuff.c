@@ -93,7 +93,7 @@
 
 #define DEBUG			(0)
 
-#include "spencer_regexp.h"
+#include "cexp_regex.h"
 
 /* magic symbol names for C++ support; probably gcc specific */
 #define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
@@ -111,7 +111,7 @@
  * with the WRITE_LOCK held, so mutex is guaranteed for
  * the ctorCtorRegexp.
  */
-static  spencer_regexp	*ctorDtorRegexp=0;
+static  cexp_regex	*ctorDtorRegexp=0;
 
 #ifdef HAVE_BFD_DISASSEMBLER
 /* as a side effect, this code gives access to a disassembler which
@@ -260,7 +260,7 @@ isCtorDtor(asymbol *asym, int quiet, int *pprio)
 	   character there, in case a new object file format
 	   comes along with even worse naming restrictions)."  */
 
-	if (spencer_regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
+	if (cexp_regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
 		register char *tail = ctorDtorRegexp->endp[0];
 		/* read the priority */
 		if (pprio) {
@@ -1122,7 +1122,7 @@ struct stat		dummybuf;
 	bfd_init();
 	/* lazy init of regexp pattern */
 	if (!ctorDtorRegexp)
-		ctorDtorRegexp=spencer_regcomp(CTOR_DTOR_PATTERN);
+		ctorDtorRegexp=cexp_regcomp(CTOR_DTOR_PATTERN);
 
 #if 0
 	if ( ! (ldr.abfd=bfd_openr(filename,0)) )

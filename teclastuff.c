@@ -48,7 +48,7 @@
  */
 
 #include <libtecla.h>
-#include <spencer_regexp.h>
+#include <cexp_regex.h>
 
 #include "cexpsyms.h"
 #include "cexpmod.h"
@@ -73,7 +73,7 @@ cexpSymComplete(WordCompletion *cpl, void *closure, const char *line, int word_e
 {
 int				rval=1;
 int 			word_start;
-spencer_regexp	*rc=0;
+cexp_regex		*rc=0;
 char			*pattern=0;
 int				count=MATCH_MAX,i;
 CexpSym			s;
@@ -113,7 +113,7 @@ int				quote;
 		pattern=calloc(word_end-word_start+5,1);
 		pattern[0]='^';
 		strncpy(pattern+1, line+word_start, word_end-word_start);
-		rc=spencer_regcomp(pattern);
+		rc=cexp_regcomp(pattern);
 		/* the lookup routine returns the last symbol found
 		 * looping for 'too_many' instances. Hence, if it still
 		 * finds something after too_many matches, we reject...
@@ -144,7 +144,7 @@ int				quote;
 	rval=0;
 
 cleanup:
-	free(rc);
+	cexp_regfree(rc);
 	free(pattern);
 	return rval;
 }

@@ -20,12 +20,16 @@
  */
 #include "cexp.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef USE_EPICS_OSI
 /* BFD redefines INLINE if we don't include epicsThread.h first; sigh... */
 #include <epicsThread.h>
 #endif
 
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 #include <libtecla.h>
 #endif
 #ifdef HAVE_BFD_DISASSEMBLER
@@ -38,7 +42,7 @@
 typedef struct CexpContextRec_ {
 	CexpContext			next;
 	jmp_buf				jbuf;		/* for setjmp/longjmp */
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 	GetLine				*gl;		/* line editor context; this could actually be one context per thread */
 #endif
 #ifdef HAVE_BFD_DISASSEMBLER

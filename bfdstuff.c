@@ -2,6 +2,8 @@
 
 /* Cexp interface to object/symbol file using BFD; runtime loader support */
 
+/* NOTE: read the comment near the end of this file about C++ exception handling */
+
 /* Author: Till Straumann, 8/2002 */
 
 #include <bfd.h>
@@ -9,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -84,6 +87,9 @@ typedef struct LinkDataRec_ {
 /* forward declarations */
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
+
+static FILE *
+copyFileToTmp(char *name);
 
 static void
 bfdCleanupCallback(CexpModule);
@@ -195,7 +201,7 @@ elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 #define	ELFSIZE(elfsp)	(0)
 #endif
 
-#if DEBUG > 1
+#if DEBUG > 2
 		printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
 #endif
 
@@ -558,8 +564,14 @@ int			i,num_new_commons=0,errs=0;
 		int			res;
 		CexpModule	mod;
 
-#if DEBUG>2
-		printf("scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp));
+#if DEBUG>1
+		printf("scanning SYM (flags 0x%08x, value 0x%08x) '%s'\n",
+						sp->flags,
+						bfd_asymbol_value(sp),
+						bfd_asymbol_name(sp));
+		printf("         section vma 0x%08x in %s\n",
+						bfd_get_section_vma(abfd,sect),
+						bfd_get_section_name(abfd,sect));
 #endif
 		/* count constructors/destructors */
 		if ((res=isCtorDtor(sp,1/*warn*/))) {
@@ -618,7 +630,8 @@ int			i,num_new_commons=0,errs=0;
 				 * Therefore, we create an array of pointers which
 				 * we can sort in any desired way...
 				 */
-				ld->new_commons=(asymbol***)xrealloc(ld->new_commons,num_new_commons+1);
+				ld->new_commons=(asymbol***)xrealloc(ld->new_commons,
+													sizeof(*ld->new_commons)*(num_new_commons+1));
 				ld->new_commons[num_new_commons] = syms+i;
 				num_new_commons++;
 			}
@@ -705,6 +718,28 @@ asection	*csect;
 	return 0;
 }
 
+/* this routine does the following:
+ *
+ *  - build the external (BFD) symtab
+ *  - append external symbols for the names of new
+ *    (i.e. not already loaded) 'linkonce' sections
+ *    to the BFD symtab.
+ *  - resolve undefined and already loaded common symbols
+ *    (i.e. substitute their asymbol by a new one using
+ *    the known values). This is actually performed by
+ *    resolve_syms().
+ *  - create the internal representation (CexpSym) of
+ *    the symbol table.
+ *  - make newly introduced common symbols. This is done
+ *    by first creating a new section, sorting the common
+ *    syms by size in reverse order (for meeting alignment
+ *    requirements) and generating clones for them 
+ *    associated with the new section.
+ *
+ * NOTE: Loading the initial symbol table with this routine
+ *       relies on the assumption that there are no
+ *        COMMON symbols present.
+ */
 
 static int
 slurp_symtab(bfd *abfd, LinkData ld)
@@ -734,7 +769,7 @@ FilterLinkonceRec	flr;
 	 * for these names for our internal use further down the line.
 	 */
 	if (i + n_linkonce) {
-		asyms=(asymbol**)xmalloc(i + n_linkonce * sizeof(asymbol*));
+		asyms=(asymbol**)xmalloc((i + n_linkonce) * sizeof(asymbol*));
 	}
 	nsyms= i ? i/sizeof(asymbol*) - 1 : 0;
 	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {
@@ -829,6 +864,7 @@ bfd 			*abfd=0;
 LinkDataRec		ldr;
 int				rval=1,i,j;
 CexpSym			sane;
+FILE			*f=0;
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -850,10 +886,35 @@ CexpSym			sane;
 	if (!ctorDtorRegexp)
 		ctorDtorRegexp=regcomp(CTOR_DTOR_PATTERN);
 
-	if ( ! (abfd=bfd_openr(filename,0)) ) {
+#if 0
+	if ( ! (abfd=bfd_openr(filename,0)) )
+	{
 		bfd_perror("Opening object file");
 		goto cleanup;
 	}
+#else
+#ifdef __rtems
+	/* RTEMS has no NFS support (yet), and the TFTPfs is strictly
+	 * sequential access (no lseek(), no stat()). Hence, we copy
+	 * the file to scratch file in memory (IMFS).
+	 */
+	if ( ! (f=copyFileToTmp(filename)) ) {
+		goto cleanup;
+	}
+	filename=0;
+#else
+	if ( ! (f=fopen(filename,"r")) ) {
+		perror("opening object file");
+		goto cleanup;
+	}
+#endif
+	if ( ! (abfd=bfd_openstreamr(filename,0,f)) ) {
+		bfd_perror("Opening BFD on object file stream");
+		goto cleanup;
+	}
+	/* abfd now holds the descriptor and bfd_close_all_done() will release it */
+	f=0;
+#endif
 	if (!bfd_check_format(abfd, bfd_object)) {
 		bfd_perror("Checking format");
 		goto cleanup;
@@ -871,22 +932,25 @@ CexpSym			sane;
 	 */
 	if ( ! (0==cexpSystemModule) ) {
 
-	/* compute the memory space requirements */
-	bfd_map_over_sections(abfd, s_count, &ldr);
+		/* compute the memory space requirements */
+		bfd_map_over_sections(abfd, s_count, &ldr);
+	
+		/* allocate segment space */
+		for (i=0; i<NUM_SEGS; i++)
+			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk=xmalloc(ldr.segs[i].size);
 
-	/* allocate segment space */
-	for (i=0; i<NUM_SEGS; i++)
-		ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk=xmalloc(ldr.segs[i].size);
+		/* compute and set the base addresses for all sections to be allocated */
+		bfd_map_over_sections(abfd, s_setvma, &ldr);
 
-	/* compute and set the base addresses for all sections to be allocated */
-	bfd_map_over_sections(abfd, s_setvma, &ldr);
-
-	ldr.errors=0;
+		ldr.errors=0;
 memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
-	bfd_map_over_sections(abfd, s_reloc, &ldr);
-	if (ldr.errors)
-		goto cleanup;
+		bfd_map_over_sections(abfd, s_reloc, &ldr);
+		if (ldr.errors)
+			goto cleanup;
 
+	} else {
+		/* it's the system symtab */
+		assert( 0==ldr.new_commons );
 	}
 
 	cexpSymTabSetValues(ldr.cst);
@@ -895,7 +959,7 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 	if ((sane=cexpSymTblLookup("cexpLoadFile",ldr.cst))) {
 		/* this must be the system table */
 		extern void *_edata, *_etext;
-		
+
         /* it must be the main symbol table */
         if ( sane->value.ptv==(CexpVal)cexpLoadFile     &&
        	     (sane=cexpSymTblLookup("_etext",ldr.cst))  &&
@@ -920,30 +984,36 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 	}
 
 
-	flushCache(&ldr);
-
-	/* if there is an exception frame table, we
-	 * have to register it with libgcc. If it was
-	 * in its own section, we also must write a terminating 0
+	/* the following steps are not needed when
+	 * loading the system symbol table
 	 */
-	if (ldr.eh_frame_b_sym) {
-		extern __register_frame();
+	if (cexpSystemModule) {
+		/* if there is an exception frame table, we
+		 * have to register it with libgcc. If it was
+		 * in its own section, we also must write a terminating 0
+		 */
+		if (ldr.eh_frame_b_sym) {
+			extern void __register_frame(void*);
 printf("TSILL registering EH_FRAME 0x%08x\n",
-		bfd_asymbol_value(ldr.eh_frame_b_sym));
-		if ( ldr.eh_frame_e_sym ) {
-			/* eh_frame was in its own section; hence we have to write a terminating 0
-			 */
-			*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
+			bfd_asymbol_value(ldr.eh_frame_b_sym));
+			if ( ldr.eh_frame_e_sym ) {
+				/* eh_frame was in its own section; hence we have to write a terminating 0
+				 */
+				*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
+			}
+			assert(__register_frame);
+			/* store the frame info in the modPvt field */
+			mod->modPvt=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
+			__register_frame(mod->modPvt);
 		}
-		/* store the frame info in the modPvt field */
-		mod->modPvt=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
-		__register_frame(mod->modPvt);
+
+		/* build ctor/dtor lists */
+		if (ldr.nCtors || ldr.nDtors) {
+			buildCtorsDtors(&ldr,mod);
+		}
 	}
 
-	/* build ctor/dtor lists */
-	if (ldr.nCtors || ldr.nDtors) {
-		buildCtorsDtors(&ldr,mod);
-	}
+	flushCache(&ldr);
 
 	/* move the relevant data over to the module */
 	mod->memSeg  = ldr.segs[ONLY_SEG].chunk;
@@ -965,7 +1035,10 @@ cleanup:
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);
-	if (abfd) bfd_close_all_done(abfd);
+	if (abfd)
+		bfd_close_all_done(abfd);
+	if (f)
+		fclose(f);
 	for (i=0; i<NUM_SEGS; i++)
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
 
@@ -975,8 +1048,88 @@ cleanup:
 static void
 bfdCleanupCallback(CexpModule mod)
 {
-extern void __deregister_frame();
+extern void __deregister_frame(void*);
 	/* release the frame info we had stored in the modPvt field */
-	if (mod->modPvt)
+	if (mod->modPvt && __deregister_frame)
 		__deregister_frame(mod->modPvt);
 }
+
+#ifdef __rtems
+static FILE *
+copyFileToTmp(char *name)
+{
+FILE		*rval=0,*infile=0,*outfile=0;
+char		buf[BUFSIZ];
+int			nread,nwritten;
+struct stat	stbuf;
+
+	/* a hack (rtems) to make sure the /tmp dir is present */
+	if (stat("/tmp",&stbuf))
+		mkdir("/tmp",0777);
+
+	/* open files; the tmpfile will be removed by the system
+	 * as soon as it's closed
+	 */
+	if (!(outfile=tmpfile()) || ferror(outfile)) {
+		perror("creating scratch file");
+		goto cleanup;
+	}
+
+	if (!(infile=fopen(name,"r")) || ferror(infile)) {
+		perror("opening object file");
+		goto cleanup;
+	}
+
+	/* do the copy */
+	do {
+		nread=fread(buf,1,sizeof(buf),infile);
+		if (nread!=sizeof(buf) && ferror(infile)) {
+			perror("reading object file");
+			goto cleanup;
+		}
+
+		nwritten=fwrite(buf,1,nread,outfile);
+		if (nwritten!=nread) {
+			if (ferror(outfile))
+				perror("writing scratch file");
+			else
+				fprintf(stderr,"Error writing scratch file");
+			goto cleanup;
+		}
+	} while (!feof(infile));
+
+	fflush(outfile);
+	rewind(outfile);
+
+	/* success; remap pointers and fall thru */
+	rval=outfile;
+	outfile=0;
+
+cleanup:
+	if (outfile)
+		fclose(outfile);
+	if (infile)
+		fclose(infile);
+	return rval;
+}
+#endif
+
+/* Hmm - c++ exception handling is _highly_ compiler and version and 
+ * target dependent :-(.
+ *
+ * It is very unlikely that exception handling works with anything other
+ * than gcc.
+ *
+ * Gcc (2.95.3) seems to implement (at least) two flavours of exception
+ * handling: longjump and exception frame tables. The latter requires
+ * the dynamic loader to load and register the exception frame table, the
+ * former is transparent.
+ * Unfortunately, the __register_frame()/__deregister_frame() routines
+ * are absent on targets which do not support this kind of exception handling.
+ * Therefore, we define a weak alias which is not very satisfying and will
+ * fail on targets who do not support weak aliases :-(
+ */
+void (*__nullfn_hack)(void*)=0;
+
+void __register_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
+void __deregister_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));

@@ -90,7 +90,7 @@
 #define DEBUG_RELOC		(1<<2)
 #define DEBUG_SYM		(1<<3)
 
-#define	DEBUG			(0)
+#define	DEBUG			(DEBUG_RELOC|DEBUG_SYM|DEBUG_SECT)
 
 #include "spencer_regexp.h"
 
@@ -413,10 +413,10 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 		 * we must reserve a little extra space.
 		 */
 		if ( !strcmp(secn, EH_SECTION_NAME) ) {
-#ifdef OBSOLETE_EH_STUFF
-			asymbol *asym;
 			/* allocate space for a terminating 0 */
 			seg->size+=sizeof(long);
+#ifdef OBSOLETE_EH_STUFF
+			asymbol *asym;
 			/* create a symbol to tag the terminating 0 */
 			asym=((LinkData)arg)->eh_frame_e_sym=bfd_make_empty_symbol(abfd);
 			bfd_asymbol_name(asym) = EH_FRAME_END_PATTERN;
@@ -446,12 +446,16 @@ LinkData	ld=(LinkData)arg;
 #endif
 		bfd_set_section_vma(abfd,sect,seg->vmacalc);
 		seg->vmacalc+=bfd_section_size(abfd,sect);
+		if
 #ifdef OBSOLETE_EH_STUFF
-		if ( ld->eh_frame_e_sym && bfd_get_section(ld->eh_frame_e_sym) == sect ) {
+		   ( ld->eh_frame_e_sym && bfd_get_section(ld->eh_frame_e_sym) == sect )
+#else
+		   ( ld->eh_section && ld->eh_section == sect )
+#endif
+		{
 			/* allocate space for a terminating 0 */
 			seg->vmacalc+=sizeof(long);
 		}
-#endif
 		sect->output_section = sect;
 		if (ld->text && sect == ld->text) {
 			ld->text_vma=bfd_get_section_vma(abfd,sect);
@@ -1105,13 +1109,13 @@ struct stat		dummybuf;
 		for (i=0; i<NUM_SEGS; i++) {
 			ldr.segs[i].chunk=(PTR)xmalloc(ldr.segs[i].size);
 			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk;
+memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		}
 
 		/* compute and set the base addresses for all sections to be allocated */
 		bfd_map_over_sections(ldr.abfd, s_setvma, &ldr);
 
 		ldr.errors=0;
-memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 		bfd_map_over_sections(ldr.abfd, s_reloc, &ldr);
 		if (ldr.errors)
 			goto cleanup;
@@ -1168,13 +1172,14 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 			}
 			assert(my__register_frame);
 			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
-printf("TSILL registering EH_FRAME 0x%08lx\n",  ehFrame);
 			my__register_frame(ehFrame);
 		}
 #else
 		if (ldr.eh_section) {
+			ehFrame = (void*)bfd_get_section_vma(abfd,ldr.eh_section);
+			/* write terminating 0 to eh_frame */
+			*(long*)( ((unsigned long)ehFrame) + bfd_section_size(abfd, ldr.eh_section) ) = 0;
 			assert(my__register_frame);
-			ehFrame=(void*)bfd_get_section_vma(abfd,ldr.eh_section);
 			my__register_frame(ehFrame);
 		}
 #endif

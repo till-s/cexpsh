@@ -267,7 +267,7 @@ isCtorDtor(asymbol *asym, int quiet, int *pprio)
 	   comes along with even worse naming restrictions)."  */
 
 	if (cexp_regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
-		register char *tail = ctorDtorRegexp->endp[0];
+		register const char *tail = ctorDtorRegexp->endp[0];
 		/* read the priority */
 		if (pprio) {
 			if (isdigit(*tail))
@@ -1314,8 +1314,17 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 			my__cxa_finalize=(void(*)(void*))sane->value.ptv;
 		my__dso_handle=cexpSymTblLookup(DSO_HANDLE_NAME,ldr.cst);
 
-		/* we must have either both of them or none */
-		assert( (my__cxa_finalize!=0) == (my__dso_handle!=0) );
+		/* Handle special cases */
+		if ( my__cxa_finalize && !my__dso_handle ) {
+			assert(!"TODO: should create dummy '"
+				DSO_HANDLE_NAME
+				"' in system symbol table");
+		}
+		if ( !my__cxa_finalize && my__dso_handle ) {
+			fprintf(stderr,"Warning: found '"DSO_HANDLE_NAME"' but not '__cxa_finalize'\n");
+			fprintf(stderr,"         disabling '__cxa_atexit' support!\n");
+			my__dso_handle = 0;
+		}
 	}
 
 	flushCache(&ldr);

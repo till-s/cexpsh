@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <ctype.h>
+#include <setjmp.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -191,15 +192,36 @@ char	*argv[10]; /* limit to 10 arguments */
 	return cexp_main(++argc,argv);
 }
 
+/* This is meant to be called from low-level
+ * exception handlers to abort execution.
+ * If it is called while 'cexp_main' is not
+ * in its main loop (i.e. the context is invalid)
+ * bad things will happen. However, things can't
+ * probably get much worse...
+ */
+void
+cexp_kill(jmp_buf *ctxt, int doWhat)
+{
+	longjmp(*ctxt,doWhat);
+}
+
 int
 cexp_main(int argc, char **argv)
 {
-char				*line,*prompt=0,*tmp;
+	return cexp_main1(argc, argv, 0);
+}
+
+int
+cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, jmp_buf *env))
+{
+FILE				*scr=0;
+char				*line=0,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
-int					opt;
+int					opt, doWhat;	
+jmp_buf				mainContext;
 char				optstr[]={
 						'h',
 						's',':',
@@ -227,46 +249,63 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 if (argc>oc.optind)
 	script=argv[oc.optind];
 
-if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(symfile)))) {
-	fprintf(stderr,"Need an elf symbol table file arg\n");
-	usage(argv[0]);
-	return CEXP_MAIN_NO_SYMS;
-}
+do {
+	if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(symfile)))) {
+		fprintf(stderr,"Need an elf symbol table file arg\n");
+		usage(argv[0]);
+		return CEXP_MAIN_NO_SYMS;
+	}
 
-tmp = argc>0 ? argv[0] : "Cexp";
-if (script) {
-	FILE *scr;
-	char buf[500]; /* limit line length to 500 chars :-( */
-	if (!(scr=fopen(script,"r"))) {
-		perror("opening scriptfile");
-		rval=CEXP_MAIN_NO_SCRIPT;
-		goto cleanup;
-	}
-	while (fgets(buf,sizeof(buf),scr)) {
-		cexpResetParserCtx(ctx,buf);
-		cexpparse((void*)ctx);
-	}
-	fclose(scr);
-} else {
-	prompt=malloc(strlen(tmp)+2);
-	strcpy(prompt,tmp);
-	strcat(prompt,">");
-	while ((line=readline(prompt))) {
-		if (*line) {
-			/* skip empty lines */
-			cexpResetParserCtx(ctx,line);
-			cexpparse((void*)ctx);
-			add_history(line);
+	if (!(rval=setjmp(mainContext))) {
+		/* call them back to pass the jmpbuf */
+		if (callback)
+			callback(argc, argv, &mainContext);
+	
+		if (script) {
+			char buf[500]; /* limit line length to 500 chars :-( */
+			if (!(scr=fopen(script,"r"))) {
+				perror("opening scriptfile");
+				rval=CEXP_MAIN_NO_SCRIPT;
+				goto cleanup;
+			}
+			while (fgets(buf,sizeof(buf),scr)) {
+				cexpResetParserCtx(ctx,buf);
+				cexpparse((void*)ctx);
+			}
+			fclose(scr);
+			scr=0;
+		} else {
+			tmp = argc>0 ? argv[0] : "Cexp";
+			prompt=malloc(strlen(tmp)+2);
+			strcpy(prompt,tmp);
+			strcat(prompt,">");
+			while ((line=readline(prompt))) {
+				if (*line) {
+					/* skip empty lines */
+					cexpResetParserCtx(ctx,line);
+					cexpparse((void*)ctx);
+					add_history(line);
+				}
+				free(line); line=0;
+			}
 		}
-		free(line);
+		
+	} else {
+			/* setjmp passes 0: first time
+			 *               1: longjmp(buf,0) or longjmp(buf,1)
+			 *           other: longjmp(buf,other)
+			 */
+			rval = (rval<2 ? -1 : CEXP_MAIN_KILLED);
 	}
-}
-
-	rval=0;
-
+	
 cleanup:
-	free(prompt);
-	cexpFreeParserCtx(ctx);
+		script=0;	/* become interactive if script is killed */
+		free(prompt); 			prompt=0;
+		free(line);   			line=0;
+		cexpFreeParserCtx(ctx); ctx=0;
+		if (scr) fclose(scr);	scr=0;
+	
+} while (-1==rval);
 
-	return rval;
+return rval;
 }

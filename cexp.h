@@ -8,6 +8,8 @@
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002  - this line must not be removed*/
 /* License: GPL, for details see http:www.gnu.org - this line must not be removed */
 
+#include <setjmp.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -169,10 +171,33 @@ lkaddr(void *addr);
  */
 int
 cexp_main(int argc, char **argv);
+
+/* alternate entry point. This one 
+ * allows for storing a 'kill environment'.
+ * A callback routine will be invoked
+ * once the internal jmpbuf is initialized.
+ */
+
+int
+cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, jmp_buf *env));
+
+/* kill a main loop. This should only be called by
+ * low level exception code for aborting the main loop
+ *
+ * ctxt is a pointer to a main loop's context.
+ * The 'doWhat' argument may be either 0 or
+ * CEXP_MAIN_KILLED. In the former case, 'cexp'
+ * will cleanup, recover and resume execution,
+ * otherwise it will return after cleaning up.
+ */
+void
+cexp_kill(jmp_buf *ctxt, int doWhat);
+
 /* error return values: */
 #define CEXP_MAIN_INVAL_ARG	1	/* invalid option / argument */
 #define CEXP_MAIN_NO_SYMS	2	/* unable to open symbol table */
 #define CEXP_MAIN_NO_SCRIPT	3	/* unable to open script file */
+#define CEXP_MAIN_KILLED	4	/* main loop was killed */
 
 #ifdef __cplusplus
 };

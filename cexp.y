@@ -52,6 +52,7 @@ typedef struct CexpParserCtxRec_ {
 	LString			lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
+	FILE			*f;				/* where to print evaluated value			*/
 } CexpParserCtxRec;
 
 static CexpSym
@@ -198,32 +199,37 @@ line:	'\n'
 					}
 	|	redef '\n'
 	|	commaexp '\n'
-					{	$$=$1;
+					{FILE *f=((CexpParserCtx)parm)->f;
+						$$=$1;
 						if (CEXP_TYPE_FPQ($1.type)) {
 							CHECK(cexpTypeCast(&$1,TDouble,0));
-							printf("%f\n",$1.tv.d);
+							if (f)
+								fprintf(f,"%f\n",$1.tv.d);
 						}else {
 							if (TUChar==$1.type) {
 								unsigned char c=$1.tv.c,e=0;
-								printf("0x%02x (%d)",c,c);
-								switch (c) {
-									case 0:	    e=1; c='0'; break;
-									case '\t':	e=1; c='t'; break;
-									case '\r':	e=1; c='r'; break;
-									case '\n':	e=1; c='n'; break;
-									case '\f':	e=1; c='f'; break;
-									default: 	break;
+								if (f) {
+									fprintf(f,"0x%02x (%d)",c,c);
+									switch (c) {
+										case 0:	    e=1; c='0'; break;
+										case '\t':	e=1; c='t'; break;
+										case '\r':	e=1; c='r'; break;
+										case '\n':	e=1; c='n'; break;
+										case '\f':	e=1; c='f'; break;
+										default: 	break;
+									}
+									if (isprint(c)) {
+										fputc('\'',f);
+										if (e) fputc('\\',f);
+										fputc(c,f);
+										fputc('\'',f);
+									}
+									fputc('\n',f);
 								}
-								if (isprint(c)) {
-									fputc('\'',stdout);
-									if (e) fputc('\\',stdout);
-									fputc(c,stdout);
-									fputc('\'',stdout);
-								}
-								fputc('\n',stdout);
 							} else {
 								CHECK(cexpTypeCast(&$1,TULong,0));
-								printf("0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
+								if (f)
+									fprintf(f,"0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
 							}
 						}
 					}
@@ -837,12 +843,13 @@ char		**chppt;
 }
 
 CexpParserCtx
-cexpCreateParserCtx()
+cexpCreateParserCtx(FILE *f)
 {
 CexpParserCtx	ctx=0;
 
 	assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
 	memset(ctx,0,sizeof(*ctx));
+	ctx->f = f;
 	return ctx;
 }
 

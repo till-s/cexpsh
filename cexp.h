@@ -72,15 +72,16 @@ typedef struct CexpParserCtxRec_	*CexpParserCtx;
  *       to the error messenger (yyerror()),
  *       it is not possible to pass that routine
  *       a file descriptor.
- *       Hence, all printing (of the evaluated 
- *       expression etc.) is done to stdout,
- *       and all error messages go to stderr.
+ *       Hence, all error printing is done to stderr,
  *       Before calling the parser, you may
- *       try to redirect stdout/stderr...
+ *       try to redirect stderr...
+ *       All normal output (i.e. the evaluated expression)
+ *       is sent to 'f'. 'f' may be passed NULL in
+ *       which case all normal output is discarded.
  */
 
 CexpParserCtx
-cexpCreateParserCtx(void);
+cexpCreateParserCtx(FILE *f);
 
 /* reset a parser context; this routine
  * must be called before calling the parser
@@ -167,6 +168,25 @@ lkup(char *pattern);
 
 int
 lkaddr(void *addr, int howmany);
+
+/* get info about an address into a buffer without
+ * having to know about symbol implementation etc.
+ *
+ * RETURNS 0 on success, -1 if no close symbol
+ * could be found.
+ *
+ * The routine prints 'module' ':' 'symbol' 
+ * into the buffer. Symbol is the closest
+ * symbol matching '*paddr'. Closest means 'rounded
+ * down', i.e. the name of the routine or
+ * variable that encompasses '*paddr'.
+ * 
+ * *paddr is updated to hold the exact symbol
+ * address, so the caller can calculate the
+ * difference using this routine.
+ */
+int
+cexpAddrFind(void **addr, char *buf, int size);
 
 /* the main interpreter loop, it can be registered
  * with a shell...

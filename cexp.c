@@ -133,6 +133,7 @@ usage(char *nm)
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
 	fprintf(stderr, "       -v print version information\n");
+	fprintf(stderr, "       -q quiet evaluation of scripts\n");
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
@@ -244,6 +245,7 @@ struct winsize	win;
 	return 0;
 }
 
+#if 0 /* obsoleted by 'help' */
 int
 whatis(char *name, FILE *f)
 {
@@ -265,6 +267,7 @@ CexpModule		mod;
 	}
 	return rval;
 }
+#endif
 
 int
 lkaddr(void *addr, int margin)
@@ -382,7 +385,7 @@ FILE				*scr=0;
 char				*line=0,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
-int					rval=CEXP_MAIN_INVAL_ARG;
+int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
 #ifdef USE_TECLA
@@ -397,6 +400,7 @@ char				optstr[]={
 #ifdef YYDEBUG
 						'd',
 #endif
+						'q',
 						'\0'
 					};
 
@@ -405,14 +409,16 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 		default:  fprintf(stderr,"Unknown Option %c\n",opt);
 		case 'h': usage(argv[0]);
 		case 'v': version(argv[0]);
-		return 0;
+			return 0;
 
 #ifdef YYDEBUG
 		case 'd': cexpdebug=1;
-		break;
+			break;
 #endif
+		case 'q': quiet=1;
+			break;
 		case 's': symfile=oc.optarg;
-		break;
+			break;
 	}
 }
 
@@ -475,7 +481,7 @@ cexpContextSetCurrent(&context);
 
 
 do {
-	if (!(ctx=cexpCreateParserCtx())) {
+	if (!(ctx=cexpCreateParserCtx(quiet ? 0 : stdout))) {
 		fprintf(stderr,"Unable to create parser context\n");
 		usage(argv[0]);
 		rval = CEXP_MAIN_NO_MEM;
@@ -497,7 +503,13 @@ do {
 				rval=CEXP_MAIN_NO_SCRIPT;
 				goto cleanup;
 			}
+			if (!quiet)
+				printf("'%s':\n",script);
 			while (fgets(buf,sizeof(buf),scr)) {
+				if (!quiet) {
+					printf("  %s",buf);
+					fflush(stdout);
+				}
 				cexpResetParserCtx(ctx,buf);
 				cexpparse((void*)ctx);
 			}

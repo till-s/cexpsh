@@ -7,13 +7,22 @@ What is Cexp?
 The Cexp utility gives its user access to all symbols
 present in the currently executing program. Its primary
 target is RTEMS, an open source RTOS, but Cexp should
-compile and run on virtually any platform using the ELF
-binary format.
+compile and run on virtually any platform supported by
+the BFD library.
 
 If Cexp is linked to an executable, it is
 possible to invoke arbitrary functions and to
 read/write variables (and hence virtually any
 memory location) by interpreting C-style expressions.
+
+Cexp can access object files using either libelf
+or libbfd. The latter is preferred as it is more powerful:
+ - not limited to the ELF object format.
+ - cexp implements a dynamic/runtime loader using libbfd
+ - using BFD / libopcodes, a disassembler comes for free.
+However, linking against the BFD library is subject to
+the GPL (whereas libelf is under LGPL). See LICENSING
+below for more information.
 
 Description
 -----------
@@ -24,6 +33,8 @@ CEXP is a simple utility featuring
  - type "engine"
  - user definable variables
  - recursive invocation / simple scripts
+ - dynamic/runtime 'module' loader
+ - disassembler
 
 Cexp knows about the basic C types (no aggregates), i.e.
 
@@ -44,41 +55,53 @@ and interprets C-style expressions, e.g.
 
 Symbol Table
 ------------
-On startup, Cexp reads the symbol table from an ELF
-file and guesses the variable types from their sizes.
+On startup, Cexp reads the symbol table (either from 
+the executable itself, or from a stripped down '.sym'
+file) and guesses the variable types from their sizes.
+(Guess is only supported on ELF targets.)
 
-In some cases, this is obviously wrong, but you can 
-always cast the symbol to the correct type. Arrays
-are normally 'void' like every symbol for whose
+In some cases, this guess is obviously wrong, but you can 
+always cast the symbol to the correct type. Assume
+you have a variable 'str' of which you know it's a 
+character array. Since it's size (on an ELF target)
+exceeds the size of any known variable, cexp will
+report 'str' as 'void'. You may simply re-cast the
+symbol using the statement
+
+Cexp> char *str
+
+After that, cexp has 'learned' the correct type.
+
+Arrays are normally 'void' like every symbol for whose
 type Cexp cannot make a guess.
 It is still possible, however, to
 use such a symbol, simply by taking its address and
 casting to a different pointer type:
     
-    *(((long*)&some_array)+25)
+Cexp> *(((long*)&some_array)+25)
 
 evaluates to the unsigned long array element
-some_array[25].
+some_array[25]. Alternatively, you can redeclare
+its type like in the string example above:
+
+Cexp> long *some_array
+Cexp> *(some_array + 25)
 
 Cexp provides a series of lookup functions
 for symbols. Most noteworthy:
 
 lkup(char *regexp)
 lkAddr(unsigned long addr)
-whatis(char *name)
 
 These are just normal C functions which can be
 invoked by Cexp. Note that lkup() takes a regular
 expression argument allowing for powerful searching.
-'whatis()' requires an exact match which is useful
-for short variable names which would cause 'lkup' to
-produce long listings.
 
 C-Expression Parser / Interpreter
 ---------------------------------
 The C expression parser has some restrictions:
     - no '?' ':' expression
-    - no [], '->', '.'
+    - no [], '->'
     - no multilevel pointer dereferencing (since e.g. char**
       is not a valid type, Cexp cannot dereference 
       **addr. You must explicitly cast this:
@@ -98,6 +121,11 @@ parts e.g.
 will call the driverInit() function only if deviceDetect()
 returns a nonzero value.
 
+The '.' operator (structure field access) has a special
+meaning to Cexp: symbol "member" (in an OOP sense) access.
+Currently, the only member function defined is 'help'. Consult
+the 'Help' section about details.
+
 Function calling:
 The user is responsible for feeding properly typed arguments;
 unused arguments will be filled with integral 0, which on 
@@ -111,6 +139,7 @@ must be cast appropriately:
 
 A lot of type casting can be avoided by using user
 defined variables, see below.
+
 
 Type Engine
 -----------
@@ -173,6 +202,41 @@ return type:
 
     printf("Let's print a double: %g\n",s(44.34))
 
+Help Facility
+-------------
+
+The '.' operator (structure field access) has a special
+meaning to Cexp: symbol "member" (in an OOP sense) access.
+Currently, the only member function defined is 'help'. I.e.
+by typing
+
+Cexp>  some_symbol.help()
+
+You get help information about that symbol. If no help
+is defined, or if you request 'verbose' help:
+
+Cexp> some_symbol.help(1)
+
+The symbol address, value and type information are printed
+(same format as the 'lkup' output).
+
+You can add/modify help information to a symbol (e.g. a user
+defined variable) simply by providing a string argument to
+the symbol's help member:
+
+Cexp> long myvar
+Cexp> myvar.help("I just created a 'long' variable")
+
+Note that help is stored 'per symbol', i.e. when creating
+an 'alias' as in the example above:
+
+Cexp> s=(double (*)())sqrt
+
+the help information is not propagated to 's'. If 'sqrt'
+had help information, it would need to be copied:
+
+Cexp> s.help(sqrt.help())
+
 How to Start/Invoke Cexp - Simple Scripts
 -----------------------------------------
 Cexp has two entry points,
@@ -215,8 +279,8 @@ Once Cexp has loaded the system's symbol table, further
 instances will simply use the global system table if
 the -s argument is missing.
 
-cexp then reads commands from stdin (using GNU
-readline) or alternatively from a script file.
+cexp then reads commands from stdin (using the TECLA
+library) or alternatively from a script file.
 
 Cexp ignores any characters present on a line
 after it reads the comment characters
@@ -226,3 +290,15 @@ Example for invoking Cexp from Cexp to evaluate
 a script:
 
     Cexp> cexp("script_file")
+
+Loadable Modules / Runtime Loader
+---------------------------------
+
+When built against the BFD library, cexp is capable of
+dynamically loading object files into a running program.
+Cexp keeps track of module dependencies. Note that this
+only covers symbol table dependencies. Cexp rejects
+unloading a module 'A' if there is still another module 'B"
+ loaded
+
+a another module.

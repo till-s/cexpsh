@@ -127,6 +127,24 @@ CexpModule	m;
 	return i >= 0 ? (*pmod)->symtbl->aindex[i] : 0;
 }
 
+
+int
+cexpAddrFind(void **addr, char *buf, int size)
+{
+CexpSym s;
+CexpModule m;
+	s=cexpSymLkAddr(*addr,0,0,&m);
+	if (!s)
+		return -1;
+	if (size>0) {
+		snprintf(buf,size,"%s:%s",cexpModuleName(m),s->name);
+		/* don't know if snprintf puts a 0 there */
+		buf[size-1]=0;
+	}
+	*addr=s->value.ptv;
+	return 0;
+}
+
 /* return a module's name (string owned by module code) */
 char *
 cexpModuleName(CexpModule mod)

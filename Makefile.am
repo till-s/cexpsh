@@ -19,7 +19,7 @@ SYMLIBS=-lbfd -lopcodes -liberty
 SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 xsyms_SOURCES=xsyms-bfd.c
 xsyms_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-xsyms_INCLUDES=-I@BINUTILS@/bfd -I@srcdir@/@BINUTILS@/include
+xsyms_CPPFLAGS=-I@BINUTILS@/bfd -I@srcdir@/@BINUTILS@/include
 else
 SYMF_SRCS = elfsyms.c
 SYMLIBP=-Llibelf-local/lib
@@ -30,7 +30,7 @@ if NATIVE_LIBELF
 xsyms_LDADD=-lelf
 else
 xsyms_LDADD=-Llibelf-local/lib -lelf
-xsyms_INCLUDES=-Ilibelf-local/include
+xsyms_CPPFLAGS=-Ilibelf-local/include
 endif
 endif
 
@@ -46,10 +46,8 @@ SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmo
 #BFDLIBP=-L $(BINUT)/$(ARCH)/bfd/.libs/ -L $(BINUT)/$(ARCH)/libiberty/ -L $(BINUT)/$(ARCH)/opcodes/.libs/
 
 
-include_HEADERS = cexp.h cexpHelp.h
 
 #CONFIGHACKS=-DHAVE_ELF_BFD_H -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
-
 
 if !ISRTEMS
 CONFIG_THREADS=-DNO_THREAD_PROTECTION
@@ -57,10 +55,12 @@ endif
 
 if DO_CEXPLIB
 
+include_HEADERS = cexp.h cexpHelp.h
+
 libcexp_a_CFLAGS=$(CONFIGHACKS) $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
-INCLUDES = -I@srcdir@/regexp
+AM_CPPFLAGS = -I@srcdir@/regexp $(xsyms_CPPFLAGS)
 
 libcexp_a_DEPENDENCIES=$(SYMDEPS)
 
@@ -74,6 +74,7 @@ cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 bin_PROGRAMS=cexp xsyms
 endif
 else
+AM_CPPFLAGS = $(xsyms_CPPFLAGS)
 bin_PROGRAMS=xsyms
 endif
 

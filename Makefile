@@ -10,7 +10,9 @@
 # most of the files are missing and we just use
 # the trivial rule for 'xsyms'
 
-all: $(if $(wildcard Makefile.am),,xsyms)
+XSYMS_ONLY_TEST_FILE=cexp.y
+
+all:
 	@if [ -f Makefile.am ] ; then \
 		echo This Makefile must be invoked with an explicit target; \
 		echo Possible Targets are; \
@@ -22,7 +24,8 @@ all: $(if $(wildcard Makefile.am),,xsyms)
 	fi
 
 
-prep: $(if $(wildcard Makefile.am),src bootstrap,xsyms)
+prep: $(if $(wildcard $(XSYMS_ONLY_TEST_FILE)),src bootstrap, bootstrap-xsyms)
+	@echo you may now create a build subdirectory and ../configure the package
 
 
 YFLAGS=-v -d -p cexp

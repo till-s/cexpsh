@@ -103,7 +103,11 @@ RETURNS: First module ID found, NULL on no match.",
 	HELP(
 "Dump info about a module to 'f' (stdout if NULL).\n\
 If NULL is passed for the module ID, info about all\n\
-modules is given. 'level' selects Info verbosity.\n\
+modules is given. 'level' selects Info verbosity:\n\
+  0: print name and load address of text section\n\
+  1: add module dependency info\n\
+  2: add memory requirements info\n\ 
+  3: add load addresses/names for all sections\n\
 RETURNS: mod->next",
 		int,
 		cexpModuleInfo,(CexpModule mod, int level, FILE *f)

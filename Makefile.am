@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
+
 HOSTCC=@HOSTCC@
 SUBDIRS=@subdirs@
 lib_LIBRARIES=libcexp.a

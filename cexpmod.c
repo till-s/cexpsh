@@ -54,6 +54,10 @@
 
 CexpModule cexpSystemModule=0;
 
+/* change this whenever the layout of internal data changes */
+char *
+cexpMagicString = CEXPMOD_MAGIC;
+
 static CexpRWLockRec	_rwlock={0};
 #define __RLOCK()	cexpReadLock(&_rwlock)
 #define __RUNLOCK()	cexpReadUnlock(&_rwlock)
@@ -266,11 +270,10 @@ CexpModule m;
 	}
 }
 
-int
-cexpModuleInfo(CexpModule mod, FILE *f)
+CexpModule
+cexpModIterate(CexpModule mod, FILE *f, void mcallback(CexpModule m, FILE *f, void *arg), void *arg)
 {
 CexpModule m = mod ? mod : cexpSystemModule;
-
 
 	if (!f) f=stdout;
 
@@ -282,25 +285,77 @@ CexpModule m = mod ? mod : cexpSystemModule;
 		return 0;
 	}
 
-
 	for (; m; m=m->next) {
-		fprintf(f,"Module '%s' (0x%08x):\n",
-						m->name, (unsigned)m);
-		fprintf(f,"  %li symbol table entries\n",
-						m->symtbl->nentries);
-		fprintf(f,"  %li bytes of memory allocated to binary\n",
-						m->memSize);
-		fprintf(f,"  Text starts at: 0x%08x\n",
-						(unsigned)m->text_vma);
-		fprintf(f,"  Needs:"); bitmapInfo(f,m->needs); fputc('\n',f);
-		fprintf(f,"  Needed by:"); bitmapInfo(f,m->neededby); fputc('\n',f);
-		if (mod)
+		mcallback(m, f, arg);
+		if (mod) {
+			mod = mod->next;
 			break; /* info only for the particular module requested */
+		}
 	}
 
 	__RUNLOCK();
 
-	return 0;
+	return mod;
+}
+
+static void
+modPrintInfo(CexpModule m, FILE *f, void *closure)
+{
+int		level = (int)closure;
+CexpSym	*psects;
+	fprintf(f,"Module '%s' (0x%08x):\n",
+				m->name, (unsigned)m);
+	if ( level > 1 ) {
+		fprintf(f,"  %li symbol table entries\n",
+						m->symtbl->nentries);
+		fprintf(f,"  %li bytes of memory allocated to binary\n",
+						m->memSize);
+	}
+	fprintf(f,"  Text starts at: 0x%08x\n",
+					(unsigned)m->text_vma);
+	if ( level > 0 ) {
+		fprintf(f,"  Needs:"); bitmapInfo(f,m->needs); fputc('\n',f);
+		fprintf(f,"  Needed by:"); bitmapInfo(f,m->neededby); fputc('\n',f);
+	}
+	if ( level > 2 && ( psects = m->section_syms ) ) {
+		fprintf(f,"  Section load info:\n");
+		for ( ; *psects; psects++ )
+			fprintf(f,"  @0x%08x: %s\n", (unsigned)(*psects)->value.ptv, (*psects)->name);
+	}
+}
+
+CexpModule
+cexpModuleInfo(CexpModule mod, int level, FILE *f)
+{
+	return cexpModIterate(mod, f, modPrintInfo, (void*)level);
+}
+
+static void
+modPrintGdbSects(CexpModule m, FILE *f, void *closure)
+{
+char	*prefix = (char*)closure;
+CexpSym	*psects;
+
+	if ( m == cexpSystemModule )
+		return;
+
+	if ( !prefix )
+		prefix="add-symbol-file ";
+	else if ( 0xffffffff == (unsigned)prefix )
+		prefix=0;
+
+	fprintf(f,"%s%s 0x%08lx", prefix ? prefix : "", m->name, m->text_vma);
+	if ( ( psects = m->section_syms ) ) {
+		for ( ; *psects; psects++ )
+			fprintf(f," -s%s 0x%08x", (*psects)->name, (unsigned)(*psects)->value.ptv);
+	}
+	fputc('\n',f);
+}
+
+CexpModule
+cexpModuleDumpGdbSectionInfo(CexpModule mod, char *prefix, FILE *feil)
+{
+	return cexpModIterate(mod, feil, modPrintGdbSects, (void*)prefix);
 }
 
 CexpModule
@@ -442,7 +497,7 @@ CexpModule	m;
 
 	new_id = id;
 	do {
-		new_id = ++new_id % MAX_NUM_MODULES;
+		new_id = (new_id + 1) % MAX_NUM_MODULES;
 		if (new_id == id)
 			return -1;
 	} while (BITMAP_TST(used,new_id));
@@ -544,6 +599,7 @@ CexpModule mod=*mp;
 		free(mod->memSeg);
 		free(mod->ctor_list);
 		free(mod->dtor_list);
+		free(mod->section_syms);
 		cexpFreeSymTbl(&mod->symtbl);
 		free(mod);
 	}

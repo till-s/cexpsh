@@ -271,7 +271,7 @@ int				found;
 
 
 		/* print the data in 'bytes_per_chunk' chunks
-		 * who are endian-converted. Limit one line's
+		 * which are endian-converted. Limit one line's
 		 * output to  'bytes_per_line'.
 		 */
 		clip = decoded > bpl ? bpl : decoded;
@@ -280,7 +280,7 @@ int				found;
 			orig_fprintf(f,"0x%08x: ",di->buffer + i);
 			for (k=0; k < clip && k+i < decoded; k+=bpc) {
 				for (j=0; j<bpc; j++) {
-					if (BFD_ENDIAN_LITTLE == di->display_endian)
+					if (BFD_ENDIAN_BIG == di->display_endian)
 						orig_fprintf(f,"%02x",di->buffer[i + k + j]);
 					else
 						orig_fprintf(f,"%02x",di->buffer[i + k + bpc - 1 - j]);

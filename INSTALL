@@ -42,6 +42,56 @@ Libraries:
 Building:
 ---------
 
+Quick/Automated Method
+----------------------
+The top-level source directory now features a Makefile providing
+some simple rules to automate the build process. The rules create
+build subdirectories, 'configure' and 'make' the package.
+Type 'make' in the Cexp top directory for instructions. The main
+make targets are:
+
+a) Host Demo
+
+  make host
+
+for building the host demo in a 'build.host' subdirectory. Both,
+a 'cexp' demo executable and a 'xsyms' utility program (for
+generating a symbol file in host format) are built there. To
+play with the demo:
+
+  cd build.host
+  ./xsyms cexp cexp.sym
+  ./cexp -s cexp.sym
+
+b) Target library and cross xsyms tool
+
+  make cross-TARCH
+
+configures CEXP for running on target architecture 'TARCH' in a
+'build-TARCH' subdirectory. The 'cross-xsyms' tool is configured
+and built in a 'build-X-TARCH' subdirectory. E.g.,
+
+  make cross-powerpc-rtems TGT_CONFIG_OPTS='--prefix=/opt/rtems --with-multi-subdir=m750'
+
+Note that the rule only performes the 'configure' step once, i.e.,
+at the same time the 'build-' directories are created. If a 'build-TARCH'
+directory is already present, 'configure' is not re-run. You have to
+remove it (either manually or by executing 'make clean' from the top-directory)
+in order to re-configure.
+
+The cross CEXP can be installed using the 'make install-TARCH' rule.
+You might want to use a 'prefix=<destdir>' definition on the
+command line (necessary if --prefix was not given at configuration time). 
+
+The cross 'xsyms' tool needs to be installed manually
+
+Examples:
+
+    make install-powerpc-rtems prefix=/real/installpath
+	install  build-X-powerpc-rtems/xsyms <cross_toolchain_bindir>/powerpc-rtems-xsyms
+
+Manual Method in Detail
+----------------------
 Configuring Cexp:
 - - - - - - - - -
 
@@ -100,7 +150,6 @@ Building Cexp :
 Recomendation: start with a native build (e.g. on linux or solaris) and
 play around with the demo.
 
-
 In the directory where you configured 'cexp', issue
 
 	make
@@ -115,11 +164,26 @@ Building xsyms:
 'xsyms' is a 'cross-tool', i.e. it runs on a host working on target object
 files. Hence, if you want 'libcexp' for a target and the 'xsyms' tool for
 generating symbol tables you must build the package twice:
- - a cross-configuration ('configure CC=<cross>-gcc --host=<cross>') will
+ - a cross-configuration ('../configure CC=<cross>-gcc --host=<cross>') will
    generate 'libcexp' for running 'cexp' on the target.
- - a cross-tool-configuration ('configure CC=gcc --target=<cross>') will
+   E.g., 
+     mkdir build-powerpc-rtems
+     cd    build-powerpc-rtems
+     ../configure --prefix=/opt/rtems CC=powerpc-rtems-gcc --host=powerpc-rtems --with-multisubdir=m750 --disable-nls
+     make
+     make install
+
+ - a cross-tool-configuration ('../configure CC=gcc --target=<cross>') will
    generate 'xsyms' which can be used for extracting symbol tables on
-   target-objects.
+   target-objects. E.g.,
+     mkdir build-X-powerpc-rtems
+     cd    build-X-powerpc-rtems
+     ../configure --target=powerpc-rtems
+     make
+     cp xsyms  <cross_toolchain_bin>/powerpc-rtems-xsyms
+ 
+   Note that I manually installed the 'cross-xsyms' for sake of simplicity.  
+
 [
  - a native configuration ('configure CC=gcc') builds 'libcexp' as well
    as the 'cexp' demo and 'xsyms'. The demo can be run on the host and
@@ -131,16 +195,6 @@ NOTE: If target and host are both ELF systems, it makes sense to
       capable of extracting symbol tables of any ELF object:
 
 		configure --disable-bfd --disable-cexp
-
-XSYMS build alternative:
-
-The CEXP source directory contains a Makefile with
-a very primitive rule to create 'xsyms'. Running 'gmake xsyms' in the CEXP
-source top directory on a host machine tries to build 'xsyms' using
-an already installed 'libelf' or 'libbfd'.
-CAVEATS: This works only for ELF targets. Also, the mentioned Makefile
-contains other rules for maintenance. In particular, DONT use the 'prep'
-or 'distclean' targets unless you know what you are doing.
 
 RTEMS_NOTE:
 Cexp (and the patched tecla library) contain some hacks to avoid

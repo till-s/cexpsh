@@ -14,15 +14,34 @@ XSYMS_ONLY_TEST_FILE=cexp.y
 
 all:
 	@if [ -f Makefile.am ] ; then \
+		echo ;\
 		echo This Makefile must be invoked with an explicit target; \
+		echo ;\
 		echo Possible Targets are; \
-		echo '    "xsyms": make the "xsyms" host tool (using installed libelf or libbfd)';\
-		echo '    "clean": remove "xsyms"'; \
-		echo '     "prep": regenerate non-CVS/autoxxx files (requires bison-1.28 and autotools)'; \
-		echo '"distclean": remove non-CVS files (REQUIRES bison-1.28 AND autotools TO RECREATE)'; \
+		echo '         "host": Build DEMO CEXP to run on the host (--> host-arch == target-arch )';\
+		echo ;\
+		echo '   "cross-ARCH": Cross-build CEXP to run on ARCH; build "xsyms"-tool to run on host,';\
+		echo '                 generating symbol files for ARCH.';\
+		echo '                 You may specify additional "configure" options on the command line (see example).';\
+		echo '                 NOTES: "ARCH-gcc" must be in your PATH!';\
+		echo '                        if "configure" fails, you might have to "make clean" and reconfigure';\
+		echo ;\
+		echo '                 EXAMPLE: make cross-powerpc-rtems TGT_CONFIG_OPTS="--prefix=/opt/rtems --with-multisubdir=m750"';\
+		echo ;\
+		echo ' "install-ARCH": Install cross build.';\
+		echo '                 NOTES: You must install "build-X-ARCH/xsyms" manually to your cross-tool executable directory';\
+		echo '                        (possibly renaming it "ARCH-xsyms").'; \
+		echo '                        Installdir for CEXP is set by --prefix at configure time (TGT_CONFIG_OPTS above) or by';\
+		echo '                        passing "prefix=DIR" now. Default installation is to /usr/local.';\
+		echo ;\
+		echo '                 EXAMPLE: make install-powerpc-rtems prefix=/opt/rtems';\
+		echo ;\
+		echo '        "clean": remove all "build-XXX" directories';\
+		echo '   "clean-ARCH": remove "build-ARCH" and "build-X-ARCH" directories';\
+		echo '         "prep": regenerate non-CVS/autoxxx files (requires bison-1.28 and autotools)'; \
+		echo '    "distclean": remove non-CVS files (REQUIRES bison-1.28 AND autotools TO RECREATE)'; \
 		exit 1; \
 	fi
-
 
 prep: $(if $(wildcard $(XSYMS_ONLY_TEST_FILE)),src bootstrap, bootstrap-xsyms)
 	@echo you may now create a build subdirectory and ../configure the package
@@ -73,8 +92,14 @@ bootstrap-xsyms bootstrap-cexp:
 bootstrap: bootstrap-cexp
 	(cd libtecla; $(AUTOCONF))
 
-clean:
+clean-xsyms:
 	$(RM) xsyms
+
+clean: clean-xsyms
+	$(RM) -r build-*
+
+clean-%:
+	$(RM) -r build-$* build-X-$*
 
 distclean: clean
 	$(RM) gentab Makefile.in aclocal.m4 cexp.output cexp.tab.c
@@ -102,6 +127,32 @@ xsyms: xsyms.c xsyms-bfd.c
 install:
 	@echo You must install 'xsyms' manually
 	exit 1
+
+host:
+	if [ ! -d build-host ] ; then mkdir build-host; fi
+	( cd build-host ; ../configure $(TGT_CONFIG_OPTS) --disable-nls )
+	$(MAKE) -C build-host
+
+cross-%:
+	@if [ ! -d build-$* ] ; then \
+		mkdir build-$*; \
+		echo CONFIGURING FOR CROSS BUILD TO ARCHITECTURE $*; \
+		( cd build-$*; ../configure CC=$*-gcc --host=$* $(TGT_CONFIG_OPTS) --disable-nls ); \
+	fi
+	@echo MAKING CROSS BUILD TO ARCHITECTURE $*
+	$(MAKE) -C build-$*
+	@if [ ! -d build-X-$* ] ; then \
+		mkdir build-X-$*; \
+		echo CONFIGURING CROSS xsyms UTILITY FOR TARGET $*; \
+		( cd build-X-$*; ../configure --target=$* --disable-nls ); \
+	fi
+	@echo MAKING xsyms FOR TARGET $*
+	$(MAKE) -C build-X-$*
+	@echo 'DONE you should install build-X-$*/xsyms manually to <dir>/$*-xsyms'
+	@echo to install CEXP, run 'make install-$*'
+	
+install-%:
+	$(MAKE) -C build-$* install
 
 REVISION=$(filter-out $$%,$$Name$$)
 tar: regexp prep

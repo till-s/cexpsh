@@ -952,16 +952,17 @@ char			tmpfname[30]={
 	 * sequential access (no lseek(), no stat()). Hence, we copy
 	 * the file to scratch file in memory (IMFS).
 	 */
-	if ( ! (f=copyFileToTmp(filename, tmpfname)) ) {
-		goto cleanup;
-	}
-	filename=tmpfname;
-#else
-	if ( ! (f=fopen(filename,"r")) ) {
+	if ( ! strncmp(filename,"/TFTP/",6) ) {
+		if ( ! (f=copyFileToTmp(filename, tmpfname)) ) {
+			goto cleanup;
+		}
+		filename=tmpfname;
+	} else
+#endif
+	if (  ! (f=fopen(filename,"r")) ) {
 		perror("opening object file");
 		goto cleanup;
 	}
-#endif
 	if ( ! (ldr.abfd=bfd_openstreamr(filename,0,f)) ) {
 		bfd_perror("Opening BFD on object file stream");
 		goto cleanup;

@@ -62,7 +62,7 @@ extern int cexpDisassemble();
 extern int cexpResizeTerminal();
 #endif
 
-static CexpHelpTabRec CEXP_HELP_TAB[]={
+CEXP_HELP_TAB_BEGIN
 	HELP(
 "Search the system symbol table and the user variables\n\
 for a regular expression.  Info about the symbol will be\n\
@@ -149,8 +149,7 @@ default size (struct {int row,col;} *psize) in the optional argument.\n",
 		cexpResizeTerminal,(void *psize)
 	),
 #endif
-	HELP("",,0,)
-};
+CEXP_HELP_TAB_END
 
 void
 cexpAddHelpToSymTab(CexpHelpTab h, CexpSymTbl t)

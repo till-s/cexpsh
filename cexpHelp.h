@@ -48,10 +48,10 @@
 #include "cexp.h"
 #include "cexpmod.h"
 #include "cexpsyms.h"
+#endif
 /* magic name of help tables */
 #define CEXP_HELP_TAB _cexpHelpTab
 #define CEXP_HELP_TAB_NAME "_cexpHelpTab"
-#endif
 
 /* Help structure as used by the symbol table */
 
@@ -73,11 +73,11 @@ typedef struct CexpHelpRec_ {
  * as follows:
  *
  * CEXP_HELP_TAB_BEGIN
- *	HELP(name, 
+ *	HELP( "text", <return type>, <fn_name>, <arg prototype> ),
+ *	HELP( "help about foo", void, foo, (int unused) ),
+ *	...
+ * CEXP_HELP_TAB_END 
  *
- * with the last entry being HELP("",,0,)
- *
- * Because the help tables are
  */
 
 typedef struct CexpHelpTabRec_ {
@@ -92,6 +92,20 @@ typedef struct CexpHelpTabRec_ {
 #define HELP(annot, rtn, name, args) \
 	{ name, {"\n\t"#rtn" "#name" "#args"\n\n"annot } }
 #endif
+
+#ifdef __GNUC__
+#define CEXP_HELP_TAB_BEGIN \
+	static CexpHelpTabRec CEXP_HELP_TAB []\
+   	__attribute__((unused))\
+	={
+#else
+#define CEXP_HELP_TAB_BEGIN \
+	static CexpHelpTabRec CEXP_HELP_TAB []\
+	={
+#endif
+
+#define CEXP_HELP_TAB_END \
+	HELP("",,0,)};
 
 #ifdef _INSIDE_CEXP_
 void

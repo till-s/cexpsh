@@ -5,6 +5,7 @@
 /* Cexp type 'engine' */
 
 #include <stdarg.h>
+#include <stdio.h>
 
 /* for now, we only support ulong result type */
 typedef unsigned long (*CexpFuncPtr)();
@@ -17,9 +18,10 @@ typedef unsigned long (*CexpFuncPtr)();
 /* this choice leaves the lower bits in a natural order */
 #define CEXP_PTR_BIT		(1<<0)
 
-#define CEXP_FUNC_BIT		(1<<6)
+#define CEXP_FUN_BIT		(1<<6)
 #define CEXP_ORDER_MASK		(0x1f)
 typedef enum {
+    TVoid	=0,
     TVoidP      =0  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT, /* treat void* like char* */
     TUChar      =2  | (sizeof(unsigned char)<<8),
     TUCharP     =2  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT,
@@ -31,8 +33,8 @@ typedef enum {
     TFloatP     =8  | (sizeof(float)<<8) | CEXP_PTR_BIT,
     TDouble     =10 | (sizeof(double)<<8),
     TDoubleP    =10 | (sizeof(double)<<8) | CEXP_PTR_BIT,
-    TFuncP      =6  | CEXP_FUNC_BIT | CEXP_PTR_BIT,
-    TDFuncP     =10 | CEXP_FUNC_BIT | CEXP_PTR_BIT,
+    TFuncP      =6  | CEXP_FUN_BIT | CEXP_PTR_BIT,
+    TDFuncP     =10 | CEXP_FUN_BIT | CEXP_PTR_BIT,
 } CexpType;
 
 /* Utility macros operating on CexpType */
@@ -41,7 +43,7 @@ typedef enum {
 #define CEXP_TYPE_INDX(type_enum) (CEXP_TYPE_MASK_SIZE((type_enum))>>1)
 
 /* object, not a function pointer: */
-#define CEXP_TYPE_FUNQ(type_enum) ((type_enum) & CEXP_FUNC_BIT)
+#define CEXP_TYPE_FUNQ(type_enum) ((type_enum) & CEXP_FUN_BIT)
 
 #define CEXP_TYPE_SCALARQ(type_enum) (\
 				!CEXP_TYPE_PTRQ(type_enum) && \
@@ -60,10 +62,9 @@ typedef enum {
 				   	CEXP_BASE_TYPE_SIZE(type_enum))
 
 #define CEXP_TYPE_PTR2BASE(type_enum) \
-				((type_enum) & ~(CEXP_PTR_BIT|CEXP_FUNC_BIT))
+				((type_enum) & ~(CEXP_PTR_BIT|CEXP_FUN_BIT))
 #define CEXP_TYPE_BASE2PTR(type_enum) \
 				((type_enum) | CEXP_PTR_BIT)
-
 
 typedef struct CexpTypedValRec_{
 	CexpType	type;
@@ -131,6 +132,13 @@ cexpTypeCast(CexpTypedVal v, CexpType t, int flags);
 const char *
 cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from);
 
+/* return a pointer to v (v must not be a pointer already
+ * the return value gets an address to v's data area and
+ * the proper pointer type.
+ */
+const char *
+cexpTVPtr(CexpTypedVal ptr, CexpTypedVal v);
+
 const char *
 cexpTVBinOp(CexpTypedVal y, CexpTypedVal x1, CexpTypedVal x2, CexpBinOp op);
 
@@ -161,5 +169,8 @@ cexpTypePromote(CexpTypedVal a, CexpTypedVal b);
  */
 const char *
 cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...);
+
+void
+cexpTVPrintInfo(CexpTypedVal v, FILE *f);
 
 #endif

@@ -7,19 +7,24 @@
 
 /* cexp type 'engine' */
 
+static char *fundesc[]={
+		"long (*)()  ",
+		"double (*)()",
+};
+
 static char *desc[]={
-		"FUNC   ",		/* function pointer */
-		"ADDR   ",		/* void*            */
-		"uchar  ",		/* unsigned char    */
-		"uchar* ",		/* unsigned char*   */
-		"ushort ",		/* unsigned short   */
-		"ushort*",		/* unsigned short*  */
-		"ulong  ",		/* unsigned long    */
-		"ulong* ",		/* unsigned long*   */
-		"float  ",		/* float            */
-		"float* ",		/* float*           */
-		"double ",		/* double           */
-		"double*",		/* double*          */
+		"void        ",		/* function pointer */
+		"void*       ",		/* void*            */
+		"uchar       ",		/* unsigned char    */
+		"uchar*      ",		/* unsigned char*   */
+		"ushort      ",		/* unsigned short   */
+		"ushort*     ",		/* unsigned short*  */
+		"ulong       ",		/* unsigned long    */
+		"ulong*      ",		/* unsigned long*   */
+		"float       ",		/* float            */
+		"float*      ",		/* float*           */
+		"double      ",		/* double           */
+		"double*     ",		/* double*          */
 };
 
 
@@ -27,7 +32,17 @@ const char *
 cexpTypeInfoString(CexpType to)
 {
 int t;
-	t=CEXP_TYPE_FUNQ(to) ? 0 : CEXP_TYPE_MASK_SIZE(to);
+	if (CEXP_TYPE_FUNQ(to)) {
+		switch (to) {
+			case TFuncP:  t=0; break;
+			case TDFuncP: t=1; break;
+			default:
+				assert(0=="Unknown funcion Pointer");
+		}
+		return fundesc[t];
+	}
+
+	t=CEXP_TYPE_MASK_SIZE(to);
 	assert(t>=0 && t<sizeof(desc)/sizeof(desc[0]));
 	return desc[t];
 }
@@ -150,6 +165,16 @@ cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from)
 		}
 		to->type = CEXP_TYPE_PTR2BASE(from->type);
 		return 0;
+}
+
+const char *
+cexpTVPtr(CexpTypedVal ptr, CexpTypedVal v)
+{
+	if (CEXP_TYPE_PTRQ(v->type))
+		return "refuse to take address of pointer";
+	ptr->type=CEXP_TYPE_BASE2PTR(v->type);
+	ptr->tv.p=(void*)&v->tv;
+	return 0;
 }
 
 static const char *
@@ -408,6 +433,33 @@ cexpTVTrueQ(CexpTypedVal v)
 		}
 		assert(0=="unknown type???");
 		return 0;
+}
+
+void
+cexpTVPrintInfo(CexpTypedVal v, FILE *f)
+{
+int i;
+
+	if (CEXP_TYPE_PTRQ(v->type)) {
+		i=fprintf(f,"%20p",v->tv.p);
+	} else {
+		switch (v->type) {
+			default: assert(0=="type mismatch");
+			case TUChar:
+				i=fprintf(f,"0x%02x ('%c'==%i)",v->tv.c,v->tv.c,v->tv.c); break;
+			case TUShort:
+				i=fprintf(f,"0x%04x (==%i)",v->tv.s,v->tv.s); break;
+			case TULong:
+				i=fprintf(f,"0x%08x (==%i)",v->tv.l,v->tv.l); break;
+			case TFloat:
+				i=fprintf(f,"%g",v->tv.f); break;
+			case TDouble:
+				i=fprintf(f,"%lg",v->tv.d); break;
+		}
+	}
+	for (;i<30;i++)
+		fputc(' ',f);
+	fprintf(f,"%s",cexpTypeInfoString(v->type));
 }
 
 #define UL unsigned long

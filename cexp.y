@@ -47,8 +47,8 @@ int  yylex();
 
 %token <val>	NUMBER
 %token <val>    STR_CONST
-%token <val>	IDENT		/* an undefined identifier */
 %token <sym>	FUNC VAR
+%token <uvar>	IDENT		/* an undefined identifier */
 %token <uvar>  	UVAR		/* user variable */
 %token			KW_CHAR		/* keyword 'char' */
 %token			KW_SHORT	/* keyword 'short' */
@@ -61,14 +61,16 @@ int  yylex();
 %type  <ul>		and
 %type  <val>	unexp
 %type  <val>	lval
-%type  <val>  	ptr
 %type  <val>  	lvp
 %type  <val>	call
 %type  <val>	funcp
-%type  <val>	fncast
+%type  <val>	castexp
 
-%type  <typ>	pcast cast typeid
+%type  <typ>	fpcast pcast cast typeid
 
+%type  <uvar>   lvar
+
+%nonassoc		NONE
 %right			'?' ':'
 %right			'='
 %left			OR
@@ -101,34 +103,21 @@ line:	'\n'
 					}
 ;
 
+lvar:	IDENT | UVAR
+;
+
 exp:	binexp 
 	|	lval '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
-/*
-	|	IDENT '=' exp
-					{ CexpTypedValRec v;
-					  $$=$3;
-					  v.tv.p=(void*) &$1.tv;
-					  v.type=CEXP_TYPE_BASE2PTR($1.type);
-					  if (CEXP_TYPE_SIZE($3.val.type) > CEXP_TYPE_SIZE($3.val.type)) {
-							yyerror("type mismatch in assignment");
-							YYERROR;
-					  }
-					  EVAL(if (!cexpVarSet($1,$3,1/*allow creation*TSILL/)) {	\
+	|   lvar '=' exp
+					{ $$=$3; EVAL(if (!cexpVarSet($1.name,&$3,1/*allow creation*/)) {	\
 								yyerror("unable to add new user variable");	\
 								YYERROR; 								\
 							});
 					}
-	|	UVAR  '=' exp
-					{ $$=$3;		EVAL(if (!cexpVarSet($1.name,$3,1/*allow creation*TSILL/)) {	\
-												yyerror("unable to set user variable");	\
-												YYERROR; 								\
-											}); }
-*/
-
 ;
 
-binexp:	fncast
+binexp:	castexp
 	|	or  binexp	%prec OR
 					{ $$.tv.l = $1 || cexpTVTrueQ(&$2);
 					  $$.type = TULong;
@@ -182,52 +171,31 @@ and:	binexp AND
 
 unexp:	VAR
 					{ CHECK(cexpTVPtrDeref(&$$,&$1->value)); }
-	|	UVAR
-					{ $$=$1.val; }
 	|	NUMBER
-	|   '!' fncast
-					{ $$.tv.l = ! cexpTVTrueQ(&$2); }
-	|   '~' fncast
-					{ CHECK(cexpTVUnOp(&$$,&$2,OCpl)); }
-	|   '-' fncast %prec NEG
-					{ CHECK(cexpTVUnOp(&$$,&$2,ONeg)); }
-	|	cast fncast
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
-/*
-	|	'(' KW_CHAR ')' fncast %prec CAST
-					{ $$=$4; CHECK(cexpTypeCast(&$$,TUChar,CNV_FORCE)); }
-	|	'(' KW_SHORT ')' fncast %prec CAST
-					{ $$=$4; CHECK(cexpTypeCast(&$$,TUShort,CNV_FORCE)); }
-	|	'(' KW_LONG ')' fncast %prec CAST
-					{ $$=$4; CHECK(cexpTypeCast(&$$,TULong,CNV_FORCE)); }
-	|	'(' KW_DOUBLE ')' fncast %prec CAST
-					{ $$=$4; CHECK(cexpTypeCast(&$$,TDouble,CNV_FORCE)); }
-*/
-	|	'*' ptr %prec DEREF
-					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
+	|	STR_CONST
 	|	call
+	|   '!' castexp
+					{ $$.tv.l = ! cexpTVTrueQ(&$2); }
+	|   '~' castexp
+					{ CHECK(cexpTVUnOp(&$$,&$2,OCpl)); }
+	|   '-' castexp %prec NEG
+					{ CHECK(cexpTVUnOp(&$$,&$2,ONeg)); }
+	|	'*' castexp %prec DEREF
+					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
+	|	'&' VAR %prec ADDR
+					{ $$=$2->value; }
+	|	'&' UVAR %prec ADDR
+					{ CHECK(cexpTVPtr(&$$, &$2.val)); }
 ;
 
 lval:	VAR			{ $$=$1->value; }
 	|   '*' lvp %prec DEREF
 					{ $$=$2; }
-	|	cast VAR
+	|   '*' UVAR %prec DEREF
+					{ $$=$2.val; }
+	|	cast VAR %prec CAST
 					{ $$=$2->value; CHECK(cexpTypeCast(&$$,$1,0)); }
-/*
-	|	'(' KW_CHAR ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUCharP,0)); }
-	|	'(' KW_SHORT ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUShortP,0)); }
-	|	'(' KW_LONG ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TULongP,0)); }
-	|	'(' KW_DOUBLE ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TDoubleP,0)); }
-*/
 ;
-
-/* NOTE: for now, we consider it not legal to
- *       deal with pointers to UVARs
- */
 
 typeid:	KW_CHAR
 					{ $$=TUChar; }
@@ -248,39 +216,53 @@ pcast:
 					{ $$=CEXP_TYPE_BASE2PTR($2); }
 ;
 
-lvp:	'&' VAR %prec ADDR
-					{ $$=$2->value; }
-	|	pcast fncast %prec CAST
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
-/*
-	|	'(' KW_CHAR '*' ')' fncast %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
-	|	'(' KW_SHORT '*' ')' fncast %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TUShortP,CNV_FORCE)); }
-	|	'(' KW_LONG '*' ')' fncast %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TULongP,CNV_FORCE)); }
-	|	'(' KW_DOUBLE '*' ')' fncast %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
-*/
+fpcast:
+		'(' typeid '(' '*' ')' '(' ')' ')'
+					{ switch ($2) {
+						default:
+							yyerror("invalid type for function pointer cast");
+						YYERROR;
+
+						case TDouble:
+							$$=TDFuncP;
+						break;
+
+						case TULong:
+							$$=TFuncP;
+						break;
+					  }
+					}
 ;
 
-ptr:	lvp
-	|	STR_CONST
+/* pointers that may appear on the left hand
+ * side of an assignment '*' lvp '=' exp
+ */
+lvp:	'&' VAR %prec ADDR
+					{ $$=$2->value; }
+	|	pcast castexp %prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
 ;
+
+/* NOTE: for now, we consider it not legal to
+ *       deal with pointers to UVARs
+ */
 
 
 funcp:	FUNC	
 					{ $$=$1->value; }
+	|	UVAR 		
+					{$$=$1.val;}
 	|	'&' FUNC %prec ADDR
 					{ $$=$2->value; }
 ;
 
-fncast: unexp
-	|	ptr
-	|	'(' KW_LONG '(' '*' ')' '(' ')' ')' fncast %prec CAST
-					{ $$=$9; CHECK(cexpTypeCast(&$$,TFuncP,CNV_FORCE)); }
-	|	'(' KW_DOUBLE '(' '*' ')' '(' ')' ')' fncast %prec CAST
-					{ $$=$9; CHECK(cexpTypeCast(&$$,TDFuncP,CNV_FORCE)); }
+castexp: unexp
+	|	cast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+	|	pcast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+	|	fpcast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
 ;	
 
 
@@ -471,8 +453,8 @@ char *chpt;
 		}
 
 		/* it's a currently undefined symbol */
-		rval->val.type=TUCharP;
-		return (rval->val.tv.p=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
+		rval->uvar.val.type=TVoid;
+		return (rval->uvar.name=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */
 		char *dst;

@@ -42,6 +42,15 @@ void root(double * res, double n)
 #define optind 1
 #endif
 
+static void *
+varprint(char *name, CexpTypedVal v, void *arg)
+{
+FILE *f=arg;
+	cexpTVPrintInfo(v,f);
+	fprintf(f,": %s\n",name);
+	return 0;
+}
+
 /* alternate entries for the lookup functions */
 void
 lkup(char *regexp)
@@ -55,6 +64,8 @@ int		ch=0;
 		free(line);
 		if ('Y'==toupper(ch)) ch=0;
 	}
+	printf("\nUSER VARIABLES:\n");
+	cexpVarWalk(varprint,(void*)stdout);
 }
 
 void

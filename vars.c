@@ -15,6 +15,10 @@
  */
 
 /* use a global lock to keep the lists consistent */
+
+/* TODO: if ever deemed necessary, a multiple read / single write
+ *       locking scheme could be implemented...
+ */
 #ifdef __rtems
 #include <rtems.h>
 static rtems_id _varlock;
@@ -43,16 +47,16 @@ typedef struct lhR_ {
 	struct lhR_	*n, *p;
 } lhR, *lh;
 
+static int		  walking=0; /* detect nasty walkers */
+
 static void 
 lhrAdd(void *e, void *l)
 {
 lh el=e, where=l;
 
-	/* this fails most probably due to missing to call
-	 * cexpVarInit()
-	 */
-	assert(el->p==0 && where->n==0);
+	assert(el->p==0 && el->n==0);
 	__LOCK;
+	assert(!walking);
 	el->n = where;
 	el->p = where->p;
 	if (where->p) where->p->n=el;
@@ -65,6 +69,7 @@ lhrDel(void *a)
 {
 lh el=a;
 	__LOCK;
+	assert(!walking);
 	if (el->n) el->n->p=el->p;
 	if (el->p) el->p->n=el->n;
 	el->p=el->n=0;
@@ -113,14 +118,18 @@ lh v,p;
 
 /* find a variable, return with a held lock */
 static CexpVar
-findN_LOCK(char *name)
+findN_LOCK(char *name, lh *succ)
 {
-CexpVar v;
+lh		p,v;
+int		missed;
 	__LOCK;
 		/* walk backwards; the lhrAdd adds elements 'before' the list head in t' */
-		for (v=(CexpVar)gblList.head.p; v && strcmp(v->name,name);)
-			   	v=(CexpVar)v->head.p;
-	return v;
+		for (v=gblList.head.p, p=&gblList.head;
+			 v && (missed=strcmp(((CexpVar)v)->name,name))<0;) {
+			   	p=v; v=v->p;
+		}
+	if (succ) *succ=p;
+	return (CexpVar)(missed ? 0 : v);
 }
 
 
@@ -128,7 +137,7 @@ void *
 cexpVarLookup(char *name, CexpTypedVal prval)
 {
 CexpVar v;
-	if ((v=findN_LOCK(name))) *prval=v->value;
+	if ((v=findN_LOCK(name,0))) *prval=v->value;
 	__UNLOCK;
 	return v;
 }
@@ -142,17 +151,17 @@ CexpVar v;
 void *
 cexpVarSet(char *name, CexpTypedVal val, int creat)
 {
-CexpVar v;
+CexpVar v,where;
 CexpVar n=(CexpVar)malloc(sizeof(*n) + strlen(name)+1);
 		/* (avoid calling malloc from locked section) */
 	n->head.p=n->head.n=0;
 
-	if ((v=findN_LOCK(name))) {
+	if ((v=findN_LOCK(name,(lh*)&where))) {
 		/* variable found, write its value */
 		v->value=*val;
 	} else if (creat && n) {
 		/* create variable / add to list */
-		lhrAdd(n,&gblList.head);
+		lhrAdd(n,(lh)where);
 		strcpy(n->name, name);
 		n->value=*val;
 		v=n; n=0;
@@ -169,7 +178,7 @@ void *
 cexpVarDelete(char *name)
 {
 CexpVar v;
-	if ((v=findN_LOCK(name)))
+	if ((v=findN_LOCK(name,0)))
 		lhrDel(v);
 	__UNLOCK;
 	/* paranoia to make dangling pointers more likely to crash */
@@ -178,6 +187,22 @@ CexpVar v;
 		return (void*)0xdeadbeef;
 	}
 	return 0;
+}
+
+void *
+cexpVarWalk(CexpVarWalker walker, void *usrArg)
+{
+CexpVar v;
+void	*rval;
+	__LOCK;
+	walking++;
+	for (v=(CexpVar)gblList.head.p; v; v=(CexpVar)v->head.p) {
+		if ((rval=walker(v->name, &v->value, usrArg)))
+			break;
+	}
+	walking--;
+	__UNLOCK;
+	return rval;
 }
 
 #ifdef TEST_VARS
@@ -203,14 +228,16 @@ char *line=0;
 char *name,*v;
 unsigned long value,f;
 void *i;
-CexpTypedValRec v;
+CexpTypedValRec val;
 
   cexpVarInit();
 
   {
-		  CexpVar v=cexpVarSet("hallo",0xdeadbeef,1);
+	CexpVar vv;
+		  val.type=TULong; val.tv.l=0xdeadbeef;
+		  vv=cexpVarSet("hallo",&val,1);
 		  printf("CexpVar size: %i, & 0x%08x, &name: %08x\n",
-						  sizeof(*v), v, v->name);
+						  sizeof(*vv), vv, vv->name);
   }
 
   while (free(line),line=readline("Vars Tst>")) {
@@ -240,9 +267,9 @@ CexpTypedValRec v;
 					fprintf(stderr,"missing name and/or value\n");
 					break;
 				}
-				v.type=TULong;
-				v.tv.l=value;
-				i=cexpVarSet(name,&v,f);
+				val.type=TULong;
+				val.tv.l=value;
+				i=cexpVarSet(name,&val,f);
 			  	printf("\n%s %s\n",
 						f?"adding":"setting",
 						i?"success":"failure");
@@ -258,10 +285,10 @@ CexpTypedValRec v;
 					printf("Deleting %s\n",
 							cexpVarDelete(name) ? "success" : "failure");
 				} else {
-					v.tv.l=0xdeadbeef;
-					i=cexpVarLookup(name,&v);
+					val.tv.l=0xdeadbeef;
+					i=cexpVarLookup(name,&val);
 					printf("Var %sfound: 0x%x\n",
-							i ? "" : "not ", v.tv.l);
+							i ? "" : "not ", val.tv.l);
 				}
 			break;
 	}

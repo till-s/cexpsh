@@ -35,4 +35,21 @@ cexpVarSet(char *name, CexpTypedVal val, int creat);
 void *
 cexpVarDelete(char *name);
 
+/* call a user routine for every variable in lexical
+ * order. The 'walk' aborts if the user routine returns
+ * a nonzero value returning that same value to the
+ * caller.
+ *
+ * NOTE: 1) in a multithreaded environment, the global
+ *       variable table is locked while in
+ *       cexpVarWalk(), i.e. nobody can access
+ *       variables while this routine is active.
+ *       2) The walker  MUST NOT add/delete variables.
+ */
+
+typedef void* (*CexpVarWalker)(char *name, CexpTypedVal v, void *usrArg);
+
+void *
+cexpVarWalk(CexpVarWalker walker, void *usrArg);
+
 #endif

@@ -14,15 +14,17 @@ NOTE: bison is only required if you
 
 Libraries:
 ----------
- - libbfd, libopcodes, libiberty (vers. 2.13, distributed with Cexp)
- - libelf (vers. 0.8.2 distributed with Cexp)
+ - libbfd, libopcodes, libiberty (vers. 2.13.1, distributed with Cexp)
+ - libelf (vers. 0.8.2 distributed with Cexp; NOTE: 0.8.3 doesn't seem
+   to work!)
    NOTE: libelf is only needed
      1) if cexp is configured for using libelf instead of BFD
         (discouraged; reduced functionality but a less restrictive
          license: LGPL vs. GPL) 
      2) for building the host tool 'xsyms' (not ported to BFD yet)
         which allows for extracting a symbol table from an ELF file.
- - Spencer's libregexp (distributed with Cexp)
+ - Spencer's libregexp (distributed with Cexp). This is a modified,
+   reentrant version.
  - libtecla: clean & lean & reentrant line editor. I like it much
    better than GNU readline (messy, bloated & non-reentrant). Its
    license (X11) is less restrictive than readline's (GPL)

@@ -9,9 +9,12 @@
 /* implementation of a module */
 
 typedef struct CexpModuleRec_ {
-	CexpSymTbl	symtbl;
-	char		*name;
-	CexpModule	next;
+	CexpSymTbl			symtbl;
+	char				*name;
+	CexpModule			next;
+	unsigned long		id;			/* unique ID; assigned by the object file sublayer */
+	void				*memSeg;	/* actual memory */
+	unsigned long		memSize;	/* size of the loaded stuff */
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

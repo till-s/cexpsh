@@ -9,7 +9,7 @@
 
 /* search for a name in all module's symbol tables */
 CexpSym
-cexpSymLookup(char *name, CexpModule *pmod);
+cexpSymLookup(const char *name, CexpModule *pmod);
 
 /* search for an address in all modules */
 CexpSym

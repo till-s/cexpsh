@@ -19,14 +19,15 @@ CexpModule cexpSystemModule=0;
 
 /* search for a name in all module's symbol tables */
 CexpSym
-cexpSymLookup(char *name, CexpModule *pmod)
+cexpSymLookup(const char *name, CexpModule *pmod)
 {
 CexpModule	m;
 CexpSym		rval=0;
+int			index;
 
 	__RLOCK();
 
-	for (m=cexpSystemModule; m; m=m->next) {
+	for (m=cexpSystemModule, index=0; m; m=m->next, index++) {
 		if ((rval=cexpSymTblLookup(name,m->symtbl)))
 			break;
 	}
@@ -101,7 +102,7 @@ CexpSymTbl	t;
 		while (s->name && max) {
       		if (regexec(rc,s->name)) {
 				if (!mfound) {
-					fprintf(f,"=====  In module '%s' =====:\n",m->name);
+					fprintf(f,"=====  In module '%s' (id 0x%08x) =====:\n",m->name, m->id);
 					mfound=m; /* print module name only once */
 				}
 				cexpSymPrintInfo(s,f);
@@ -136,6 +137,7 @@ CexpModule m;
 	for (m=cexpSystemModule; m; m=m->next) {
 		fprintf(f,"Module '%s':\n",m->name);
 		fprintf(f,"  %i symbol table entries\n",m->symtbl->nentries);
+		fprintf(f,"  %i bytes of memory allocated to binary\n",m->memSize);
 	}
 
 	__RUNLOCK();
@@ -202,6 +204,7 @@ CexpModule mod=*mp;
 	if (mod) {
 		assert( ! mod->next);
 		free(mod->name);
+		free(mod->memSeg);
 		cexpFreeSymTbl(&mod->symtbl);
 		free(mod);
 	}

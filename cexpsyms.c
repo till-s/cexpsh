@@ -44,7 +44,7 @@ _cexp_addrcomp(const void *a, const void *b)
 }
 
 CexpSym
-cexpSymTblLookup(char *name, CexpSymTbl t)
+cexpSymTblLookup(const char *name, CexpSymTbl t)
 {
 CexpSymRec key;
 	key.name = name;

@@ -12,7 +12,7 @@
 #include "ctyps.h"
 
 typedef struct CexpSymRec_ {
-	char				*name;
+	const char			*name;
 	CexpTypedAddrRec	value;
 	int					size;
 	unsigned			flags;
@@ -24,7 +24,7 @@ typedef struct CexpSymTblRec_	*CexpSymTbl;
 
 /* lookup a symbol by name */
 CexpSym
-cexpSymTblLookup(char *name, CexpSymTbl t);
+cexpSymTblLookup(const char *name, CexpSymTbl t);
 
 /* do a binary search for an address */
 CexpSym

@@ -51,12 +51,4 @@ cexpFreeSymTbl(CexpSymTbl *tbl);
 
 #define LOAD_CHUNK    2000
 
-/* lookup the routine at 'addr' and, if found in the symbol table,
- * set the SYMFLG_PASS_CTX flag
- *
- * RETURNS: 0 on success, nonzero on failure (address not found or not a function)
- */
-int
-cexpImplicitelyPassParserCtxTo(void *addr);
-
 #endif

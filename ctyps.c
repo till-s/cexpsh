@@ -12,6 +12,7 @@
 #include <stdlib.h>
 
 #include "ctyps.h"
+#include "cexpsyms.h"
 
 static char *fundesc[]={
 		"long (*)()  ",
@@ -515,6 +516,25 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 #define DB double
 #define AA CexpTypedVal
 
+
+/* determine whether a function is 'magic', i.e. if we should
+ * implicitely pass the parser context.
+ *
+ * For that purpose, we search the symbol table for the function's
+ * address and if found, we check the flag...
+ */
+static int
+fnIsMagic(CexpTypedVal fn)
+{
+CexpSym found;
+
+	if (!CEXP_TYPE_FUNQ(fn->type))
+		return 0;
+
+	return (found=cexpSymLkAddr(fn->tv.p, 0, 0, 0)) &&
+		   (found->flags & CEXP_SYMFLG_PASS_CTX);
+}
+
 #if defined(__PPC__) && defined(_CALL_SYSV)
 
 /* an PPC / SVR4 ABI specific implementation of the function call
@@ -577,7 +597,7 @@ DB				dargs[MAXDBLARGS];
 
 		nargs=0; fpargs=0;
 
-		if (ctx)
+		if (fnIsMagic(fn))
 			iargs[nargs++]=(UL)ctx;
 
 		va_start(ap,fn);
@@ -723,7 +743,7 @@ const char		*err=0;
 
 		nargs=0; fpargs=0;
 
-		if (ctx)
+		if (fnIsMagic(fn))
 			args[nargs++]=&context;
 
 		va_start(ap,fn);

@@ -386,13 +386,3 @@ int			lo,hi,mid;
 	}
 	return t->aindex[mid];
 }
-
-int
-cexpImplicitelyPassParserCtxTo(void *addr)
-{
-CexpSym found;
-	if ( ! (found=cexpSymLkAddr(addr, 0/*margin*/, 0 /*quiet*/, 0 )) ||
-		 ! CEXP_TYPE_FUNQ(found->value.type) ||
-		   found->value.ptv->p != addr)
-		return -1;
-}

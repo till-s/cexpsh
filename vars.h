@@ -30,7 +30,7 @@ cexpVarsFlush(void);
  */
 
 CexpSym
-cexpVarLookup(char *name, int creat);
+cexpVarLookup(const char *name, int creat);
 
 /* remove a variable
  * RETURNS: nonzero if the variable was found & deleted

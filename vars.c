@@ -83,10 +83,10 @@ lh el=a;
 }
 #endif
 
-typedef int (*LhComp)(lh el, void *what);
+typedef int (*LhComp)(lh el, const void *what);
 
 static lh
-lhrFindN_LOCK(lh where, void *what, LhComp comp, lh *succ)
+lhrFindN_LOCK(lh where, const void *what, LhComp comp, lh *succ)
 {
 lh		p,v;
 int		missed=1;
@@ -151,28 +151,28 @@ cexpVarsFlush(void)
  */       
 
 static int
-strcomp(lh el, void *what)
+strcomp(lh el, const void *what)
 {
-char *name=what;
+const char *name=what;
 	return strcmp(&(((CexpStr)el)->str[0]),name);
 }
 
 static CexpStr
-strFindN_LOCK(char *chpt, lh *succ)
+strFindN_LOCK(const char *chpt, lh *succ)
 {
 	return  (CexpStr)lhrFindN_LOCK(&strTab.head,chpt,strcomp,succ);
 }
 
 static int
-varcomp(lh el, void *what)
+varcomp(lh el, const void *what)
 {
-char *name=what;
+const char *name=what;
 	return strcmp( ((CexpVar)el)->sym.name, name );
 }
 
 /* find a variable, return with a held lock */
 static CexpVar
-findN_LOCK(char *name, lh *succ)
+findN_LOCK(const char *name, lh *succ)
 {
 	return (CexpVar)lhrFindN_LOCK(&gblList.head,name,varcomp,succ);
 }
@@ -185,7 +185,7 @@ findN_LOCK(char *name, lh *succ)
  */
 
 CexpSym
-cexpVarLookup(char *name, int creat)
+cexpVarLookup(const char *name, int creat)
 {
 CexpVar v,where;
 CexpVar n;

@@ -51,3 +51,7 @@ clean distclean:
 # primitive rule to just make xsyms
 xsyms: xsyms.c
 	$(CC) -o $@ -I/usr/include/libelf $^ -lelf
+
+install:
+	@echo You must install 'xsyms' manually
+	exit 1

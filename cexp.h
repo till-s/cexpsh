@@ -8,6 +8,8 @@
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002  - this line must not be removed*/
 /* License: GPL, for details see http:www.gnu.org - this line must not be removed */
 
+#include <stdio.h>
+#include <stdarg.h>
 #include <setjmp.h>
 
 #ifdef __cplusplus
@@ -187,6 +189,13 @@ lkaddr(void *addr, int howmany);
  */
 int
 cexpAddrFind(void **addr, char *buf, int size);
+
+/* a wrapper to call cexp main with a variable arglist
+ * NOTE: arg0 is automatically set to "cexp_main", hence
+ *       'arg1' is the first 'real' argument.
+ */
+int
+cexp(char *arg1,...);
 
 /* the main interpreter loop, it can be registered
  * with a shell...

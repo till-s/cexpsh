@@ -110,6 +110,7 @@ typedef struct LinkDataRec_ {
 #endif
 	unsigned long	text_vma;
 	asection		*text;
+	asection		*eh;
 	void			*iniCallback;
 	void			*finiCallback;
 } LinkDataRec, *LinkData;
@@ -509,8 +510,6 @@ long		err;
 					 */
 					sp=*r->sym_ptr_ptr=asymFromCexpSym(abfd,ts,ld->depend,mod);
 				} else {
-printf("TSILL isabs: %i, ehsect %s, sect %s\n", bfd_is_abs_section(symsect),
-				bfd_get_section_name(abfd,ld->eh_section),bfd_get_section_name(sect));
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
 		continue;
@@ -650,7 +649,9 @@ int			i,num_new_commons=0,errs=0;
  		 * in a ".eh_frame" section
 		 */
 		if (!strcmp(EH_FRAME_BEGIN_PATTERN, bfd_asymbol_name(sp))) {
+#if 0
 			ld->eh_frame_b_sym=sp;
+#endif
 
 		/* check for magic initializer/finalizer symbols */
 		} else
@@ -1089,7 +1090,6 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 		 */
 #ifdef OBSOLETE_EH_STUFF
 		if (ldr.eh_frame_b_sym) {
-printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b_sym));
 			if ( ldr.eh_frame_e_sym ) {
 				/* eh_frame was in its own section; hence we have to write a terminating 0
 				 */
@@ -1097,6 +1097,7 @@ printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b
 			}
 			assert(my__register_frame);
 			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
+printf("TSILL registering EH_FRAME 0x%08lx\n",  ehFrame);
 			my__register_frame(ehFrame);
 		}
 #else

@@ -1,6 +1,9 @@
 #ifndef CEXP_HDR1_H
 #define CEXP_HDR1_H
 
+
+#include <stdio.h>
+
 typedef unsigned long (*CexpFuncPtr)();
 
 typedef struct CexpSymRec_ {
@@ -22,7 +25,6 @@ typedef struct CexpParserCtxRec {
 	CexpSymTbl		symtbl;
 	unsigned char	*chpt;
 	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
-	unsigned int	lstLen;
 	unsigned long	evalInhibit;
 } CexpParserCtxRec, *CexpParserCtx;
 
@@ -62,6 +64,26 @@ cexpSlurpElf(int fd);
 
 CexpSym
 cexpSymTblLookup(char *name, CexpSymTbl t);
+
+/* do a binary search for an address */
+CexpSym
+cexpSymTblLkAddr(unsigned long *addr, int margin, FILE *f, CexpSymTbl t);
+
+/* lookup a regular expression */
+CexpSym
+cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t);
+
+CexpParserCtx
+cexpCreateParserCtx(CexpSymTbl t);
+
+void
+cexpResetParserCtx(CexpParserCtx ctx, char *linebuf);
+
+void
+cexpFreeParserCtx(CexpParserCtx ctx);
+
+int
+yyparse(void*); /* pass a CexpParserCtx pointer */
 
 #define YYDEBUG	1
 

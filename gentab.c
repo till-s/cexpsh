@@ -134,7 +134,7 @@ for (mask=0; mask< (1<<MAXBITS); mask++) {
 	printf("static  %s ",typ[RES]);    fnam(mask); protoargs(); printf("\n");
 	printf("{return (("); tnam(mask); printf(")f->tv.p)("); callargs(mask); printf(");}\n\n");
 }
-	printf("static %s (*jumptab[%i])()={\n",typ[RES],1<<MAXBITS);
+	printf("static UFUNC jumptab[%i]={\n",1<<MAXBITS);
 for (mask=0; mask < (1<<MAXBITS); mask++) {
 	printf("\t"); fnam(mask); printf(",\n");
 }

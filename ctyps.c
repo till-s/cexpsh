@@ -581,6 +581,8 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 #define DB double
 #define AA CexpTypedVal
 
+typedef UL (*UFUNC)();
+typedef DB (*DFUNC)();
 
 #if defined(__PPC__) && defined(_CALL_SYSV)
 
@@ -595,6 +597,9 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
  * Bit 6 of the CR register must be set/cleared to indicate
  * whether floating point arguments were passed in FP registers
  * in case the called routine takes variable arguments.
+ * The compiler does this automatically for us if we declare
+ * the function pointers with an empty argument list:
+ *   typedef long (*LFUNC)();
  * 
  * Note that _ANY_ combination of integer/double (of up to
  * 8 of each) arguments will end up in the same registers.
@@ -617,16 +622,11 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
  */
 
 /* NOTE: the minimum of these MUST NOT exceed 8
- *       Also note that the FN_PPCSVRABI_xx type declarations
- *       as well as the function call itself must be adjusted
- *       when changing any of these numbers.
+ *       Also note that the function call below must be
+ *       adjusted when changing any of these numbers.
  */
 #define MAXINTARGS 10
 #define MAXDBLARGS 8
-
-typedef UL (*FN_PPCSVRABI_UL)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB,DB);
-typedef DB (*FN_PPCSVRABI_DB)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB,DB);
-
 
 const char *
 cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
@@ -672,20 +672,14 @@ DB				dargs[MAXDBLARGS];
 		for (i=fpargs; i<MAXDBLARGS; i++)
 				dargs[i]=0;
 
-		/* set CR[6] */
-		if (fpargs)
-			__asm__ __volatile__("crset 4*cr1+eq");
-		else
-			__asm__ __volatile__("crclr 4*cr1+eq");
-
 		/* call it */
 		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
 		if (TDFuncP==fn->type)
-			rval->tv.d=((FN_PPCSVRABI_DB)fn->tv.p)(
+			rval->tv.d=((DFUNC)fn->tv.p)(
 							iargs[0],iargs[1],iargs[2],iargs[3],iargs[4],iargs[5],iargs[6],iargs[7],iargs[8],iargs[9],
 							dargs[0],dargs[1],dargs[2],dargs[3],dargs[4],dargs[5],dargs[6],dargs[7]);
 		else
-			rval->tv.l=((FN_PPCSVRABI_UL)fn->tv.p)(
+			rval->tv.l=((UFUNC)fn->tv.p)(
 							iargs[0],iargs[1],iargs[2],iargs[3],iargs[4],iargs[5],iargs[6],iargs[7],iargs[8],iargs[9],
 							dargs[0],dargs[1],dargs[2],dargs[3],dargs[4],dargs[5],dargs[6],dargs[7]);
 
@@ -715,14 +709,10 @@ cleanup:
  */
 
 /* maximal number of unsigned long only arguments
- * NOTE: if this is changed, the typedefs for L10
- *       and D10 as well as the actual function call
+ * NOTE: if this is changed, the function call
  *       in cexpTVFnCall must be changed accordingly.
  */
 #define MAXARGS 10
-
-typedef UL (*L10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
-typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 
 /* include an automatically (gentab utility) generated
  * file containing definitions of wrappers for all 32
@@ -815,12 +805,12 @@ const char		*err=0;
 		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
 		if (fpargs) {
 				if (TDFuncP==fn->type)
-					rval->tv.d=((double(*)())(jumptab[fpargs]))(fn JUMPTAB_ARGLIST(args));
+					rval->tv.d=(DFUNC(jumptab[fpargs]))(fn JUMPTAB_ARGLIST(args));
 				else
 					rval->tv.l=jumptab[fpargs](fn,args[0],args[1],args[2],args[3],args[4]);
 		} else {
 				if (TDFuncP==fn->type)
-					rval->tv.d=((D10)(fn->tv.p))(
+					rval->tv.d=((DFUNC)(fn->tv.p))(
 										args[0]->tv.l,
 										args[1]->tv.l,
 										args[2]->tv.l,
@@ -833,7 +823,7 @@ const char		*err=0;
 										args[9]->tv.l);
 
 				else
-					rval->tv.l=((L10)(fn->tv.p))(
+					rval->tv.l=((UFUNC)(fn->tv.p))(
 										args[0]->tv.l,
 										args[1]->tv.l,
 										args[2]->tv.l,

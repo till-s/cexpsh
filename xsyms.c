@@ -98,6 +98,7 @@ fprintf(stderr,"       -h this info\n");
 fprintf(stderr,"       -p really 'purge' other sections rather than setting\n");
 fprintf(stderr,"          their size to zero (default)\n");
 fprintf(stderr,"       -z dont 'purge' other sections; just set their size to zero\n");
+fprintf(stderr,"       -C generate a  C-source file for building into the executable\n");
 }
 
 static Elf_Scn *
@@ -138,8 +139,9 @@ Elf_Scn        *scn=0, *nscn=0, *strtab=0, *symtab=0;
 Elf_Data       *data=0;
 int            fd, ofd=-1, ch;
 unsigned int   cnt;
-char           *optstr="phz";
+char           *optstr="phzC";
 int            purge=1;
+int            gensrc = 0;
 
 	while ((ch=getopt(argc, argv, optstr))>0) {
 		switch (ch) {
@@ -150,6 +152,8 @@ int            purge=1;
 				purge=1; break;
 			case 'z':
 				purge=0; break;
+			case 'C':
+				gensrc=1; break;
 		}
 	}
 

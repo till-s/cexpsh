@@ -12,6 +12,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 #include <string.h>
+#include <fcntl.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -36,11 +37,11 @@
 #endif
 
 #define	DEBUG_COMMON	(1<<0)
-#define DEBUG_SECT	(1<<1)
-#define DEBUG_RELOC	(1<<2)
-#define DEBUG_SYM	(1<<3)
+#define DEBUG_SECT		(1<<1)
+#define DEBUG_RELOC		(1<<2)
+#define DEBUG_SYM		(1<<3)
 
-#define	DEBUG		(DEBUG_SECT|DEBUG_RELOC)
+#define	DEBUG			0
 
 #include "spencer_regexp.h"
 
@@ -134,7 +135,7 @@ asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
 #ifdef __rtems
 static FILE *
-copyFileToTmp(char *name, char *tmpfname);
+copyFileToTmp(int fd, char *tmpfname);
 #endif
 
 static void
@@ -920,6 +921,8 @@ void			*ehFrame=0;
 char			tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
+int				is_on_tftp, tftp_fd;
+struct stat		dummybuf;
 #endif
 
 	/* clear out the private data area; the cleanup code
@@ -954,8 +957,11 @@ char			tmpfname[30]={
 	 * sequential access (no lseek(), no stat()). Hence, we copy
 	 * the file to scratch file in memory (IMFS).
 	 */
-	if ( ! strncmp(filename,"/TFTP/",6) ) {
-		if ( ! (f=copyFileToTmp(filename, tmpfname)) ) {
+
+	/* we assume that a file we cannot stat() but open() is on TFTPfs */
+	is_on_tftp = stat(filename, &dummybuf) ? open(filename,O_RDONLY) : -1;
+	if ( is_on_tftp >= 0 ) {
+		if ( ! (f=copyFileToTmp(is_on_tftp, tmpfname)) ) {
 			goto cleanup;
 		}
 		filename=tmpfname;
@@ -1162,7 +1168,7 @@ bfdCleanupCallback(CexpModule mod)
 
 #ifdef __rtems
 static FILE *
-copyFileToTmp(char *name, char *tmpfname)
+copyFileToTmp(int fd, char *tmpfname)
 {
 FILE		*rval=0,*infile=0,*outfile=0;
 char		buf[BUFSIZ];
@@ -1203,7 +1209,7 @@ struct stat	stbuf;
 	}
 #endif
 
-	if (!(infile=fopen(name,"r")) || ferror(infile)) {
+	if (!(infile=fdopen(fd,"r")) || ferror(infile)) {
 		perror("opening object file");
 		goto cleanup;
 	}
@@ -1240,6 +1246,8 @@ cleanup:
 	}
 	if (infile)
 		fclose(infile);
+	else
+		close(fd);
 	return rval;
 }
 #endif

@@ -140,6 +140,11 @@ int 		s=sp->st_size;
 		t=TVoid;
 	break;
 
+	case STT_SECTION:
+		t=TVoid;
+		cesp->flags|=CEXP_SYMFLG_SECT;
+	break;
+
 	default:
 	break;
 
@@ -323,9 +328,7 @@ cleanup:
 int
 cexpLoadFile(char *filename, CexpModule new_module)
 {
-CexpSym		found;
-cexp_regex	*rc;
-int			rval=-1,max;;
+int			rval=-1;
 
 	if (cexpSystemModule) {
 		fprintf(stderr,
@@ -335,11 +338,7 @@ int			rval=-1,max;;
 		return rval;
 	}
 
-	assert(rc=cexp_regcomp("^"CEXP_HELP_TAB_NAME));
 	if ((new_module->symtbl=cexpSlurpElf(filename))) {
-		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,new_module->symtbl); found++,max=1) {
-			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, new_module->symtbl);
-		}
 		rval=0;
 	}
 	cexp_regfree(rc);

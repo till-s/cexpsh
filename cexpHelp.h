@@ -49,8 +49,11 @@
 #include "cexpmod.h"
 #include "cexpsyms.h"
 #endif
+
 /* magic name of help tables */
+/* Macro magic (see below) doesn't work well -> hardcode in multiple places :-(
 #define CEXP_HELP_TAB _cexpHelpTab
+*/
 #define CEXP_HELP_TAB_NAME "_cexpHelpTab"
 
 /* Help structure as used by the symbol table */
@@ -72,7 +75,7 @@ typedef struct CexpHelpRec_ {
  * The help arrays defined by a module must be defined
  * as follows:
  *
- * CEXP_HELP_TAB_BEGIN
+ * CEXP_HELP_TAB_BEGIN(facility)
  *	HELP( "text", <return type>, <fn_name>, <arg prototype> ),
  *	HELP( "help about foo", void, foo, (int unused) ),
  *	...
@@ -94,13 +97,13 @@ typedef struct CexpHelpTabRec_ {
 #endif
 
 #ifdef __GNUC__
-#define CEXP_HELP_TAB_BEGIN \
-	static CexpHelpTabRec CEXP_HELP_TAB []\
+#define CEXP_HELP_TAB_BEGIN(facility) \
+	CexpHelpTabRec _cexpHelpTab ## facility []\
    	__attribute__((unused))\
 	={
 #else
-#define CEXP_HELP_TAB_BEGIN \
-	static CexpHelpTabRec CEXP_HELP_TAB []\
+#define CEXP_HELP_TAB_BEGIN(facility) \
+	CexpHelpTabRec _cexpHelpTab ## facility []\
 	={
 #endif
 

@@ -62,7 +62,7 @@ extern int cexpDisassemble();
 extern int cexpResizeTerminal();
 #endif
 
-CEXP_HELP_TAB_BEGIN
+CEXP_HELP_TAB_BEGIN(cexp)
 	HELP(
 "Search the system symbol table and the user variables\n\
 for a regular expression.  Info about the symbol will be\n\
@@ -106,7 +106,7 @@ If NULL is passed for the module ID, info about all\n\
 modules is given. 'level' selects Info verbosity:\n\
   0: print name and load address of text section\n\
   1: add module dependency info\n\
-  2: add memory requirements info\n\ 
+  2: add memory requirements info\n\
   3: add load addresses/names for all sections\n\
 RETURNS: mod->next",
 		int,

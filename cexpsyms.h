@@ -66,6 +66,7 @@ typedef struct CexpSymRec_ {
 #define CEXP_SYMFLG_GLBL		(1<<0) /* a global symbol */
 #define CEXP_SYMFLG_WEAK		(1<<1) /* a weak symbol   */
 #define CEXP_SYMFLG_MALLOC_HELP	(1<<3) /* whether the help info is static or malloc()ed */
+#define CEXP_SYMFLG_SECT		(1<<4) /* a section (name) symbol */
 
 
 typedef struct CexpSymTblRec_	*CexpSymTbl;

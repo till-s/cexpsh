@@ -51,6 +51,7 @@
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 #include "cexplock.h"
+#include "cexpHelp.h"
 
 CexpModule cexpSystemModule=0;
 
@@ -547,6 +548,17 @@ CexpModule m,tail,nmod,rval=0;
 
 	if (cexpLoadFile(filename,nmod)) {
 		goto cleanup;
+	}
+
+	/* add help tables */
+	{
+	CexpSym found;
+	int		max;
+	cexp_regex	*rc;
+		assert(rc=cexp_regcomp("^"CEXP_HELP_TAB_NAME));
+		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,nmod->symtbl); found++,max=1) {
+			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, nmod->symtbl);
+		}
 	}
 
 	/* call the constructors */

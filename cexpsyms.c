@@ -307,51 +307,62 @@ int			n,nDstSyms,nDstChars;
 
 	memset(rval,0,sizeof(*rval));
 	
-	/* count the number of valid symbols */
-	for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp+=symSize,n++) {
+	if ( filter && assign ) {
+		/* count the number of valid symbols */
+		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp+=symSize,n++) {
+				if ((symname=filter(sp,closure))) {
+					nDstChars+=strlen(symname)+1;
+					nDstSyms++;
+				}
+		}
+
+
+		/* create our copy of the symbol table - the object format contains
+		 * many things we're not interested in and also, it's not
+		 * sorted...
+		 */
+		
+		/* allocate all the table space */
+		if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
+			goto cleanup;
+	
+		if (!(rval->strtbl=(char*)malloc(nDstChars)) ||
+   	     !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
+			goto cleanup;
+	
+		/* now copy the relevant stuff */
+		for (sp=syms,n=0,cesp=rval->syms,dst=rval->strtbl; n<nsyms; sp+=symSize,n++) {
 			if ((symname=filter(sp,closure))) {
-				nDstChars+=strlen(symname)+1;
-				nDstSyms++;
+					memset(cesp,0,sizeof(*cesp));
+					/* copy the name to the string table and put a pointer
+					 * into the symbol table.
+					 */
+					cesp->name=dst;
+					while ((*(dst++)=*(symname++)))
+							/* do nothing else */;
+					cesp->flags = 0;
+					rval->aindex[cesp-rval->syms]=cesp;
+	
+					assign(sp,cesp,closure);
+	
+				
+					cesp++;
 			}
+		}
+		/* mark the last table entry */
+		cesp->name=0;
+	} else { /* no filter or assign callback -- they pass us a list of symbols in already */
+		nDstSyms   = nsyms;
+		if ( !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))) )
+			goto cleanup;
+		rval->syms = syms;
+		for ( cesp = rval->syms; cesp->name; cesp++ ) {
+			rval->aindex[cesp-rval->syms] = cesp;
+		}
 	}
 
 	rval->nentries=nDstSyms;
 
-	/* create our copy of the symbol table - the object format contains
-	 * many things we're not interested in and also, it's not
-	 * sorted...
-	 */
-		
-	/* allocate all the table space */
-	if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
-		goto cleanup;
-
-	if (!(rval->strtbl=(char*)malloc(nDstChars)) ||
-        !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
-		goto cleanup;
-
-	/* now copy the relevant stuff */
-	for (sp=syms,n=0,cesp=rval->syms,dst=rval->strtbl; n<nsyms; sp+=symSize,n++) {
-		if ((symname=filter(sp,closure))) {
-				memset(cesp,0,sizeof(*cesp));
-				/* copy the name to the string table and put a pointer
-				 * into the symbol table.
-				 */
-				cesp->name=dst;
-				while ((*(dst++)=*(symname++)))
-						/* do nothing else */;
-				cesp->flags = 0;
-				rval->aindex[cesp-rval->syms]=cesp;
-
-				assign(sp,cesp,closure);
-
-				
-				cesp++;
-		}
-	}
-
-	/* mark the last table entry */
-	cesp->name=0;
 	/* sort the tables */
 	qsort((void*)rval->syms,
 		rval->nentries,
@@ -368,7 +379,6 @@ cleanup:
 	cexpFreeSymTbl(&rval);
 	return 0;
 }
-
 
 
 void

@@ -421,7 +421,8 @@ elf_symbol_type *elfsp=elf_symbol_from(ld->abfd, asym);
 			cesp->flags |= CEXP_SYMFLG_GLBL;
 		if (asym->flags & BSF_WEAK)
 			cesp->flags |= CEXP_SYMFLG_WEAK;
-
+		if (asym->flags & BSF_SECTION_SYM)
+			cesp->flags |= CEXP_SYMFLG_SECT;
 }
 
 /* call this after relocation to assign the internal
@@ -1390,14 +1391,26 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 
 	/* record the section names */
 	for ( psym = ldr.module->section_syms; *psym; psym++ ) {
-		CexpSym s;
+		CexpSym s, *tsym;
 		/* If no section name is found in this module's symtab
 		 * then it must be a previously loaded linkonce...
 		 */
 		if ( s = cexpSymTblLookup( (char*)*psym, ldr.cst ) )
 			*psym = s;
-		else 
-			*psym = cexpSymLookup( (char*)*psym, 0 );
+		else  {
+			s = cexpSymLookup( (char*)*psym, 0 );
+			if ( !s ) {
+				fprintf(stderr,"WARNING: no existing symtab entry found for section '%s'\n", (char*)*psym);
+				/* remove this slot */
+				tsym = psym +1;
+				while ( (*(tsym-1) = *tsym) )
+					tsym++;
+				psym--;
+				ldr.num_section_names--;
+			} else {
+				*psym = s;
+			}
+		}
 	}
 
 	/* system symbol table sanity check */
@@ -1492,18 +1505,6 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 	}
 	if (ldr.finiCallback) {
 		mod->finiCallback=(int(*)(CexpModule)) bfd_asymbol_value((*(asymbol**)ldr.finiCallback));
-	}
-
-	/* add help strings to symbol table */
-	{
-	asymbol *sp;
-	int		len=strlen(CEXP_HELP_TAB_NAME);
-	for (i=0; (sp=ldr.st[i]); i++) {
-		if (0==strncmp(CEXP_HELP_TAB_NAME,bfd_asymbol_name(sp),len)) {
-			/* this module has a help table; add it to the symbol table */
-			cexpAddHelpToSymTab((CexpHelpTab)bfd_asymbol_value(sp), mod->symtbl);
-		}
-	}
 	}
 
 	mod->cleanup = bfdCleanupCallback;

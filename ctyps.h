@@ -120,13 +120,16 @@ typedef union  CexpValU_ {
 } CexpValU, *CexpVal;
 
 typedef struct CexpTypedValRec_{
-	CexpType	type;
 	CexpValU	tv;
+	CexpType	type;
 } CexpTypedValRec, *CexpTypedVal;
 
+/* If the layout of this changes, the module magic ID must be changed
+ * see cexpmodP.h for details.
+ */
 typedef struct CexpTypedAddrRec_ {
-	CexpType	type;
 	CexpVal		ptv;
+	CexpType	type;
 } CexpTypedAddrRec, *CexpTypedAddr;
 
 /* NOTE: Order is important */

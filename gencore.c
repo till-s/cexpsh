@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <assert.h>
 #include <unistd.h>
 
 #include <bfd.h>
@@ -30,13 +32,13 @@ typedef uint32_t Reg_t;
 
 /* m68k netbsd layout: */
 typedef struct m68k_reg_ {
-	Reg_t regs[16]; // D0-7, A0-7
+	Reg_t regs[16]; /* D0-7, A0-7 */
 	Reg_t sr;
 	Reg_t pc;
 } M68k_reg;
 
 typedef struct m68k_fpreg_ {
-	Reg_t fpregs[8*3]; // FP0..FP7
+	Reg_t fpregs[8*3]; /* FP0..FP7 */
 	Reg_t fpcr;
 	Reg_t fpsr;
 	Reg_t fpiar;
@@ -50,6 +52,9 @@ typedef struct ppc32_reg_ {
 	Reg_t xer;
 	Reg_t ctr;
 	Reg_t pc;
+	Reg_t msr;	/* our extension */
+	Reg_t dar;	/* our extension */
+	Reg_t vec;  /* our extension */
 } Ppc32_reg;
 
 typedef struct ppc32_fpreg_ {
@@ -111,13 +116,13 @@ static void usage(int code)
 const bfd_arch_info_type *arch = bfd_scan_arch("");
 
 	fprintf(stderr,
-		"Usage: %s [-h] [-r registers] [-p pc] [-s sp] [-f fp] [-e register_block_offset] [-a vma] memory_image_file [core_file_name]\n\n",
+		"Usage: %s [-hCc] [-r registers] [-p pc] [-s sp] [-f fp] [-e register_block_offset] [-a vma] memory_image_file [core_file_name] [-V symbol=magic_string]\n\n",
 		progn);
 	fprintf(stderr,
 		"       Generate a core file from a raw memory image.\n");
 	fprintf(stderr,
 		"       Built for a '%s' target; $Revision$\n",
-		bfd_printable_arch_mach(arch->arch, arch->mach));
+		bfd_target_list()[0]);
 	fprintf(stderr,
 		"       Author: Till Straumann, 2004; License: GPL\n");
 	fputc('\n', stderr);
@@ -135,6 +140,26 @@ const bfd_arch_info_type *arch = bfd_scan_arch("");
 		"       -p pc/-s sp/-f fp : just supply PC, SP and the frame pointer\n"); 
 	fprintf(stderr,
 		"       -e offset         : registers are read at 'offset' in the memory image\n");
+	fprintf(stderr,
+		"       -V strvar=strval  : do validity check on memory image. Look for and\n");
+	fprintf(stderr,
+		"                           compare a string variable. Yield an error if 'string'\n");
+	fprintf(stderr,
+		"                           is not found in the image at address of symbol.\n");
+	fprintf(stderr,
+		"                           E.g., if your application defines a string:\n");
+	fprintf(stderr,
+		"                               char *myString=\"MY_MAGIC\";\n");
+	fprintf(stderr,
+		"                           you would use '-V myString=MY_MAGIC'\n");
+	fprintf(stderr,
+		"       -c                : same as -V; use the CEXP magic string for validation\n");
+	fprintf(stderr,
+		"       -C                : same as -c; if the magic string is found, dump section\n");
+	fprintf(stderr,
+		"                           address info for use by GDB (although you could and\n");
+	fprintf(stderr,
+		"                           should use GDB itself to create this info)\n");
 	if (code)
 		exit( code < 0 ? 1:0);
 }
@@ -170,26 +195,209 @@ unsigned long rval;
 	return rval;
 }
 
+static char *core_base = 0, *core_limit = 0;
+static bfd_vma	core_vma = 0;
+static bfd  *obfd = 0, *ibfd = 0;
+
+static bfd_vma mapa(uint32_t addr)
+{
+	if ( addr < core_vma || (bfd_vma)(addr-core_vma) >  (bfd_vma)(core_limit-core_base) ) {
+		fprintf(stderr,"Unable to map core address 0x%08x - cannot extract Cexp module info\n", addr);
+		exit(1);
+	}
+	return (bfd_vma)(addr-core_vma) + (bfd_vma)core_base;
+}
+
+static bfd_vma geti(uint32_t addr)
+{
+	return bfd_get_bits((bfd_byte*)mapa(addr), 32, bfd_big_endian(ibfd));
+}
+
+#define OFFOF(RecPType, field) ((uint32_t)&((RecPType)0)->field - (uint32_t)(RecPType)0)
+#define NOCEXP 0xffffffff					/* a presumably invalid address */
+#define CEXPMOD_MAGIC_VAL "cexp0000"	    /* version of the cexpmod interface */
+#define CEXPMOD_MAGIC_SYM "cexpMagicString"
+
+/* These must match the layout in 'cexpmod.h' -- hopefully the x-compiler doesn't
+ * change it...
+ */
+typedef struct mod_ {
+	uint32_t p_name;
+	uint32_t p_next;
+	uint32_t p_sect_syms;
+	uint32_t text_vma;
+} *CexpMod;
+
+typedef struct sym_ {
+	uint32_t p_name;
+	uint32_t p_val;
+} *CexpSym;
+
+static void
+dump_cexp_info(bfd_vma addr)
+{
+uint32_t ptr,psyms,sym;
+		ptr = geti(addr);
+		while ( ptr ) {
+			printf("Module Name: '%s'\n",   mapa(geti(ptr+OFFOF(CexpMod,p_name))));
+			printf("       Text: 0x%08x\n", geti(ptr+OFFOF(CexpMod,text_vma)));
+			if ( psyms = geti(ptr + OFFOF(CexpMod, p_sect_syms)) ) {
+				printf("       Section Info:\n");
+				while ( (sym = geti(psyms)) ) {
+					printf("         @0x%08x: %s\n",
+								geti(sym+OFFOF(CexpSym,p_val)),
+								mapa(geti(sym+OFFOF(CexpSym,p_name)))
+						  );
+					psyms+=sizeof(uint32_t);
+				}
+			}
+			ptr = geti(ptr + OFFOF(CexpMod,p_next));
+		}
+}
+
+static bfd*
+get_regs_vma_from_file(char *filename, char *symname, bfd_vma *pvma,int *phasRegs, bfd_vma *pcexp, char *magic_str)
+{
+bfd		*abfd, *rval = 0;
+asymbol	**syms = 0;
+int		i,found,tmp;
+bfd_vma	theaddr;
+char	*magic_val;
+
+	if ( magic_str ) {
+		assert( (magic_val = strchr(magic_str,'=')) );
+		*magic_val++ = 0;
+
+		if ( strcmp(CEXPMOD_MAGIC_SYM, magic_str) )
+			pcexp = 0;
+	}
+
+	if ( ! (abfd=bfd_openr(filename,0)) ) {
+		bfd_perror("Opening executable file");
+		goto cleanup;
+	}
+
+	if (!bfd_check_format(abfd, bfd_object)) {
+		bfd_perror("Checking executable file format");
+		goto cleanup;
+	}
+
+	fprintf(stderr,"Executable file is for target %s, Arch/Mach: %s\n",
+			bfd_get_target(abfd),
+			bfd_printable_name(abfd));
+
+	if (symname) {
+		if (!(HAS_SYMS & bfd_get_file_flags(abfd))) {
+			fprintf(stderr,"No symbols found\n");
+			goto cleanup;
+		}
+		if ((i=bfd_get_symtab_upper_bound(abfd))<0) {
+			fprintf(stderr,"Fatal error: illegal symtab size\n");
+			goto cleanup;
+		}
+		if (i) {
+			syms=(asymbol**)xmalloc(i);
+			i = i/sizeof(asymbol*) - 1;
+		}
+		if (bfd_canonicalize_symtab(abfd,syms) <= 0) {
+			bfd_perror("Canonicalizing symtab");
+			goto cleanup;
+		}
+
+		found = 0;
+		while (--i >= 0 && found < 7) {
+			if ( (syms[i]->flags & BSF_GLOBAL) && ! (syms[i]->flags & BSF_FUNCTION) ) {
+				if (!strcmp(symname,bfd_asymbol_name(syms[i]))) {
+					theaddr = bfd_asymbol_value(syms[i]);
+					found|=1;
+				}
+				else if (pcexp && !strcmp("cexpSystemModule",bfd_asymbol_name(syms[i]))) {
+					*pcexp = bfd_asymbol_value(syms[i]);
+					found|=2;
+				}
+				else if ( magic_str && !strcmp(magic_str,bfd_asymbol_name(syms[i]))) {
+					uint32_t pstring = bfd_asymbol_value(syms[i]);
+					uint32_t string  = bfd_get_bits((bfd_byte*)mapa(pstring), 32, bfd_big_endian(abfd));
+
+					tmp = core_limit - (char*)mapa(string);	
+
+					if ( !strncmp(magic_val, (char*)mapa(string), tmp) )
+						found|=4;
+					else {
+						char buf[50];
+						if ( tmp > sizeof(buf) ) 
+							tmp = sizeof(buf);
+						strncpy(buf,(char*)mapa(string), tmp);
+						fprintf(stderr,"Magic string doesn't match - this is probably not a valid image file\n");
+						fprintf(stderr,"Looking for '%s' @(0x%08x->0x%08x) -- found '", magic_val, pstring, string);
+						for (tmp=0; tmp<sizeof(buf) && buf[tmp]; tmp++)
+							fputc( isprint(buf[tmp]) ? buf[tmp] : '.' , stderr);
+						fprintf(stderr,"'\nBAILING OUT\n");
+						goto cleanup;
+					}
+				}
+			}
+		}
+		if ( magic_str && !(found & 4) ) {
+			fprintf(stderr,"Magic symbol '%s' not found in executable; BAILING OUT\n", magic_str);
+			goto cleanup;
+		}
+		if ( !(found & 1) ) {
+			fprintf(stderr,"Symbol '%s' not found in executable - won't write registers to core file\n",
+					symname);
+			fprintf(stderr,"(unless specified by explicit option)\n");
+		} else {
+			if ( *phasRegs ) {
+				fprintf(stderr,"Warning: '%s' found in executable but overriden by command line option\n",
+					symname);
+			} else {
+				printf("Registers (symbol '%s' found) at 0x%08x\n", symname, theaddr);
+				*phasRegs = REGS_E;
+				*pvma     = theaddr;
+			}
+		}
+	} else {
+		if ( !*phasRegs ) {
+			fprintf(stderr,"Warning: no symbol name given - won't write registers to core file\n");
+		}
+	}
+
+	rval = abfd;
+	abfd = 0;
+
+cleanup:
+	if (abfd)
+		bfd_close_all_done(abfd);
+	if (syms)
+		free(syms);
+	return rval;
+}
+
+
 int
 main(int argc, char **argv)
 {
-bfd							*obfd,*ibfd;
 const bfd_arch_info_type	*arch;
 int							i,fd,opt;
 asection					*sl, *note_s = 0;
-char						*data, *chpt, *nchpt, *name=0;
+char						*chpt, *nchpt, *name=0;
 struct stat					st;
 Reg_t						pcspfp[3] = {0};
 int							hasRegs = 0;
 int							note_size = 0;
 char     					*note;
-unsigned					vma = 0;
-unsigned					regblock_addr;
+bfd_vma						regblock_addr;
+bfd_vma						cexp_addr = NOCEXP;
 unsigned					regsz = 0;
 regs						gregs;
 Reg_t						*preg;
 int							nreg = 0;
 int							machinc = 1;
+char						*symname="_BSP_Exception_NBSD_Registers";
+char						*symfile = 0;
+int							rval = 1;
+char						*magic = 0;
+int							dumpSectionInfo = 0;
 
 		progn = argv[0];
 		if ( chpt = strrchr(progn, '/') )
@@ -198,7 +406,7 @@ int							machinc = 1;
 
 		bfd_init();
 
-		while ( (opt = getopt(argc, argv, "hr:a:p:s:f:e:")) > 0 ) {
+		while ( (opt = getopt(argc, argv, "hr:a:p:s:f:e:x:S:V:cC")) > 0 ) {
 			i = 0;
 			switch ( opt ) {
 			default:	fprintf(stderr,"Invalid option\n");
@@ -234,7 +442,30 @@ int							machinc = 1;
 						hasRegs = checkopt(hasRegs,REGS_E);
 						break;
 
-			case 'a':	vma = getn("Invalid -a argument\n", optarg);
+			case 'a':	core_vma = getn("Invalid -a argument\n", optarg);
+						break;
+
+			case 'x':	if ( !(symfile = optarg) || !*symfile )
+							fprintf(stderr,"Invalid -x argument\n");
+						break;
+
+			case 'S':	symname = optarg;
+						break;
+
+			case 'C':	dumpSectionInfo=1;
+			case 'V':	
+			case 'c':	if ( magic ) {
+							fprintf(stderr,"Only 1 of -V -c -C may be given\n");
+							exit(1);
+						}
+						if ( 'V' == opt ) {
+							if ( !(magic=strdup(optarg)) || !strchr(magic,'=') ) {
+								fprintf(stderr,"invalid -V argument: %s is not of format 'sym=val'\n", optarg);
+								exit(1);
+							}
+						} else {
+							magic = strdup(CEXPMOD_MAGIC_SYM"="CEXPMOD_MAGIC_VAL);
+						}
 						break;
 			}
 		}
@@ -255,20 +486,34 @@ int							machinc = 1;
 			exit(1);
 		}
 
-		if ( !(data=mmap(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0) ) ) {
+		if ( !(core_base=mmap(0, st.st_size, PROT_READ, MAP_SHARED, fd, 0) ) ) {
 			perror("mmap failed");
 			exit(1);
+		}
+		core_limit = core_base + st.st_size;
+
+		if ( symfile ) {
+			if ( !(ibfd = get_regs_vma_from_file(symfile, symname, &regblock_addr, &hasRegs, &cexp_addr, magic)) ) {
+				fprintf(stderr,"(Unable to read register block address from executable)\n");
+				goto cleanup;
+			} else {
+				if ( NOCEXP!=cexp_addr && dumpSectionInfo )
+					dump_cexp_info(cexp_addr);
+			}
+		} else {
+			/* try to guess defaults (see below) */
 		}
 
 		if ( argc > 1 ) {
 			chpt = argv[1];
 		} else {
-			if ( !(name = malloc(strlen(argv[0])+6)) ) {
+			chpt = symfile ? symfile : argv[0];
+			if ( !(name = malloc(strlen(chpt)+6)) ) {
 				perror("malloc");
 				exit(1);
 			}
 
-			strcpy(name, argv[0]);
+			strcpy(name, chpt);
 
 			if ( !(chpt = strrchr(name,'.')) ) {
 				chpt = name + strlen(name);
@@ -277,17 +522,38 @@ int							machinc = 1;
 			chpt = name;
 		}
 
-		if (!(obfd=bfd_openw(chpt,"default")) ||
-			! bfd_set_format(obfd,bfd_core) ||
-			! (arch=bfd_scan_arch("")) ||
-			! bfd_set_arch_mach(obfd,arch->arch,arch->mach)
+
+		if (   !(obfd=bfd_openw(chpt, ibfd ? bfd_get_target(ibfd) : "default"))
+			|| ! bfd_set_format(obfd,bfd_core)
 		   )  {
 			bfd_perror("Unable to create output BFD");
 			goto cleanup;
 		}
 
-		printf("Generating core file for target: %s ...",
-				bfd_printable_arch_mach(arch->arch, arch->mach));
+		printf("Generating core file for target: %s", bfd_get_target(obfd));
+
+		if ( ibfd ) {
+			if ( ! bfd_set_arch_mach(obfd, bfd_get_arch(ibfd), bfd_get_mach(ibfd)) ) {
+				printf("\n");
+				bfd_perror("Unable to set core file architecture)");
+				fprintf(stderr,"(BFD Target %s, Arch/Mach: %s)\n",
+						bfd_get_target(obfd),
+						bfd_printable_name(ibfd));
+				goto cleanup;
+			}
+			printf(" (Arch/Mach: %s) ...", bfd_printable_name(obfd));
+		} else {
+			for ( i = (int)bfd_arch_obscure + 1; i < (int)bfd_arch_last; i++ ) {
+				if ( bfd_set_arch_mach(obfd, (enum bfd_architecture)i, 0) ) {
+					printf("-> guessed Arch/Mach: %s\n", bfd_printable_name(obfd));
+					break;
+				}
+			}
+			if ( i >= (int)bfd_arch_last ) {
+				fprintf(stderr,"No architecture found :-(\n");
+				goto cleanup;
+			}
+		}
 
 		switch ( bfd_get_arch(obfd) ) {
 /*
@@ -297,6 +563,7 @@ int							machinc = 1;
  			case bfd_arch_sparc:
 				machinc = 0;
 			break;
+*/
 			case bfd_arch_powerpc:
 				regsz = sizeof(gregs.r_ppc32); break;
 				if ( REGS_OPT == hasRegs ) {
@@ -304,6 +571,7 @@ int							machinc = 1;
 					gregs.r_ppc32.gpr[1] = pcspfp[1];
 					gregs.r_ppc32.lr     = pcspfp[2];
 				}
+/*
 			case bfd_arch_i386:
 				regsz = sizeof(gregs.r_i386);  break;
 				if ( REGS_OPT == hasRegs ) {
@@ -336,13 +604,13 @@ int							machinc = 1;
 				}
 				preg = (Reg_t*)&gregs;
 			} else {
-				if ( regblock_addr < vma
-				     || (regblock_addr - vma) >= st.st_size
-           	         || (regblock_addr - vma) + regsz >= st.st_size ) {
+				if ( regblock_addr < core_vma
+				     || (regblock_addr - core_vma) >= st.st_size
+           	         || (regblock_addr - core_vma) + regsz >= st.st_size ) {
 					fprintf(stderr,"-e argument out of range\n");
 					exit(1);
 				}
-				preg = (Reg_t*)(data + (regblock_addr - vma));
+				preg = (Reg_t*)(core_base + (regblock_addr - core_vma));
 			}
 			note = elfcore_write_note(obfd, 0, &note_size, "NetBSD-CORE", NT_NETBSDCORE_FIRSTMACH + machinc, preg, regsz);
 			if ( !(note_s = bfd_make_section(obfd,".note"))
@@ -361,7 +629,7 @@ int							machinc = 1;
 		if ( ! (sl=bfd_make_section(obfd,"load0"))
 			 || ! bfd_set_section_flags(obfd, sl, SEC_ALLOC | SEC_LOAD | SEC_HAS_CONTENTS | SEC_DATA )
 			 || ! bfd_set_section_size(obfd, sl, st.st_size)
-			 || ! bfd_set_section_vma(obfd, sl, vma)
+			 || ! bfd_set_section_vma(obfd, sl, core_vma)
 			)
 		{
 			bfd_perror("error creating load section");
@@ -371,7 +639,7 @@ int							machinc = 1;
 		bfd_map_over_sections(obfd, mk_phdr, 0);
 
 		if (
-			 ! bfd_set_section_contents (obfd, sl, data, 0, st.st_size)
+			 ! bfd_set_section_contents (obfd, sl, core_base, 0, st.st_size)
 			 || (note_s && ! bfd_set_section_contents (obfd, note_s, note, 0, note_size) )
 		   ) {
 			bfd_perror("error setting section contents");
@@ -379,11 +647,18 @@ int							machinc = 1;
 		}
 
 		printf("memory image is %i bytes.\n", st.st_size);
+		rval = 0;
 
 cleanup:
-		if (obfd)
+		if (obfd) {
 			bfd_close(obfd);
+			if ( rval )
+				unlink(chpt);
+		}
+		if (ibfd)
+			bfd_close_all_done(ibfd);
 		free(name);
+		free(magic);
 
-		return 0;
+		return rval;
 }

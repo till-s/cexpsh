@@ -34,7 +34,7 @@ static inline void
 #elif defined(NO_THREAD_PROTECTION)
 #define __LOCK
 #define __UNLOCK
-#define __LCKINI(arg) do {} while(0)
+#define __LCKINI() do {} while(0)
 #else
 #error "thread protection not implemented for this target system"
 #endif

@@ -10,7 +10,6 @@
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 
-#define BOOLTRUE	1
 #define YYPARSE_PARAM	parm
 #define YYLEX_PARAM		parm
 #define YYERROR_VERBOSE
@@ -21,7 +20,7 @@
 #define EVAL(stuff)  if (! EVAL_INH ) do { stuff; } while (0)
 
 #define CHECK(cexpTfuncall) do { const char *e=(cexpTfuncall);\
-								 if (e) { yyerror(e); YYERROR; } } while (0)
+					 if (e) { yyerror(e); YYERROR; } } while (0)
 
 /* acceptable characters for identifiers - must not
  * overlap with operators
@@ -38,6 +37,7 @@ int  yylex();
 %union {
 	CexpTypedValRec		val;
 	CexpSym				sym;	/* a symbol table entry */
+	CexpType			typ;
 	struct			{
 		CexpTypedValRec	val;
 		char	        *name;
@@ -66,12 +66,8 @@ int  yylex();
 %type  <val>	call
 %type  <val>	funcp
 %type  <val>	fncast
-/*
-%type  <val>    cast
 
-%type  <sym>	var
-
-*/
+%type  <typ>	pcast cast typeid
 
 %right			'?' ':'
 %right			'='
@@ -93,11 +89,11 @@ int  yylex();
 input:	line		{ YYACCEPT; }
 
 line:	'\n'
-	|		exp '\n'
-					{ CexpType t=$1.type;
+	|	exp '\n'
+					{CexpType t=$1.type;
 						if (CEXP_TYPE_FPQ($1.type)) {
 							CHECK(cexpTypeCast(&$1,TDouble,0));
-							printf("%lf (type 0x%04x\n",$1.tv.d,t);
+							printf("%lf\n",$1.tv.d,t);
 						}else {
 							CHECK(cexpTypeCast(&$1,TULong,0));
 							printf("0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
@@ -106,7 +102,6 @@ line:	'\n'
 ;
 
 exp:	binexp 
-					{ $$ = $1; }
 	|	lval '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
 /*
@@ -190,13 +185,15 @@ unexp:	VAR
 	|	UVAR
 					{ $$=$1.val; }
 	|	NUMBER
-					{ $$=$1; }
 	|   '!' fncast
 					{ $$.tv.l = ! cexpTVTrueQ(&$2); }
 	|   '~' fncast
 					{ CHECK(cexpTVUnOp(&$$,&$2,OCpl)); }
 	|   '-' fncast %prec NEG
 					{ CHECK(cexpTVUnOp(&$$,&$2,ONeg)); }
+	|	cast fncast
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+/*
 	|	'(' KW_CHAR ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TUChar,CNV_FORCE)); }
 	|	'(' KW_SHORT ')' fncast %prec CAST
@@ -205,102 +202,72 @@ unexp:	VAR
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TULong,CNV_FORCE)); }
 	|	'(' KW_DOUBLE ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TDouble,CNV_FORCE)); }
+*/
 	|	'*' ptr %prec DEREF
 					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
 	|	call
-					{ $$=$1; }
 ;
 
 lval:	VAR			{ $$=$1->value; }
 	|   '*' lvp %prec DEREF
 					{ $$=$2; }
-	|	'(' KW_CHAR ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
-	|	'(' KW_SHORT ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUShortP,CNV_FORCE)); }
-	|	'(' KW_LONG ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TULongP,CNV_FORCE)); }
-	|	'(' KW_DOUBLE ')' VAR %prec CAST
-					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
-;
-
-lvp:	'&' VAR %prec ADDR
-					{ $$=$2->value; }
-	|	'(' KW_CHAR '*' ')' unexp %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
-	|	'(' KW_SHORT '*' ')' unexp %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TUShortP,CNV_FORCE)); }
-	|	'(' KW_LONG '*' ')' unexp %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TULongP,CNV_FORCE)); }
-	|	'(' KW_DOUBLE '*' ')' unexp %prec CAST
-					{ $$=$5; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
-;
-
-ptr: lvp
-	|	STR_CONST
-					{ $$=$1; }
-;
-
+	|	cast VAR
+					{ $$=$2->value; CHECK(cexpTypeCast(&$$,$1,0)); }
 /*
-var:	CHAR_VAR	{ $$=$1; }
-	|	SHORT_VAR	{ $$=$1; }
-	|	VAR			{ $$=$1; }
-;
-
-clval:	CHAR_VAR
-					{ $$=(unsigned char*)$1->val.addr; }
-	|	'(' KW_CHAR ')' var %prec CAST
-					{ $$=(unsigned char*)$4->val.addr; }
-	|	'*' cptr %prec DEREF
-					{ $$=$2; }
-;
-
-slval:	SHORT_VAR
-					{ $$=(unsigned short*)$1->val.addr; }
-	|	'(' KW_SHORT ')' var %prec CAST
-					{ $$=(unsigned short*)$4->val.addr; }
-	|	'*' sptr %prec DEREF
-					{ $$=$2; }
-;
-
-
-llval:	VAR
-					{ $$=$1->val.addr; }
-	|	'(' KW_LONG ')' var %prec CAST
-					{ $$=$4->val.addr; }
-	|	'*' lptr %prec DEREF
-					{ $$=$2; }
-;
-
-cptr:	'&' CHAR_VAR %prec ADDR
-					{ $$=(unsigned char*)$2->val.addr; }
-	|	'(' KW_CHAR '*' ')' unexp %prec CAST
-					{ $$=(unsigned char*)$5; }
-	|	STR_CONST
-					{ $$=$1; }
-;
-
-sptr:	'&' SHORT_VAR %prec ADDR
-					{ $$=(unsigned short*)$2->val.addr; }
-	|	'(' KW_SHORT '*' ')' unexp %prec CAST
-					{ $$=(unsigned short*)$5; }
-;
+	|	'(' KW_CHAR ')' VAR %prec CAST
+					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUCharP,0)); }
+	|	'(' KW_SHORT ')' VAR %prec CAST
+					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUShortP,0)); }
+	|	'(' KW_LONG ')' VAR %prec CAST
+					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TULongP,0)); }
+	|	'(' KW_DOUBLE ')' VAR %prec CAST
+					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TDoubleP,0)); }
 */
+;
 
 /* NOTE: for now, we consider it not legal to
  *       deal with pointers to UVARs
  */
-/*
-lptr:	'&' VAR	 %prec ADDR
-					{ $$=$2->val.addr; }
-	|	'(' KW_LONG '*' ')' unexp %prec CAST
-					{ $$=(unsigned long*)$5; }
-	|	funcp
-					{ $$=(unsigned long*)$1; }
-	|	'&' funcp %prec ADDR
-					{ $$=(unsigned long*)$2; }
+
+typeid:	KW_CHAR
+					{ $$=TUChar; }
+	|	KW_SHORT
+					{ $$=TUShort; }
+	|	KW_LONG
+					{ $$=TULong; }
+	|	KW_DOUBLE
+					{ $$=TDouble; }
 ;
+
+cast:	'(' typeid  ')'
+					{ $$=$2; }
+;
+
+pcast:
+		'(' typeid	'*'	 ')'
+					{ $$=CEXP_TYPE_BASE2PTR($2); }
+;
+
+lvp:	'&' VAR %prec ADDR
+					{ $$=$2->value; }
+	|	pcast fncast %prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+/*
+	|	'(' KW_CHAR '*' ')' fncast %prec CAST
+					{ $$=$5; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
+	|	'(' KW_SHORT '*' ')' fncast %prec CAST
+					{ $$=$5; CHECK(cexpTypeCast(&$$,TUShortP,CNV_FORCE)); }
+	|	'(' KW_LONG '*' ')' fncast %prec CAST
+					{ $$=$5; CHECK(cexpTypeCast(&$$,TULongP,CNV_FORCE)); }
+	|	'(' KW_DOUBLE '*' ')' fncast %prec CAST
+					{ $$=$5; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
 */
+;
+
+ptr:	lvp
+	|	STR_CONST
+;
+
 
 funcp:	FUNC	
 					{ $$=$1->value; }
@@ -309,9 +276,7 @@ funcp:	FUNC
 ;
 
 fncast: unexp
-					{ $$=$1; }
 	|	ptr
-					{ $$=$1; }
 	|	'(' KW_LONG '(' '*' ')' '(' ')' ')' fncast %prec CAST
 					{ $$=$9; CHECK(cexpTypeCast(&$$,TFuncP,CNV_FORCE)); }
 	|	'(' KW_DOUBLE '(' '*' ')' '(' ')' ')' fncast %prec CAST
@@ -322,7 +287,6 @@ fncast: unexp
 call:	'(' exp ')'
 					{ $$=$2; }
 	|	funcp
-					{ $$=$1; }
 	|	call '(' ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
 	|	call '(' exp ')'

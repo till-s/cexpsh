@@ -102,6 +102,9 @@ int			from,to;
 
 	/* cast from one pointer into another ? */
 	if (from && to) {
+		if (!(flags&CNV_FORCE) && CEXP_BASE_TYPE_SIZE(t) > CEXP_BASE_TYPE_SIZE(v->type))
+			return "cannot cast, target pointer element type too small";
+
 			v->type=t;
 			return 0;
 	}
@@ -123,7 +126,7 @@ int			from,to;
 	c=ctab[from][to];
 	if (c) {
 		if (!(flags&CNV_FORCE) && CEXP_TYPE_SIZE(t) < CEXP_TYPE_SIZE(v->type))
-				return "cannot cast; would truncate";
+				return "cannot cast; would truncate source value";
 		c(v);
 		v->type=t;
 	} else

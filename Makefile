@@ -24,8 +24,8 @@ jumptab.c: gentab
 	./$^ > $@
 	$(RM) $^
 
-links:	./binutils-2.13 ./regexp ./libelf-0.8.0 ./libtecla-1.4.1
-	ln -s $(LINKDIR)/$^ .
+links:	$(LINKDIR)/binutils-2.13 $(LINKDIR)/regexp $(LINKDIR)/libelf-0.8.0 $(LINKDIR)/libtecla-1.4.1
+	ln -s $^ .
 
 src: cexp.tab.c cexp.tab.h jumptab.c
 
@@ -33,4 +33,4 @@ bootstrap:
 	aclocal
 	autoconf
 	autoheader
-	automake -a
+	automake -ac

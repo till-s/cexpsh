@@ -8,6 +8,10 @@
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002  - this line must not be removed*/
 /* License: GPL, for details see http:www.gnu.org - this line must not be removed */
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct CexpSymTblRec_ *CexpSymTbl;
 
 typedef struct CexpParserCtxRec_ *CexpParserCtx;
@@ -160,12 +164,14 @@ lkup(char *pattern);
 int
 lkaddr(void *addr);
 
-#ifdef __rtems
 /* the main interpreter loop, it can be registered
  * with a shell...
  */
 int
 cexp_main(int argc, char **argv);
+
+#ifdef __cplusplus
+};
 #endif
 
 #endif

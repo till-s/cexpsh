@@ -80,7 +80,7 @@ Elf32_Shdr  *nshdr, *shdr=elf32_getshdr(from);
 }
 
 int
-main(int argc, char ** argv)
+xsyms_main(int argc, char ** argv)
 {
 Elf32_Shdr     *shdr, *nshdr=0;
 Elf32_Ehdr     *ehdr, *nehdr=0;

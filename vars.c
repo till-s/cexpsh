@@ -351,7 +351,7 @@ CexpStr s;
 
 #if defined(TEST_VARS)
 int
-main(int argc, char **argv)
+vars_main(int argc, char **argv)
 {
 char *line=0;
 char *name,*v;

@@ -71,7 +71,6 @@ void root(double * res, double n)
 #endif
 
 #ifdef __rtems
-#define main cexp_main
 #define optind 1
 #endif
 
@@ -123,7 +122,7 @@ lkaddr(void *addr)
 }
 
 int
-main(int argc, char **argv)
+cexp_main(int argc, char **argv)
 {
 char				*line,*prompt,*tmp;
 CexpParserCtx		ctx;
@@ -155,7 +154,7 @@ if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(argc>optind?argv[optind]:0)))) {
 	return 1;
 }
 
-fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)main);
+fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)cexp_main);
 
 tmp = argc>0 ? argv[0] : "Cexp";
 prompt=malloc(strlen(tmp)+2);

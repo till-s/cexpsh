@@ -42,7 +42,8 @@ static int
 filter(Elf32_Sym *sp,CexpType *pt)
 {
 
-	if (STT_OBJECT  == ELF32_ST_TYPE(sp->st_info)) {
+	switch (ELF32_ST_TYPE(sp->st_info)) {
+	case STT_OBJECT:
 		if (pt) {
 			CexpType t;
 			int s=sp->st_size;
@@ -65,13 +66,21 @@ filter(Elf32_Sym *sp,CexpType *pt)
 			}
 			*pt=t;
 		}
-		return 1;
-	}
-	if ( STT_FUNC    == ELF32_ST_TYPE(sp->st_info)) {
+	break;
+
+	case STT_FUNC:
 		if (pt) *pt=TFuncP;
-		return 1;
-	}
+	break;
+
+	case STT_NOTYPE:
+		if (pt) *pt=TVoidP;
+	break;
+
+	default:
 	return 0;
+	}
+
+	return 1;
 }
 
 /* compare the name of two symbols */
@@ -213,11 +222,12 @@ CexpSym		sane;
 		nsyms=shdr->sh_size/shdr->sh_entsize;
 
 		/* count the number of valid symbols */
-		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp++,n++)
+		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp++,n++) {
 			if (filter(sp,0)) {
 				nDstChars+=(strlen(strtab+sp->st_name) + 1);
 				nDstSyms++;
 			}
+		}
 
 		rval->stab.nentries=nDstSyms;
 
@@ -275,6 +285,7 @@ CexpSym		sane;
 	elf_cntl(elf,ELF_C_FDDONE);
 	elf_end(elf); elf=0;
 
+#ifndef ELFSYMS_TEST_MAIN
 	/* do a couple of sanity checks */
 	if ((sane=cexpSymTblLookup("cexpSlurpElf",&rval->stab))) {
 		extern void *_edata, *_etext;
@@ -288,6 +299,7 @@ CexpSym		sane;
 
 		/* OK, sanity test passed */
 	}
+#endif
 
 	return &rval->stab;
 
@@ -378,11 +390,11 @@ int			lo,hi,mid;
 }
 
 
-#ifdef CEXP_TEST_MAIN
+#ifdef ELFSYMS_TEST_MAIN
 /* only build this 'main' if we are testing the ELF subsystem */
 
 int
-main(int argc, char **argv)
+elfsyms_main(int argc, char **argv)
 {
 int		fd,nsyms;
 CexpSymTbl	t;

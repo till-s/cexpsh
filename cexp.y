@@ -644,16 +644,8 @@ char *chpt;
 				return scanfrac(sbuf,chpt,limit,rval,pa);
 			}
 		}
-		if (num < (1<<(8*sizeof(unsigned char))) ) {
-			rval->val.tv.c=(unsigned char)num;
-			rval->val.type=TUChar;
-		} else if (num< (1<< (8*sizeof(unsigned short))) ) {
-			rval->val.tv.s=(unsigned short)num;
-			rval->val.type=TUShort;
-		} else {
-			rval->val.tv.l=num;
-			rval->val.type=TULong;
-		}
+		rval->val.tv.l=num;
+		rval->val.type=TULong;
 		return NUMBER;
 	} else if ('.'==ch) {
 		/* also a fractional number */

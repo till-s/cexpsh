@@ -112,6 +112,24 @@ static Converter ctab[6][6] = {
 	{	d2p,	d2c,	d2s,	d2l,	d2f,	d2d	},
 };
 
+/* check whether v would fit into a variable of type t */
+static int
+fits(CexpTypedVal v, CexpType t)
+{
+unsigned long n;
+	if (CEXP_TYPE_SIZE(t) < CEXP_TYPE_SIZE(v->type)) {
+		switch(v->type) {
+			case TUChar: 	n=v->tv.c; break;
+			case TUShort:	n=v->tv.s; break;
+			case TULong:	n=v->tv.l; break;
+
+			default:	assert(!"Invalid Type - you found a BUG");
+		}
+		return n < (1<<(8*CEXP_TYPE_SIZE(t)));
+	}
+	return 1;
+}
+
 const char *
 cexpTypeCast(CexpTypedVal v, CexpType t, int flags)
 {
@@ -146,7 +164,7 @@ int			from,to;
 	/* we must convert the data */
 	c=ctab[from][to];
 	if (c) {
-		if (!(flags&CNV_FORCE) && CEXP_TYPE_SIZE(t) < CEXP_TYPE_SIZE(v->type))
+		if ( ! (flags&CNV_FORCE) && ! fits(v,t))
 				return "cannot cast; would truncate source value";
 		c(v);
 		v->type=t;

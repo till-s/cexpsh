@@ -15,6 +15,7 @@ typedef struct CexpSymRec_ {
 	char				*name;
 	CexpTypedAddrRec	value;
 	int					size;
+	unsigned			flags;
 } CexpSymRec, *CexpSym;
 
 typedef struct CexpSymTblRec_ {

@@ -24,4 +24,8 @@ rshLoad(char *host, char *user, char *cmd);
 
 #define LOAD_CHUNK    2000
 
+/* flags associated with symbols */
+#define CEXP_SYMFLG_GLBL	(1<<0) /* a global symbol */
+#define CEXP_SYMFLG_WEAK	(1<<1) /* a weak symbol   */
+
 #endif

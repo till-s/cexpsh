@@ -231,6 +231,13 @@ int			fd=-1;
 						/* do nothing else */;
 
 				cesp->size = sp->st_size;
+				cesp->flags = 0;
+				switch(ELF32_ST_BIND(sp->st_info)) {
+					case STB_GLOBAL: cesp->flags|=CEXP_SYMFLG_GLBL; break;
+					case STB_WEAK  : cesp->flags|=CEXP_SYMFLG_WEAK; break;
+					default:
+						break;
+				}
 
 				cesp->value.type = t;
 				cesp->value.ptv  = (CexpVal)sp->st_value;

@@ -19,4 +19,19 @@ cexpSymLkAddr(void *addr, int margin, FILE *f, CexpModule *pmod);
 char *
 cexpModuleName(CexpModule mod);
 
+/* list the IDs of modules whose name matches a pattern
+ * to file 'f' (stdout if NULL).
+ *
+ * RETURNS: First module ID found, NULL on no match.
+ */
+CexpModule
+cexpModuleFindByName(char *pattern, FILE *f);
+
+/* Dump info about a module to 'f' (stdout if NULL)
+ * If NULL is passed for the module ID, info about
+ * all modules is given.
+ */
+int
+cexpModuleInfo(CexpModule mod, FILE *f);
+
 #endif

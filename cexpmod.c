@@ -17,6 +17,36 @@ CexpModule cexpSystemModule=0;
 #define __WUNLOCK() do {} while(0)
 #endif
 
+/* Search predecessor of a module in the list.
+ * This should be called with the lock held!
+ */
+
+static CexpModule
+predecessor(CexpModule mod)
+{
+register CexpModule pred;
+
+	if (!mod) return 0;
+
+	for (pred=cexpSystemModule; pred && mod!=pred->next; pred=pred->next)
+			/* nothing else to do */;
+	return pred;
+}
+
+/* verify the validity of a handle;
+ * should be called with the lock held
+ */
+static int
+modIsStale(CexpModule mod)
+{
+register CexpModule m;
+
+	for (m=cexpSystemModule; m && m!=mod; m=m->next)
+			/* nothing else to do */;
+	return m==0;
+}
+
+
 /* search for a name in all module's symbol tables */
 CexpSym
 cexpSymLookup(const char *name, CexpModule *pmod)
@@ -82,7 +112,7 @@ _cexpSymLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpModule *pmod)
 {
 CexpModule	m,mfound;
 
-    if (max<1)  max=25;
+    if (max<1)  max=24;
     if (!f)     f=stdout;
 
 	if (pmod)	{
@@ -96,6 +126,12 @@ CexpModule	m,mfound;
     
 	__RLOCK();
 
+	if (modIsStale(m)) {
+		__RUNLOCK();
+		fprintf(f,"Got a stale module handle; giving up...\n");
+		return 0;
+	}
+
 	for (; m; m=m->next) {
     	if (!s) s=m->symtbl->syms;
 		mfound=0;
@@ -104,9 +140,10 @@ CexpModule	m,mfound;
 				if (!mfound) {
 					fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, m);
 					mfound=m; /* print module name only once */
+					max--;
 				}
 				cexpSymPrintInfo(s,f);
-				if (0==--max) {
+				if (--max <= 0) {
 					if (pmod)
 						*pmod=m;
 
@@ -138,15 +175,21 @@ CexpModule m;
 int
 cexpModuleInfo(CexpModule mod, FILE *f)
 {
-CexpModule m;
+CexpModule m = mod ? mod : cexpSystemModule;
 
 
 	if (!f) f=stdout;
 
 	__RLOCK();
 
-	m=mod ? mod : cexpSystemModule;
-	for (m=cexpSystemModule; m; m=m->next) {
+	if (modIsStale(m)) {
+		__RUNLOCK();
+		fprintf(f,"Got a stale module handle; giving up...\n");
+		return 0;
+	}
+
+
+	for (; m; m=m->next) {
 		fprintf(f,"Module '%s' (0x%08x):\n",m->name,m);
 		fprintf(f,"  %i symbol table entries\n",m->symtbl->nentries);
 		fprintf(f,"  %i bytes of memory allocated to binary\n",m->memSize);
@@ -162,6 +205,37 @@ CexpModule m;
 	return 0;
 }
 
+CexpModule
+cexpModuleFindByName(char *needle, FILE *f)
+{
+regexp		*rc=0;
+CexpModule	m,found=0;
+
+	if (!f)
+		f=stdout;
+
+	if (!(rc=regcomp(needle))) {
+		fprintf(stderr,"unable to compile regexp '%s'\n",re);
+		return -1;
+	}
+
+	__RLOCK();
+
+	for (m=cexpSystemModule; m; m=m->next) {
+		if (regexec(rc,m->name)) {
+			/* record first item found */
+			if (!found)
+				found=m;
+			fprintf(f,"0x08x: %x\n",m, m->name);
+		}
+	}
+
+	__RUNLOCK();
+
+	free(rc);
+	return found;
+}
+
 int
 cexpModuleUnload(CexpModule mod)
 {
@@ -171,8 +245,7 @@ CexpModule	pred,m;
 	__WLOCK();
 
 	/* is mod in the list at all ? */
-	for (pred=cexpSystemModule; pred && mod!=pred->next; pred=pred->next)
-		/* nothing else to do */;
+	pred=predecessor(mod);
 
 	if (mod && mod==cexpSystemModule) {
 		fprintf(stderr,"Cannot unload system symbol table\n");

@@ -118,9 +118,30 @@ cexpModuleFindByName(char *pattern, FILE *f);
 /* Dump info about a module to 'f' (stdout if NULL)
  * If NULL is passed for the module ID, info about
  * all modules is given.
+ * Info of different levels is given:
+ *  level 0: module name and text address
+ *  level 1: level 0 info and module dependencies
+ *  level 2: level 1 info and memory usage info
+ *  level 3: level 2 info and section address info
+ *
+ * RETURNS: mod->next (or NULL if mod==NULL).
  */
-int
-cexpModuleInfo(CexpModule mod, FILE *f);
+CexpModule
+cexpModuleInfo(CexpModule mod, int level, FILE *feil);
+
+/* Dump section info for a module (or all modules
+ * if mod==NULL) in a format useful to GDB to 'f'
+ * (stdout if NULL). Lines in the format
+ *
+ *  'prefix' 'module_name' 'text_address' { -s 'section_name' 'section_address' }
+ *
+ * are printed. The default prefix (if NULL is passed)
+ * is 'add-symbol-file'.
+ *
+ * RETURNS: mod->next or NULL.
+ */
+CexpModule
+cexpModuleDumpGdbSectionInfo(CexpModule mod, char *prefix, FILE *feil);
 
 /* search for a name in all module's symbol tables
  *

@@ -249,11 +249,10 @@ struct winsize	win;
 
 #ifdef HAVE_TECLA
 		{
-		CexpContext		context;
 		GlTerminalSize	ts;
-
-		cexpContextGetCurrent(&context);
-		ts = gl_terminal_size(context->gl, 80, 24);
+		ts.nline   = 24;
+		ts.ncolumn = 80;
+		cexpResizeTerminal(&ts);
 		nl = ts.nline;
 		}
 #else

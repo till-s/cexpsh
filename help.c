@@ -58,6 +58,10 @@ extern int cexpDisassemble();
 #define DISAS_HELP
 #endif
 
+#ifdef HAVE_TECLA
+extern int cexpResizeTerminal();
+#endif
+
 static CexpHelpTabRec CEXP_HELP_TAB[]={
 	HELP(
 "Search the system symbol table and the user variables\n\
@@ -134,6 +138,15 @@ last call to cexpDisassemble() stopped.\n\
 Parameter 'di' should be set to NULL (automatically determined).",
 		int,
 		cexpDisassemble,(void *addr, int n, disassemble_info *di)
+	),
+#endif
+#ifdef HAVE_TECLA
+	HELP(
+"Resize the terminal, i.e. try to query the terminal for its size\n\
+and notify TECLA of the new size. If nothing works, you may pass a\n\
+default size (struct {int row,col;} *psize) in the optional argument.\n",
+		int,
+		cexpResizeTerminal,(void *psize)
 	),
 #endif
 	HELP("",,0,)

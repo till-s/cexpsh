@@ -53,6 +53,7 @@
 #include "cexpsyms.h"
 #include "cexpmod.h"
 #include "ctyps.h"
+#include "context.h"
 
 #define	 MATCH_MAX	100
 
@@ -147,4 +148,20 @@ cleanup:
 	cexp_regfree(rc);
 	free(pattern);
 	return rval;
+}
+
+int
+cexpResizeTerminal(GlTerminalSize *pts)
+{
+GlTerminalSize	ts;
+CexpContext		context;
+	ts.nline   = 24;
+	ts.ncolumn = 80;
+	if (pts)
+		ts = *pts;
+	cexpContextGetCurrent(&context);
+	ts = gl_terminal_size(context->gl, ts.ncolumn, ts.nline);
+	if (pts)
+		*pts = ts;
+	return 0;
 }

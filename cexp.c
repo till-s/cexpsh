@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <stdarg.h>
 
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -18,15 +19,12 @@
 #include "elfsyms.h"
 #include "vars.h"
 
-#ifndef __rtems
-#define HAS_GETOPT
-#endif
+#include "getopt/mygetopt_r.h"
 
 #ifdef YYDEBUG
 extern int cexpdebug;
 #endif
 
-#ifdef HAS_GETOPT
 static void
 usage(char *nm)
 {
@@ -34,7 +32,8 @@ usage(char *nm)
 #ifdef YYDEBUG
 	fprintf(stderr, " [-d]");
 #endif
-	fprintf(stderr," <ELF symbol file>\n");
+	fprintf(stderr," [-s <ELF symbol file>]");
+	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser\n");
 	fprintf(stderr, "       -h print this message\n");
 #ifdef YYDEBUG
@@ -42,14 +41,7 @@ usage(char *nm)
 #endif
 	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@TU-Berlin.de>\n");
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
-#endif
 
 #ifdef DEBUG
 #include <math.h>
@@ -68,10 +60,6 @@ int		a,b;
 /* a wrapper to link a math routine for testing doubles */
 void root(double * res, double n)
 {*res= sqrt(n);}
-#endif
-
-#ifdef __rtems
-#define optind 1
 #endif
 
 static void *
@@ -121,54 +109,105 @@ lkaddr(void *addr)
 	return 0;
 }
 
+/* a wrapper to call cexp main with a variable arglist */
+int
+cexp(char *arg0,...)
+{
+va_list ap;
+int		argc=0;
+char	*argv[10]; /* limit to 10 arguments */
+
+	va_start(ap,arg0);
+
+	argv[argc]="cexp_main";
+	if (arg0) {
+		argv[++argc]=arg0;
+
+		while ((argv[++argc]=va_arg(ap,char*))) {
+			if (argc >= sizeof(argv)/sizeof(argv[0])) {
+				fprintf(stderr,"cexp: too many arguments\n");
+				va_end(ap);
+				return -1;
+			}
+		}
+	}
+
+	va_end(ap);
+	return cexp_main(++argc,argv);
+}
+
 int
 cexp_main(int argc, char **argv)
 {
-char				*line,*prompt,*tmp;
-CexpParserCtx		ctx;
-
-#ifdef HAS_GETOPT
+char				*line,*prompt=0,*tmp;
+char				*symfile=0, *script=0;
+CexpParserCtx		ctx=0;
+int					rval=1;
+MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
 char				optstr[]={
 						'h',
-
+						's',':',
 #ifdef YYDEBUG
 						'd',
 #endif
 						'\0'
 					};
 
-while ((opt=getopt(argc, argv, optstr))>=0) {
+while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 	switch (opt) {
 		default:  fprintf(stderr,"Unknown Option %c\n",opt);
-		case 'h': usage(argv[0]); return(1);
+		case 'h': usage(argv[0]);
+		return(1);
+
 #ifdef YYDEBUG
 		case 'd': cexpdebug=1;
+		break;
 #endif
+		case 's': symfile=oc.optarg;
+		break;
 	}
 }
-#endif
 
-if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(argc>optind?argv[optind]:0)))) {
+if (argc>oc.optind)
+	script=argv[oc.optind];
+
+if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(symfile)))) {
 	fprintf(stderr,"Need an elf symbol table file arg\n");
+	usage(argv[0]);
 	return 1;
 }
 
-fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)cexp_main);
-
 tmp = argc>0 ? argv[0] : "Cexp";
-prompt=malloc(strlen(tmp)+2);
-strcpy(prompt,tmp);
-strcat(prompt,">");
-while ((line=readline(prompt))) {
-	cexpResetParserCtx(ctx,line);
-	cexpparse((void*)ctx);
-	add_history(line);
-	free(line);
+if (script) {
+	FILE *scr;
+	char buf[500]; /* limit line length to 500 chars :-( */
+	if (!(scr=fopen(script,"r"))) {
+		perror("opening scriptfile");
+		goto cleanup;
+	}
+	while (fgets(buf,sizeof(buf),scr)) {
+		cexpResetParserCtx(ctx,buf);
+		cexpparse((void*)ctx);
+	}
+	fclose(scr);
+} else {
+	prompt=malloc(strlen(tmp)+2);
+	strcpy(prompt,tmp);
+	strcat(prompt,">");
+	while ((line=readline(prompt))) {
+		cexpResetParserCtx(ctx,line);
+		cexpparse((void*)ctx);
+		add_history(line);
+		free(line);
+	}
 }
-free(prompt);
 
-cexpFreeParserCtx(ctx);
+	rval=0;
 
-return 0;
+cleanup:
+	free(prompt);
+	cexpFreeParserCtx(ctx);
+
+	return rval;
 }

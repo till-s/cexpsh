@@ -1,4 +1,4 @@
-/* $Id$ */
+/* bfdstuff.c,v 1.51 2004/12/02 21:16:37 till Exp */
 
 /* Cexp interface to object/symbol file using BFD; runtime loader support */
 
@@ -238,11 +238,6 @@ static CexpSym	my__dso_handle = 0;
 
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
-
-#ifdef __rtems__
-static FILE *
-copyFileToTmp(int fd, char *tmpfname);
-#endif
 
 static void
 bfdCleanupCallback(CexpModule);
@@ -1231,8 +1226,6 @@ void							*ehFrame=0;
 char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
-int								is_on_tftp;
-struct stat						dummybuf;
 #endif
 
 enum bfd_architecture			arch;
@@ -1266,62 +1259,10 @@ char							*thename = 0;
 	/* lazy init of regexp pattern */
 	if (!ctorDtorRegexp)
 		ctorDtorRegexp=cexp_regcomp(CTOR_DTOR_PATTERN);
-	
-	{
-	/* Search relative file in the PATH */
-	char *path    = getenv("PATH");
-	char *col;
 
-	thename       = malloc(MAXPATHLEN);
+	thename = malloc(MAXPATHLEN);
 
-	if ( strchr(filename,'/') || !path )
-		path = "";
-
-	col = path-1;
-	do {
-	path = col+1;
-	/* 'path' is never NULL; either "" (absolute file or env var not set)
-     * or a colon separated list.
-	 * If there is no '.' or empty element in the path, the current
-	 * directory is NOT searched (e.g. PATH=/a/b/c/d searches only
-	 * /a/b/c/d, PATH=/a/b/c/d: searches /a/b/c/d, then '.'
-	 */
-	if ( (col = strchr(path,':')) ) {
-		strncpy(thename,path,col-path);
-		thename[col-path] = 0;
-	} else {
-		strcpy(thename,path);
-	}
-	/* don't append a separator if the prefix is empty */
-	if ( *thename )
-		strcat(thename,"/");
-	strcat(thename,filename);
-		
-#ifdef __rtems__
-	/* The RTEMS TFTPfs is strictly
-	 * sequential access (no lseek(), no stat()). Hence, we copy
-	 * the file to scratch file in memory (IMFS).
-	 */
-
-	/* we assume that a file we cannot stat() but open() is on TFTPfs */
-	is_on_tftp = stat(thename, &dummybuf) ? open(thename,O_RDONLY) : -1;
-	if ( is_on_tftp >= 0 ) {
-		if ( ! (f=copyFileToTmp(is_on_tftp, tmpfname)) ) {
-			/* file was found but couldn't make copy; this is an error */
-			goto cleanup;
-		}
-		filename=tmpfname;
-	} else
-#endif
-	if (  ! (f=fopen(thename,"r")) ) {
-		if ( errno != ENOENT ) {
-			/* stop searching; file seems to be there but unreadable */
-			break;
-		}
-	} else {
-		filename=thename;
-	}
-	} while ( !f && col );
+	f = cexpSearchFile(getenv("PATH"), &filename, thename, tmpfname);
 
 	if ( !f ) {
 		perror("opening object file");
@@ -1334,7 +1275,6 @@ char							*thename = 0;
 		goto cleanup;
 	}
 
-	}
 	/* ldr.abfd now holds the descriptor and bfd_close_all_done() will release it */
 	f=0;
 
@@ -1604,92 +1544,6 @@ bfdCleanupCallback(CexpModule mod)
 		my__deregister_frame(mod->modPvt);
 	}
 }
-
-#ifdef __rtems__
-static FILE *
-copyFileToTmp(int fd, char *tmpfname)
-{
-FILE		*rval=0,*infile=0,*outfile=0;
-char		buf[BUFSIZ];
-int			nread,nwritten;
-struct stat	stbuf;
-
-	/* a hack (rtems) to make sure the /tmp dir is present */
-	if (stat("/tmp",&stbuf)) {
-		mode_t old=umask(0);
-		mkdir("/tmp",0777);
-		umask(old);
-	}
-
-#if 0 /* sigh - there is a bug in RTEMS/IMFS; the memory of a
-		 tmpfile() is actually never released, so we work around
-		 this...
-	   */
-	/* open files; the tmpfile will be removed by the system
-	 * as soon as it's closed
-	 */
-	if (!(outfile=tmpfile()) || ferror(outfile)) {
-		perror("creating scratch file");
-		goto cleanup;
-	}
-#else
-	{
-	int	fd;
-	if ( (fd=mkstemp(tmpfname)) < 0 ) {
-		perror("creating scratch file");
-		goto cleanup;
-	}
-	if ( !(outfile=fdopen(fd,"w+")) ) {
-		perror("opening scratch file");
-		close(fd);
-		unlink(tmpfname);
-		goto cleanup;
-	}
-	}
-#endif
-
-	if (!(infile=fdopen(fd,"r")) || ferror(infile)) {
-		perror("opening object file");
-		goto cleanup;
-	}
-
-	/* do the copy */
-	do {
-		nread=fread(buf,1,sizeof(buf),infile);
-		if (nread!=sizeof(buf) && ferror(infile)) {
-			perror("reading object file");
-			goto cleanup;
-		}
-
-		nwritten=fwrite(buf,1,nread,outfile);
-		if (nwritten!=nread) {
-			if (ferror(outfile))
-				perror("writing scratch file");
-			else
-				fprintf(stderr,"Error writing scratch file");
-			goto cleanup;
-		}
-	} while (!feof(infile));
-
-	fflush(outfile);
-	rewind(outfile);
-
-	/* success; remap pointers and fall thru */
-	rval=outfile;
-	outfile=0;
-
-cleanup:
-	if (outfile) {
-		fclose(outfile);
-		unlink(tmpfname);
-	}
-	if (infile)
-		fclose(infile);
-	else
-		close(fd);
-	return rval;
-}
-#endif
 
 #if 0
 /*

@@ -1,4 +1,4 @@
-/* $Id$ */
+/* cexp.c,v 1.42 2004/12/02 21:16:37 till Exp */
 
 /* 'main' program for CEXP which reads lines of input
  * and calls the parser (cexpparse()) on each of them...
@@ -55,6 +55,7 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <string.h>
+#include <errno.h>
 #if defined(__rtems__) && !defined(RTEMS_TODO_DONE)
 #include "rtems-hackdefs.h"
 #else
@@ -192,7 +193,7 @@ usage(char *nm)
 static void
 version(char *nm)
 {
-	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
+	fprintf(stderr,"This is CEXP release SSRL_RTEMS_20041202, build date %s\n",cexp_build_date);
 }
 
 static void
@@ -723,4 +724,178 @@ if ( ! myContext ) {
 }
 
 return rval;
+}
+
+/* file utility stuff */
+
+
+#ifdef __rtems__
+/* copy a file to the '/tmp' directory residing in IMFS
+ * where it can be seeked etc.
+ */
+static FILE *
+copyFileToTmp(int fd, char *tmpfname)
+{
+FILE		*rval=0,*infile=0,*outfile=0;
+char		buf[BUFSIZ];
+int			nread,nwritten;
+struct stat	stbuf;
+
+	/* a hack (rtems) to make sure the /tmp dir is present */
+	if (stat("/tmp",&stbuf)) {
+		mode_t old=umask(0);
+		mkdir("/tmp",0777);
+		umask(old);
+	}
+
+#if 0 /* sigh - there is a bug in RTEMS/IMFS; the memory of a
+		 tmpfile() is actually never released, so we work around
+		 this...
+	   */
+	/* open files; the tmpfile will be removed by the system
+	 * as soon as it's closed
+	 */
+	if (!(outfile=tmpfile()) || ferror(outfile)) {
+		perror("creating scratch file");
+		goto cleanup;
+	}
+#else
+	{
+	int	fd;
+	if ( (fd=mkstemp(tmpfname)) < 0 ) {
+		perror("creating scratch file");
+		goto cleanup;
+	}
+	if ( !(outfile=fdopen(fd,"w+")) ) {
+		perror("opening scratch file");
+		close(fd);
+		unlink(tmpfname);
+		goto cleanup;
+	}
+	}
+#endif
+
+	if (!(infile=fdopen(fd,"r")) || ferror(infile)) {
+		perror("opening object file");
+		goto cleanup;
+	}
+
+	/* do the copy */
+	do {
+		nread=fread(buf,1,sizeof(buf),infile);
+		if (nread!=sizeof(buf) && ferror(infile)) {
+			perror("reading object file");
+			goto cleanup;
+		}
+
+		nwritten=fwrite(buf,1,nread,outfile);
+		if (nwritten!=nread) {
+			if (ferror(outfile))
+				perror("writing scratch file");
+			else
+				fprintf(stderr,"Error writing scratch file");
+			goto cleanup;
+		}
+	} while (!feof(infile));
+
+	fflush(outfile);
+	rewind(outfile);
+
+	/* success; remap pointers and fall thru */
+	rval=outfile;
+	outfile=0;
+
+cleanup:
+	if (outfile) {
+		fclose(outfile);
+		unlink(tmpfname);
+	}
+	if (infile)
+		fclose(infile);
+	else
+		close(fd);
+	return rval;
+}
+#endif
+
+	
+/* NOTE: fullname is a buffer of at least MAXPATHLEN chars
+ *       tmpfname, if non-NULL must hold a template name (mkstemp)
+ */
+FILE *
+cexpSearchFile(char *path, char **pfname, char *fullname, char *tmpfname)
+{
+FILE        *f = 0;
+char        *col, *thename=0;
+#ifdef __rtems__
+struct stat	dummybuf;
+int		    is_on_tftpfs;
+#endif
+
+	/* Search relative file in the PATH */
+	if ( !fullname ) {
+		if ( !(thename = malloc(MAXPATHLEN)) )
+			return 0;
+		fullname = thename;
+	}
+
+	if ( strchr(*pfname,'/') || !path )
+		path = "";
+	else {
+		/* no '/' AND path set; handle special case
+		 * of empty path -> they must specify a path
+		 */
+		if ( !*path ) {
+			path = 0;
+		}
+	}
+
+	col = path ? path-1 : 0;
+
+	while ( !f && col ) {
+	path = col+1;
+	/* 'path' is never NULL; either "" (absolute file or env var not set)
+     * or a colon separated list.
+	 * If there is no '.' or empty element in the path, the current
+	 * directory is NOT searched (e.g. PATH=/a/b/c/d searches only
+	 * /a/b/c/d, PATH=/a/b/c/d: searches /a/b/c/d, then '.'
+	 */
+	if ( (col = strchr(path,':')) ) {
+		strncpy(fullname,path,col-path);
+		fullname[col-path] = 0;
+	} else {
+		strcpy(fullname,path);
+	}
+	/* don't append a separator if the prefix is empty */
+	if ( *fullname )
+		strcat(fullname,"/");
+	strcat(fullname,*pfname);
+		
+#ifdef __rtems__
+	/* The RTEMS TFTPfs is strictly
+	 * sequential access (no lseek(), no stat()). Hence, we copy
+	 * the file to scratch file in memory (IMFS).
+	 */
+
+	/* we assume that a file we cannot stat() but open() is on TFTPfs */
+	is_on_tftpfs = stat(fullname, &dummybuf) ? open(fullname,O_RDONLY) : -1;
+	if ( is_on_tftpfs >= 0 && tmpfname ) {
+		if ( ! (f=copyFileToTmp(is_on_tftpfs, tmpfname)) ) {
+			/* file was found but couldn't make copy; this is an error */
+			break;
+		}
+		*pfname=tmpfname;
+	} else
+#endif
+	if (  ! (f=fopen(fullname,"r")) ) {
+		if ( errno != ENOENT ) {
+			/* stop searching; file seems to be there but unreadable */
+			break;
+		}
+	} else {
+		*pfname=fullname;
+	}
+	}
+	free(thename);
+	return f;
 }

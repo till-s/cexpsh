@@ -2,7 +2,7 @@ What is Cexp?
 -------------
 
  -- Brought to you by Till Straumann <strauman@slac.stanford.edu> --
- -- $Id$ --
+ -- README,v 1.14 2004/05/21 21:09:21 till Exp --
 
 The Cexp utility is a C-expression interpreter which
 gives its user access to all symbols present in the currently
@@ -429,6 +429,25 @@ loaded modules if passed NULL ID.
 searches the list of modules for a regular expression and
 reports the IDs of all matches. It returns the first ID
 found (or NULL if there was no match).
+
+Search Path for Loadable Modules
+- - - - - - - - - - - - - - - - -
+If set, the PATH environment variable is consulted
+by the loader when it tries to locate object files
+by subsequently prepending colon-separated search
+paths as listed in PATH to the file name. The search
+starts with the first component and stops as soon
+as the file is found. An empty search path (two colons
+in a row or a leading or trailing colon) is equivalent
+to the current directory ('.'). Note that the current
+directory is not searched if PATH is set but does not
+contain the CWD. PATH is ignored if the object name
+contains a (relative or absolute) directory path already.
+
+Example: search '/tmp', '/TFTP/BOOTP_HOST/blah/bin' and
+finally the CWD:
+
+setenv("PATH","/tmp:/TFTP/BOOTP_HOST/blah/bin:",1)
 
 Building loadable modules
 - - - - - - - - - - - - -

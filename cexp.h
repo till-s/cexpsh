@@ -1,7 +1,7 @@
 #ifndef CEXP_PUBLIC_HDR_H
 #define CEXP_PUBLIC_HDR_H
 
-/* $Id$ */
+/* cexp.h,v 1.26 2004/10/25 19:47:41 till Exp */
 
 /* public interface to the 'cexp' C Expression Parser and symbol table utility */
 
@@ -354,6 +354,32 @@ extern CexpSigHandlerInstallProc cexpSigHandlerInstaller;
 #define CEXP_MAIN_NO_SCRIPT	3	/* unable to open script file */
 #define CEXP_MAIN_KILLED	4	/* main loop was killed */
 #define CEXP_MAIN_NO_MEM	5	/* no memory */
+
+/* Search for a file in a colon-separated path list
+ * (e.g. "/A:/B:/C/D/E").
+
+ * 'path': The path may be NULL which is
+ *         equivalent to "." (current dir). An empty path element
+ *         ("::", leading or trailing ":") is also equivalent to '.'.
+ *         However, if the path is not empty and does not explicitely
+ *         mention the cwd it is NOT searched.
+ * 'pfname': (IN/OUT) points to the file name string (IN). The
+ *         name of the opened file is returned (OUT). This is changed
+ *         to *pfname = tmpfname if the file was copied from TFTPfs
+ *         to IMFS ('/tmp' subdir) [RTEMS ONLY, see below].
+ * 'fullname': (OUT) buffer of at least MAXPATHLEN chars where the expanded
+ *         filename is stored. May be NULL in which case a buffer is
+ *         managed locally.
+ * 'tmpfname': (IN/OUT) [used on RTEMS ONLY]. If non-null, this must
+ *         hold an initialized buffer to be used and modified by
+ *         mkstemp(). If non-null, the routine tries to determine
+ *         if the file is located on RTEMS' TFTPFS and copies it to
+ *         a temporary file. *pfname is set to the temp file name
+ *         and fullname holds the expanded name of the original file.
+ * RETURNS: open stream (for reading).
+ */
+FILE *
+cexpSearchFile(char *path, char **pfname, char *fullname, char *tmpfname);
 
 #ifdef __cplusplus
 };

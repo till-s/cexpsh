@@ -53,20 +53,12 @@
 
 #ifdef HAVE_BFD_DISASSEMBLER
 extern int cexpDisassemble();
+#define DISAS_HELP "    cexpDisassemble      - disassemble memory\n"
+#else
+#define DISAS_HELP
 #endif
 
 static CexpHelpTabRec CEXP_HELP_TAB[]={
-	HELP(
-"Load an object module (module_name may be NULL), returns ID",
-		CexpModule,
-		cexpModuleLoad,(char *file_name, char *module_name)
-	),
-
-	HELP(
-"Unload a module (pass handle, RETURNS: 0 on success)",
-		int,
-		cexpModuleUnload,(CexpModule moduleHandle)
-	),
 	HELP(
 "Search the system symbol table and the user variables\n\
 for a regular expression.  Info about the symbol will be\n\
@@ -82,15 +74,15 @@ of interest to stdout. Howmany defaults to +-5 if passed 0",
 		lkaddr,(void *addr, int howmany)
 	),
 	HELP(
-"The main interpreter loop, it can be registered with a shell...",
-		int,
-		cexp_main,(int argc, char **argv)
+"Load an object module (module_name may be NULL), returns ID",
+		CexpModule,
+		cexpModuleLoad,(char *file_name, char *module_name)
 	),
+
 	HELP(
-"Alternative entry point for the main interpreter; more convenient\n\
-for calling from cexp itself (e.g. for evaluating scripts)",
+"Unload a module (pass handle, RETURNS: 0 on success)",
 		int,
-		cexp,(char* cmdline)
+		cexpModuleUnload,(CexpModule moduleHandle)
 	),
 	HELP(
 "Return a module's name (string owned by module code)",
@@ -110,6 +102,29 @@ If NULL is passed for the module ID, info about all\n\
 modules is given.",
 		int,
 		cexpModuleInfo,(CexpModule mod, FILE *f)
+	),
+	HELP(
+"The main interpreter loop, it can be registered with a shell...",
+		int,
+		cexp_main,(int argc, char **argv)
+	),
+	HELP(
+"Cexp builtin routines are:\n\n\
+    lkup                 - lookup a symbol\n\
+    lkaddr               - find the address closest to a symbol\n\
+    cexpModuleLoad       - load an object file\n\
+    cexpModuleUnload     - remove a module from the running system\n\
+    cexpModuleName       - return a module name given its handle\n\
+    cexpModuleFindByName - find a module given its name\n\
+    cexpModuleInfo       - dump info about one or all modules\n"
+	DISAS_HELP
+"    cexp(\"commandline\")  - run cexp recursively - e.g. for evaluating a script\n\n\
+Use 'symbol.help(level)' for getting info about a symbol:\n\n\
+    lkup.help(1)\n\n\
+Type a C expression, e.g.\n\n\
+        printf(\"hello %s\\n\",\"cruelworld\" + 5)\n",
+		int,
+		cexp,(char* cmdline)
 	),
 #ifdef HAVE_BFD_DISASSEMBLER
 	HELP(

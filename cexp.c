@@ -187,6 +187,12 @@ version(char *nm)
 	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
 }
 
+static void
+hello(void)
+{
+	fprintf(stderr,"Type 'cexp.help()' for help (no quotes)\n");
+}
+
 #ifdef DEBUG
 #include <math.h>
 /* create a couple of variables for testing */
@@ -521,6 +527,8 @@ if (!myContext) {
 #endif
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();
+	if (!quiet)
+		hello();
 } else {
 #ifdef HAVE_TECLA
 	/* re-use caller's line editor */

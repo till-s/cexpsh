@@ -805,7 +805,7 @@ const char		*err=0;
 		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
 		if (fpargs) {
 				if (TDFuncP==fn->type)
-					rval->tv.d=(DFUNC(jumptab[fpargs]))(fn JUMPTAB_ARGLIST(args));
+					rval->tv.d=((DFUNC)(jumptab[fpargs]))(fn JUMPTAB_ARGLIST(args));
 				else
 					rval->tv.l=jumptab[fpargs](fn,args[0],args[1],args[2],args[3],args[4]);
 		} else {

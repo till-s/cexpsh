@@ -65,8 +65,10 @@ AUTOCONF   = $(AUTOPATH)autoconf
 AUTOHEADER = $(AUTOPATH)autoheader
 AUTOMAKE   = $(AUTOPATH)automake
 
+tar: AUTOFORCE=f
+
 bootstrap-xsyms bootstrap-cexp:
-	$(ACLOCAL) && $(AUTOCONF) && $(AUTOHEADER) && $(AUTOMAKE) -ac
+	$(ACLOCAL) && $(AUTOCONF) && $(AUTOHEADER) && $(AUTOMAKE) -ac$(AUTOFORCE)
 #	ln -s binutils binutils-x
 bootstrap: bootstrap-cexp
 	(cd libtecla; $(AUTOCONF))

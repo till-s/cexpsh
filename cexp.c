@@ -14,6 +14,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <setjmp.h>
+#include <string.h>
 #if defined(__rtems) && !defined(RTEMS_TODO_DONE)
 #include "rtems-hackdefs.h"
 #else
@@ -183,7 +184,9 @@ CexpModule		m;
 int				ch=0,tsaved=0;
 int				nl;
 struct termios	tatts,rawatts;
+#ifndef USE_TECLA
 struct winsize	win;
+#endif
 
 	if (!(rc=spencer_regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
@@ -192,7 +195,7 @@ struct winsize	win;
 
 #ifdef USE_TECLA
 	{
-	GlTerminalSize ts=gl_terminal_size(cexpCurrentContext->gl, 80, 24);
+	GlTerminalSize ts=gl_terminal_size(cexpContextGetCurrent()->gl, 80, 24);
 	nl = ts.nline;
 	}
 #else
@@ -317,7 +320,7 @@ char	*argv[10]; /* limit to 10 arguments */
 void
 cexp_kill(int doWhat)
 {
-	longjmp(cexpCurrentContext->jbuf,doWhat);
+	longjmp(cexpContextGetCurrent()->jbuf,doWhat);
 }
 
 int
@@ -353,7 +356,7 @@ char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
-int					opt, doWhat;	
+int					opt;
 #ifdef USE_TECLA
 #define	rl_context  context.gl
 #else
@@ -413,7 +416,10 @@ mdbgInit();
 /* initialize the public context */
 context.next=0;
 #ifdef HAVE_BFD_DISASSEMBLER
-cexpDisassemblerInit(&context.dinfo, stdout);
+{
+	extern void cexpDisassemblerInit();
+	cexpDisassemblerInit(&context.dinfo, stdout);
+}
 #endif
 
 if (!cexpContextGetCurrent()) {

@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <assert.h>
 #include <spencer_regexp.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
@@ -166,7 +168,7 @@ CexpModule	m,mfound;
 		while (s->name && max) {
       		if (spencer_regexec(rc,s->name)) {
 				if (!mfound) {
-					fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, m);
+					fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, (unsigned)m);
 					mfound=m; /* print module name only once */
 					max--;
 				}
@@ -218,10 +220,14 @@ CexpModule m = mod ? mod : cexpSystemModule;
 
 
 	for (; m; m=m->next) {
-		fprintf(f,"Module '%s' (0x%08x):\n",m->name,m);
-		fprintf(f,"  %i symbol table entries\n",m->symtbl->nentries);
-		fprintf(f,"  %i bytes of memory allocated to binary\n",m->memSize);
-		fprintf(f,"  Text starts at: 0x%08x\n",m->text_vma);
+		fprintf(f,"Module '%s' (0x%08x):\n",
+						m->name, (unsigned)m);
+		fprintf(f,"  %li symbol table entries\n",
+						m->symtbl->nentries);
+		fprintf(f,"  %li bytes of memory allocated to binary\n",
+						m->memSize);
+		fprintf(f,"  Text starts at: 0x%08x\n",
+						(unsigned)m->text_vma);
 		fprintf(f,"  Needs:"); bitmapInfo(f,m->needs); fputc('\n',f);
 		fprintf(f,"  Needed by:"); bitmapInfo(f,m->neededby); fputc('\n',f);
 		if (mod)
@@ -254,7 +260,7 @@ CexpModule		m,found=0;
 			/* record first item found */
 			if (!found)
 				found=m;
-			fprintf(f,"0x%08x: %s\n",m, m->name);
+			fprintf(f,"0x%08x: %s\n",(unsigned)m, m->name);
 		}
 	}
 
@@ -361,7 +367,6 @@ idAlloc(CexpModule mod)
 static ModuleId id=MAX_NUM_MODULES-1;
 ModuleId	new_id;
 BITMAP_DECLARE(used);
-BitmapWord  freebits;
 CexpModule	m;
 
 	memset(used,0,sizeof(used));
@@ -411,7 +416,7 @@ CexpModule m,tail,nmod,rval=0;
 
 	if (idAlloc(nmod)) {
 		fprintf(stderr,
-			"Unable to allocate a module ID (more than %i loaded??)\n",
+			"Unable to allocate a module ID (more than %i loaded?)\n",
 			MAX_NUM_MODULES);
 		goto cleanup;
 	}

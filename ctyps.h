@@ -40,7 +40,7 @@ typedef enum {
     TDouble     =10 | (sizeof(double)<<8),
     TDoubleP    =10 | (sizeof(double)<<8) | CEXP_PTR_BIT,
     TFuncP      =TULong  | CEXP_FUN_BIT | CEXP_PTR_BIT,
-    TDFuncP     =TDouble | CEXP_FUN_BIT | CEXP_PTR_BIT,
+    TDFuncP     =TDouble | CEXP_FUN_BIT | CEXP_PTR_BIT
 } CexpType;
 
 /* Utility macros operating on CexpType */
@@ -109,13 +109,13 @@ typedef enum {
 		OShR	=17,		/* bitwise right shift */
 		OAnd	=18,
 		OXor	=19,
-		OOr	=20,
+		OOr	=20
 } CexpBinOp;
 
 /* unary operators */
 typedef enum {
 		ONeg	=0,		/* negate unsigned numbers ??? */
-		OCpl	=1,		/* bitwise inversion */
+		OCpl	=1		/* bitwise inversion */
 } CexpUnOp;
 
 

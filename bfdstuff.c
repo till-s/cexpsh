@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <sys/stat.h>
+#include <string.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -103,8 +104,10 @@ extern void __register_frame(void*);
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
+#ifdef __rtems
 static FILE *
 copyFileToTmp(char *name);
+#endif
 
 static void
 bfdCleanupCallback(CexpModule);
@@ -431,7 +434,7 @@ long		err;
 
 	/* if there are relocations, resolve them */
 	if ((SEC_RELOC & sect->flags)) {
-		arelent **cr=0,r;
+		arelent **cr=0;
 		long	sz;
 		sz=bfd_get_reloc_upper_bound(abfd,sect);
 		if (sz<=0) {
@@ -501,7 +504,6 @@ long		err;
 static void
 buildCtorsDtors(LinkData ld, CexpModule mod)
 {
-VoidFnPtr	*cfnp,*dfnp;
 asymbol		**asymp;
 	/* TODO: search for magic module initializer/finalizer symbol for
 	 *       supporting C modules
@@ -575,7 +577,7 @@ int			i,num_new_commons=0,errs=0;
 	/* resolve undefined and common symbols;
 	 * find name clashes
 	 */
-	for (i=0; sp=syms[i]; i++) {
+	for (i=0; (sp=syms[i]); i++) {
 		asection	*sect=bfd_get_section(sp);
 		CexpSym		ts;
 		int			res;
@@ -863,7 +865,7 @@ cleanup:
 	return 0;
 }
 
-static int
+static void
 flushCache(LinkData ld)
 {
 #if defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
@@ -895,7 +897,7 @@ cexpLoadFile(char *filename, CexpModule mod)
 {
 bfd 			*abfd=0;
 LinkDataRec		ldr;
-int				rval=1,i,j;
+int				rval=1,i;
 CexpSym			sane;
 FILE			*f=0;
 void			*ehFrame=0;
@@ -970,8 +972,10 @@ void			*ehFrame=0;
 		bfd_map_over_sections(abfd, s_count, &ldr);
 	
 		/* allocate segment space */
-		for (i=0; i<NUM_SEGS; i++)
-			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk=xmalloc(ldr.segs[i].size);
+		for (i=0; i<NUM_SEGS; i++) {
+			ldr.segs[i].chunk=(PTR)xmalloc(ldr.segs[i].size);
+			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk;
+		}
 
 		/* compute and set the base addresses for all sections to be allocated */
 		bfd_map_over_sections(abfd, s_setvma, &ldr);
@@ -1024,8 +1028,7 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 		 * in its own section, we also must write a terminating 0
 		 */
 		if (ldr.eh_frame_b_sym) {
-printf("TSILL registering EH_FRAME 0x%08x\n",
-			bfd_asymbol_value(ldr.eh_frame_b_sym));
+printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b_sym));
 			if ( ldr.eh_frame_e_sym ) {
 				/* eh_frame was in its own section; hence we have to write a terminating 0
 				 */

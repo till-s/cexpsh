@@ -124,7 +124,9 @@ unsigned long n;
 			case TUShort:	n=v->tv.s; break;
 			case TULong:	n=v->tv.l; break;
 
-			default:	assert(!"Invalid Type - you found a BUG");
+			default:
+				assert(!"Invalid Type - you found a BUG");
+				n=0; /* keep compiler happy */
 		}
 		return n < (1<<(8*CEXP_TYPE_SIZE(t)));
 	}

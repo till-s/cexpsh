@@ -1,78 +1,67 @@
-#
-#  $Id$
-#
-# Templates/Makefile.lib
-#       Template library Makefile
-#
-# Set this to YES or NO if you want / dont want to use GNU readline
-USE_READLINE=YES
+TOP=../
 
-USE_READLINE_YES=-DUSE_GNU_READLINE
+include $(TOP)/configure/CONFIG
+#----------------------------------------
+#  ADD MACRO DEFINITIONS AFTER THIS LINE
+#=============================
 
-LIBNAME=libcexp.a
-LIB=${ARCH}/${LIBNAME}
+GENINC = geninc
 
-VPATH=.:getopt
 
-# C and C++ source names, if any, go here -- minus the .c or .cc
-C_PIECES=elfsyms cexpsyms vars cexp ctyps cexp.tab mygetopt_r
-C_FILES=$(C_PIECES:%=%.c)
-C_O_FILES=$(C_PIECES:%=${ARCH}/%.o)
+USR_CFLAGS +=  -DUSE_EPICS_OSI -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
 
-CC_PIECES=
-CC_FILES=$(CC_PIECES:%=%.cc)
-CC_O_FILES=$(CC_PIECES:%=${ARCH}/%.o)
+BINUT = /home/till/gnu/binutils-2.11.1/
 
-LIB_HEADERS=cexp.h
+USR_INCLUDES += -I$(BINUT)/include -I$(BINUT)/bfd -I$(BINUT)/O.$(T_A)/bfd -I/home/till/slac/cexp/regexp -I/home/till/rtems/apps/libtecla -I../getopt
 
-H_FILES=${LIB_HEADERS} cexpsyms.h vars.h ctyps.h cexp.tab.h
+#USR_LDFLAGS += -Wl,-M
 
-# Assembly source names, if any, go here -- minus the .S
-S_PIECES=
-S_FILES=$(S_PIECES:%=%.S)
-S_O_FILES=$(S_FILES:%.S=${ARCH}/%.o)
+INC +=
 
-SRCS=$(C_FILES) $(CC_FILES) $(H_FILES) $(S_FILES)
-OBJS=$(C_O_FILES) $(CC_O_FILES) $(S_O_FILES)
+#=============================
 
-include $(RTEMS_MAKEFILE_PATH)/Makefile.inc
+# xxxRecord.h will be created from xxxRecord.dbd
+#DBDINC +=
+#DBD +=
 
-include $(RTEMS_CUSTOM)
-include $(RTEMS_ROOT)/make/lib.cfg
 
-#
-# Add local stuff here using +=
-#
+# <name>.dbd will be created from <name>Include.dbd
+#DBD += ecdr814.dbd
 
-DEFINES  += -DYYDEBUG -DCONFIG_STRINGS_LIVE_FOREVER $(USE_READLINE_$(USE_READLINE))
-CPPFLAGS += -I/usr/local/rtems/powerpc-rtems/include
-CFLAGS   +=
+#=============================
 
-# need bison to generate a reentrant parser
-YACC=bison
+#PROD_RTEMS = ecdr814App
+LIBRARY += cexp
 
-#
-# Add your list of files to delete here.  The config files
-#  already know how to delete some stuff, so you may want
-#  to just run 'make clean' first to see what gets missed.
-#  'make clobber' already includes 'make clean'
-#
+cexp_SRCS += bfd-disas.c bfdstuff.c cexp.c cexpmod.c cexpsyms.c ctyps.c vars.c cexp.tab.c mygetopt_r.c
+PROD_IOC += cexpTst
 
-CLEAN_ADDITIONS += 
-CLOBBER_ADDITIONS +=
+cextTst_SRCS_DEFAULT = cexpTstMain.c
 
-all:	${ARCH} $(SRCS) $(LIB)
+cexpTst_LIBS += cexp
+cexpTst_LIBS += iocsh
+cexpTst_LIBS += miscIoc
+cexpTst_LIBS += rsrvIoc
+cexpTst_LIBS += recIoc
+cexpTst_LIBS += softDevIoc
+cexpTst_LIBS += testDevIoc
+cexpTst_LIBS += dbtoolsIoc
+cexpTst_LIBS += asIoc
+cexpTst_LIBS += dbIoc
+cexpTst_LIBS += registryIoc
+cexpTst_LIBS += dbStaticIoc
+cexpTst_LIBS += ca
+cexpTst_LIBS += Com
 
-%.tab.c %.tab.h: %.y
-	bison -d -p $(^:%.y=%) $^
-# remove the default rule which tries to make cexp.c from cexp.y
-cexp.c: ;
+cexpTst_LIBS += tecla_r bfd opcodes iberty regexp
 
-$(LIB): ${OBJS}
-	$(make-library)
+BINUTBIN = /home/till/gnu/binutils-2.11.1/O.$(T_A)
+REGEXPLIBS = /home/till/slac/cexp/O.$(T_A)/regexp
 
-# Install the library, appending _g or _p as appropriate.
-# for include files, just use $(INSTALL_CHANGE)
-install:  all
-	$(INSTALL_VARIANT) -m 644 ${LIB} ${PROJECT_RELEASE}/lib
-	$(INSTALL_CHANGE) -m 644 ${LIB_HEADERS} ${PROJECT_RELEASE}/lib/include
+cexpTst_LDFLAGS += -Wl,-Map,blahm -L$(TOP)/lib/$(T_A) -L. -L/home/till/rtems/apps/libtecla/O.$(T_A)/ -L$(BINUTBIN)/bfd/.libs -L$(BINUTBIN)/opcodes/.libs -L$(BINUTBIN)/libiberty/.libs  -L$(REGEXPLIBS)/  -Wl,-u,iocshRegister
+
+#=============================
+
+include $(TOP)/configure/RULES
+#----------------------------------------
+#  ADD RULES AFTER THIS LINE

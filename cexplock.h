@@ -7,20 +7,21 @@
 #ifdef USE_EPICS_OSI
 
 #include <epicsMutex.h>
+#include <epicsEvent.h>
 
 typedef epicsMutexId CexpLock;
 typedef epicsEventId CexpEvent;
 
-static __inline__ int
+INLINE int
 cexpLockCreate(CexpLock *lp)
 {
 	return ! (*lp=epicsMutexCreate());
 }
 
-static __inline__ int
+INLINE int
 cexpEventCreate(CexpEvent *id)
 {
-	return ! (*id=epicsEventCreate(EpicsEventEmpty));
+	return ! (*id=epicsEventCreate(epicsEventEmpty));
 }
 
 #define cexpLock(l)   		epicsMutexLock((l))
@@ -63,7 +64,7 @@ typedef rtems_id CexpEvent;
 #define cexpEventSend(l)	rtems_semaphore_release((l))
 
 /* IMPORTANT: use a standard (not simple) binary semaphore that may nest */
-static inline int
+INLINE int
 cexpLockCreate(CexpLock *l)
 {
 	return
@@ -75,7 +76,7 @@ cexpLockCreate(CexpLock *l)
 		l);
 }
 
-static inline int
+INLINE int
 cexpEventCreate(CexpEvent *pe)
 {
 	return
@@ -123,7 +124,7 @@ typedef struct CexpRWLockRec_ {
 } CexpRWLockRec, *CexpRWLock;
 
 #ifndef NO_THREAD_PROTECTION
-static __inline__ void
+INLINE void
 cexpRWLockInit(CexpRWLock pl)
 {
 	cexpLockCreate(&pl->mutex);
@@ -141,7 +142,7 @@ cexpRWLockInit(CexpRWLock pl)
  *       However, a reader _MUST_NOT_ try to acquire
  *       the write lock!
  */
-static __inline__  void
+INLINE  void
 cexpReadLock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -149,7 +150,7 @@ cexpReadLock(CexpRWLock l)
 	cexpUnlock(l->mutex);
 }
 
-static __inline__ void
+INLINE void
 cexpReadUnlock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -160,7 +161,7 @@ cexpReadUnlock(CexpRWLock l)
 	cexpUnlock(l->mutex);
 }
 
-static __inline__ void
+INLINE void
 cexpWriteLock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -172,7 +173,7 @@ cexpWriteLock(CexpRWLock l)
 	}
 }
 
-static __inline__ void
+INLINE void
 cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);

@@ -289,7 +289,6 @@ int			n,nDstSyms,nDstChars;
 
 	/* now copy the relevant stuff */
 	for (sp=syms,n=0,cesp=rval->syms,dst=rval->strtbl; n<nsyms; sp+=symSize,n++) {
-		CexpType t;
 		if ((symname=filter(sp,closure))) {
 				memset(cesp,0,sizeof(*cesp));
 				/* copy the name to the string table and put a pointer
@@ -355,7 +354,7 @@ CexpType t=s->value.type;
 		t=CEXP_TYPE_PTR2BASE(t);	
 	return
 		fprintf(f,"%p[%4d]: %s %s\n",
-			s->value.ptv,
+			(void*)s->value.ptv,
 			s->size,
 			cexpTypeInfoString(t),
 			s->name);

@@ -20,10 +20,16 @@
  */
 #include "cexp.h"
 
+#ifdef USE_EPICS_OSI
+/* BFD redefines INLINE if we don't include epicsThread.h first; sigh... */
+#include <epicsThread.h>
+#endif
+
 #ifdef USE_TECLA
 #include <libtecla.h>
 #endif
 #ifdef HAVE_BFD_DISASSEMBLER
+#define boolean bbbboooolean /* se comment in bfdstuff.c why we do that */
 #include "dis-asm.h"
 #endif
 
@@ -73,8 +79,6 @@ typedef CexpContext CexpContextOSD;
 
 #elif defined(USE_EPICS_OSI)
 
-#include <epicsThread.h>
-
 typedef epicsThreadPrivateId	CexpContextOSD;
 
 #define cexpContextInitOnce()	do { if (!cexpCurrentContext) cexpCurrentContext = epicsThreadPrivateCreate(); } while (0)
@@ -84,7 +88,13 @@ typedef epicsThreadPrivateId	CexpContextOSD;
 
 #define cexpContextGetCurrent()		((CexpContext)epicsThreadPrivateGet(cexpCurrentContext))
 /* cexpContextSetCurrent() returns its argument for convenience */
-#define cexpContextSetCurrent(c)	(epicsThreadPrivateSet(cexpCurrentContext,c) , c)
+INLINE CexpContext
+cexpContextSetCurrent(CexpContext c)
+{
+extern CexpContextOSD	cexpCurrentContext;
+	epicsThreadPrivateSet(cexpCurrentContext,c);
+	return c;
+}
 
 #define cexpContextRunOnce(pdone, fn)	epicsThreadOnce(pdone,(void (*)(void*))fn,0)
 
@@ -130,6 +140,6 @@ typedef CexpContext CexpContextOSD;
 #endif
 
 /* OS dependent representation of the thread context */
-extern CexpContextOSD	cexpCurrentContext;
+extern CexpContextOSD cexpCurrentContext;
 
 #endif

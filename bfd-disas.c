@@ -2,7 +2,6 @@
 #include <stdarg.h>
 #include <assert.h>
 
-#include "dis-asm.h"
 
 #define BUFMAX	500
 
@@ -11,13 +10,14 @@
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
 
+#include "dis-asm.h"
+
 static disassembler_ftype	bfdDisassembler=0;
 enum bfd_endian				bfdEndian=BFD_ENDIAN_UNKNOWN;
 
 typedef struct DAStreamRec_ {
-	FILE			*stream;		/* where the stuff ultimately goes	*/
-	unsigned char	buf[BUFMAX];	/* buffer to assemble the line 		*/
-	int				p;				/* 'cursor'							*/
+	char	buf[BUFMAX];	/* buffer to assemble the line 		*/
+	int		p;				/* 'cursor'							*/
 } DAStreamRec, *DAStream;
 
 static int
@@ -45,7 +45,7 @@ printSymAddr(bfd_vma addr, CexpModule mod, CexpSym sym,  disassemble_info *di)
 		long diff=addr - (bfd_vma)sym->value.ptv;
 		char diffbuf[30];
 		if (diff)
-			sprintf(diffbuf," + 0x%x",diff);
+			sprintf(diffbuf," + 0x%x",(unsigned)diff);
 		else
 			diffbuf[0]=0;
 
@@ -158,14 +158,15 @@ int				found;
 	}
 
 	if (!di) {
-		assert(cexpCurrentContext);
-		di = &cexpCurrentContext->dinfo;
+		CexpContext currentContext = cexpContextGetCurrent();
+		assert(currentContext);
+		di = &currentContext->dinfo;
 	}
 	if (addr)
 		di->buffer=addr;
 	/* redirect the stream */
-	b.stream = f = di->stream;
 	orig_fprintf = di->fprintf_func;
+	f = di->stream;
 
 	di->stream = (PTR) &b;
 	b.p = 0;

@@ -501,6 +501,8 @@ needed by CEXP and the OS itself during this process.
 Any library CEXP does _not_ depend on, directly or indirectly, can
 of course be dynamically loaded any time later.
 
+**************** SOMEHOW OBSOLETE BEGIN **********************
+
 A special makefile is provided (Makefile.syms)
 to help you generating the system configuration (RTEMS).
 You can give the make process a list of libraries to work on.
@@ -521,6 +523,17 @@ references. 'syms.o' can then be linked with the application
 (just add it to the list of the application's objects)
 and will force the linker to pull in the referenced
 library objects.
+
+**************** SOMEHOW OBSOLETE ELSE ***********************
+
+A new tool 'ldep' is available greatly alleviating the task
+of analyzing link file interdependency and generating symbol
+lists etc. It is available as part of the 'GeSys' package
+(www.slac.stanford.edu/~strauman/rtems/gesys) and comes with
+more documentation. Some info is available here:
+http://www/~strauman/rtems/epics/README.config
+
+**************** SOMEHOW OBSOLETE END ************************
 
 C++ Information
 - - - - - - - -

@@ -174,7 +174,7 @@ CexpModule		mod;
 int
 lkaddr(void *addr)
 {
-	cexpSymLkAddr(addr, 8, 0, 0);
+	cexpSymLkAddr(addr, 8, stdout, 0);
 	return 0;
 }
 

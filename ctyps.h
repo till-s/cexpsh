@@ -11,6 +11,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>	/* only needed for the PrintInfo routine */
+#include "cexp.h"
 
 /* for now, we only support ulong result type */
 typedef unsigned long (*CexpFuncPtr)();
@@ -174,6 +175,8 @@ cexpTypePromote(CexpTypedVal a, CexpTypedVal b);
 /* call a function with a variable list of arguments
  * The arguments are all CexpTypedVals, terminated by
  * a NULL pointer
+ * If the 'ctx' pointer is non-null, it will be prepended
+ * to the arguments who are passed to 'fn'.
  *
  * NOTE: this routine _modifies_ the argument list, i.e.
  *       it casts everything to ulong or double.
@@ -181,7 +184,7 @@ cexpTypePromote(CexpTypedVal a, CexpTypedVal b);
  *       this is not permissible.
  */
 const char *
-cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...);
+cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...);
 
 void
 cexpTAPrintInfo(CexpTypedAddr a, FILE *f);

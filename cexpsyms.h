@@ -18,6 +18,12 @@ typedef struct CexpSymRec_ {
 	unsigned			flags;
 } CexpSymRec, *CexpSym;
 
+/* flags associated with symbols */
+#define CEXP_SYMFLG_GLBL		(1<<0) /* a global symbol */
+#define CEXP_SYMFLG_WEAK		(1<<1) /* a weak symbol   */
+#define CEXP_SYMFLG_PASS_CTX 	(1<<2) /* implicitely pass parser context to the function described by this symbol */
+
+
 typedef struct CexpSymTblRec_	*CexpSymTbl;
 
 /* Symbol table management */

@@ -54,7 +54,8 @@ CexpSymTbl	t;
 		if ( addr < (void*)t->aindex[0]->value.ptv  ||
 		     addr > (void*)t->aindex[t->nentries-1]->value.ptv )
 			continue;
-		fprintf(f,"=====  In module '%s' =====:\n",m->name);
+		if (f)
+			fprintf(f,"=====  In module '%s' =====:\n",m->name);
 		if ((rval=cexpSymTblLkAddr(addr,margin,f,t)))
 			break;
 	}

@@ -81,6 +81,7 @@ CexpTypedAddr rval;
 %union {
 	CexpTypedValRec				val;
 	CexpTypedAddrRec			lval;
+	CexpTypedAddr				varp;
 	CexpSym						sym;	/* a symbol table entry */
 	CexpType					typ;
 	CexpBinOp					binop;
@@ -91,7 +92,11 @@ CexpTypedAddr rval;
 	struct			{
 		CexpTypedAddrRec	lval;
 		CexpBinOp			op;
-	}							fixexp;
+	}							fix;
+	struct			{
+		CexpTypedValRec			val;
+		int						doPassCtx;
+	}							fncall;
 	unsigned long				ul;
 }
 
@@ -106,6 +111,7 @@ CexpTypedAddr rval;
 %token			KW_DOUBLE	/* keyword 'long' */
 %token <binop>	MODOP		/* +=, -= & friends */
 
+%type  <varp>	anyvar
 %type  <val>	redef line
 %type  <val>	commaexp
 %type  <val>	exp
@@ -113,10 +119,11 @@ CexpTypedAddr rval;
 %type  <ul>		or
 %type  <ul>		and
 %type  <val>	unexp
-%type  <fixexp> postfix prefix
+%type  <fix>	postfix prefix
+%type  <val>	fixexp
 %type  <lval>	lval
-%type  <val>	call
-%type  <val>	funcp
+%type  <fncall>	call
+%type  <fncall>	funcp
 %type  <val>	castexp
 
 %type  <typ>	fpcast pcast cast typeid fptype
@@ -153,12 +160,12 @@ CexpTypedAddr rval;
 
 input:	line		{ CexpParserCtx pa=parm; pa->rval=$1; YYACCEPT; }
 
-redef:	typeid UVAR
-					{ EVAL($2.plval->type = $1;); CHECK(cexpTA2TV(&$$,$2.plval)); }
-	| 	typeid '*' UVAR
-					{ EVAL($3.plval->type = CEXP_TYPE_BASE2PTR($1);); CHECK(cexpTA2TV(&$$,$3.plval)); }
-	| 	fptype '(' '*' UVAR ')' '(' ')'
-					{ EVAL($4.plval->type = $1); CHECK(cexpTA2TV(&$$,$4.plval)); }
+redef:	typeid anyvar
+					{ EVAL($2->type = $1;); CHECK(cexpTA2TV(&$$,$2)); }
+	| 	typeid '*' anyvar
+					{ EVAL($3->type = CEXP_TYPE_BASE2PTR($1);); CHECK(cexpTA2TV(&$$,$3)); }
+	| 	fptype '(' '*' anyvar ')' '(' ')'
+					{ EVAL($4->type = $1); CHECK(cexpTA2TV(&$$,$4)); }
 	|	typeid IDENT
 					{ EVAL(if (!($2.plval = varCreate($2.name, $1))) YYERROR; );
 					  CHECK(cexpTA2TV(&$$,$2.plval));
@@ -312,7 +319,7 @@ unexp:
 /*
 	|	'(' commaexp ')' { $$=$2; }
 */
-	|	call
+	|	fixexp
 	|	'!' castexp
 					{ $$.type=TULong; $$.tv.l = ! cexpTVTrueQ(&$2); }
 	|	'~' castexp
@@ -335,6 +342,14 @@ lvar:	 VAR
 					{ $$=*$1.plval; }
 	|	'(' lval ')'
 					{ $$=$2; }
+;
+
+anyvar:	VAR
+					{ $$=&$1->value; }
+	|	FUNC
+					{ $$=&$1->value; }
+	|	UVAR
+					{ $$=$1.plval; }
 ;
 
 clvar:	lvar			%prec NONE
@@ -414,9 +429,29 @@ fpcast:
 ;
 
 funcp:	FUNC	
-					{ $$.type=$1->value.type; $$.tv.p=(void*)$1->value.ptv; }
+					{
+					  $$.doPassCtx=($1->flags & CEXP_SYMFLG_PASS_CTX);
+					  $$.val.type=$1->value.type;
+					  $$.val.tv.p=(void*)$1->value.ptv;
+					}
 	|	'&' FUNC %prec ADDR
-					{ $$.type=$2->value.type; $$.tv.p=(void*)$2->value.ptv; }
+					{ 
+					  $$.doPassCtx=($2->flags & CEXP_SYMFLG_PASS_CTX);
+					  $$.val.type=$2->value.type;
+					  $$.val.tv.p=(void*)$2->value.ptv;
+					}
+;
+
+castexp: unexp
+	|	cast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+	|	pcast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+	|	fpcast	castexp	%prec CAST
+					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
+;	
+
+fixexp: call		{ $$=$1.val; }
 	|	postfix
 					{ CexpTypedValRec tmp;
 					  EVAL( \
@@ -441,49 +476,81 @@ funcp:	FUNC
 						} \
 					  );
 					}
-;
-
-castexp: unexp
-	|	cast	castexp	%prec CAST
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
-	|	pcast	castexp	%prec CAST
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
-	|	fpcast	castexp	%prec CAST
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
-;	
 
 
-call:
-		'(' commaexp ')' %prec CALL{ $$=$2; } |
+call: '(' commaexp ')' %prec CALL{ $$.doPassCtx=0; $$.val=$2; }
+	|
 		funcp
 	|	call '(' ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,0)));
+					}
 	|	call '(' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,0)));
+					}
 	| 	call '(' exp ',' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,0)));
+					}
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,&$27,0))); }
+		%prec CALL	{
+						CexpParserCtx p=($$.doPassCtx=$1.doPassCtx) ? parm : 0;
+						EVAL(CHECK(cexpTVFnCall(p,&$$.val,&$1.val,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,&$27,0)));
+					}
 ;
 
 	

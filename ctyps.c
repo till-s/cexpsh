@@ -562,7 +562,7 @@ typedef DB (*FN_PPCSVRABI_DB)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB
 
 
 const char *
-cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
+cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...)
 {
 va_list 		ap;
 CexpTypedVal 	v;
@@ -576,6 +576,10 @@ DB				dargs[MAXDBLARGS];
 				return "need a function pointer";
 
 		nargs=0; fpargs=0;
+
+		if (ctx)
+			iargs[nargs++]=(UL)ctx;
+
 		va_start(ap,fn);
 
 		while ((v=va_arg(ap,CexpTypedVal))) {
@@ -698,12 +702,13 @@ typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 #endif
 
 const char *
-cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
+cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...)
 {
 va_list 		ap;
 CexpTypedVal 	args[MAXARGS],v;
 int				nargs,fpargs,i;
 CexpTypedValRec zero;
+CexpTypedValRec context;
 const char		*err=0;
 
 		/* sanity check */
@@ -713,7 +718,14 @@ const char		*err=0;
 		zero.type=TULong;
 		zero.tv.l=0;
 
+		context.type=TULong;
+		context.tv.l=(unsigned long)ctx;
+
 		nargs=0; fpargs=0;
+
+		if (ctx)
+			args[nargs++]=&context;
+
 		va_start(ap,fn);
 
 		while ((v=va_arg(ap,CexpTypedVal)) && nargs<MAXARGS) {

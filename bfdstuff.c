@@ -1,3 +1,9 @@
+/* $Id$ */
+
+/* Cexp interface to object/symbol file using BFD; runtime loader support */
+
+/* Author: Till Straumann, 8/2002 */
+
 #include <bfd.h>
 /*#include <libiberty.h>*/
 #include <stdio.h>
@@ -16,9 +22,15 @@
 #include "elf-bfd.h"
 #endif
 
+#define  DEBUG 1
+
 #include "regexp.h"
 
-#define CTOR_DTOR_PATTERN "^_+GLOBAL_[_.$][ID][_.$]"
+/* magic symbol names for C++ support; probably gcc specific */
+#define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
+#define EH_FRAME_BEGIN_PATTERN	"__FRAME_BEGIN__"
+#define EH_FRAME_END_PATTERN	"__FRAME_END__"
+#define EH_SECTION_NAME			".eh_frame"
 
 /* using one static variable for the pattern matcher is
  * OK since the entire cexpLoadFile() routine is called
@@ -28,11 +40,19 @@
 static  regexp	*ctorDtorRegexp=0;
 
 #ifdef HAVE_BFD_DISASSEMBLER
+/* as a side effect, this code gives access to a disassembler which
+ * itself is implemented by libopcodes
+ */
 #include "dis-asm.h"
 disassembler_ftype cexpBfdDisassembler=0;
 #endif
 
-#define CACHE_LINE_SIZE 32
+/* this is PowerPC specific; note that some architectures
+ * (mpc860) have smaller cache lines. Setting this to a smaller
+ * value than the actual cache line size is safe and performance
+ * is not an issue here
+ */
+#define CACHE_LINE_SIZE 16
 
 /* an output segment description */
 typedef struct SegmentRec_ {
@@ -42,9 +62,12 @@ typedef struct SegmentRec_ {
 	unsigned		attributes; /* such as 'read-only' etc.; currently unused */
 } SegmentRec, *Segment;
 
+/* currently, the cexp module facility only supports a single segment */
 #define NUM_SEGS 1
+/* a paranoid index for the only segment */
 #define ONLY_SEG (assert(NUM_SEGS==1),0)
 
+/* data we need for linking */
 typedef struct LinkDataRec_ {
 	SegmentRec		segs[NUM_SEGS];
 	asymbol			**st;
@@ -54,7 +77,13 @@ typedef struct LinkDataRec_ {
 	BitmapWord		*depend;
 	int				nCtors;
 	int				nDtors;
+	asymbol			*eh_frame_b_sym;
+	asymbol			*eh_frame_e_sym;
 } LinkDataRec, *LinkData;
+
+/* forward declarations */
+static asymbol *
+asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
 /* how to decide where a particular section should go */
 static Segment
@@ -98,6 +127,13 @@ asymbol			*spb=**(asymbol***)b;
 #define align_size_compare		0
 #endif
 
+/* determine if a given symbol is a constructor or destructor 
+ * by matching to a magic pattern.
+ *
+ * RETURNS: 1 if the symbol is a constructor
+ *         -1 if it is a destructor
+ *          0 otherwise
+ */
 static __inline__ int
 isCtorDtor(asymbol *asym, int quiet)
 {
@@ -123,6 +159,9 @@ isCtorDtor(asymbol *asym, int quiet)
 	return 0;
 }
 
+/* this routine defines which symbols are retained by Cexp in its
+ * internal symbol table
+ */
 static const char *
 filter(void *ext_sym, void *closure)
 {
@@ -135,6 +174,10 @@ asymbol *asym=*(asymbol**)ext_sym;
 		return bfd_asymbol_name(asym);
 }
 
+/* this routine is responsible for converting external (BFD) symbols
+ * to their internal representation (CexpSym). Only symbols who have
+ * passed the filter() above will be seen by assign().
+ */
 static void
 assign(void *ext_sym, CexpSym cesp, void *closure)
 {
@@ -149,7 +192,9 @@ elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 #define	ELFSIZE(elfsp)	(0)
 #endif
 
-printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
+#if DEBUG > 1
+		printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
+#endif
 
 
 		s = elfsp ? ELFSIZE(elfsp) : 0;
@@ -158,8 +203,10 @@ printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
 			t=TFuncP;
 			if (0==s)
 				s=sizeof(void(*)());
+		} else if (BSF_SECTION_SYM & asym->flags) {
+			/* linkonce section name: leave it void* */
 		} else {
-			/* must be BFS_OBJECT */
+			/* must be BSF_OBJECT */
 			if (asym->flags & BSF_OLD_COMMON) {
 				/* value holds the size */
 				s = bfd_asymbol_value(asym);
@@ -182,8 +229,12 @@ printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
 
 		cesp->size = s;
 		cesp->value.type = t;
-		/* store a pointer to the external symbol, so we have
-		 * a handle even after the internal symbols are sorted
+		/* We can only set the real value after relocation.
+		 * Therefore, store a pointer to the external symbol,
+		 * so we have a handle even after the internal symbols
+		 * are sorted. Note that the aindex[] built by cexpCreateSymTbl()
+		 * will be incorrect and has to be re-sorted further 
+		 * down the line.
 		 */
 		cesp->value.ptv  = ext_sym;
 
@@ -192,7 +243,6 @@ printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
 		if (asym->flags & BSF_WEAK)
 			cesp->flags |= CEXP_SYMFLG_WEAK;
 
-		/* can only set the value after relocation */
 }
 
 /* call this after relocation to assign the internal
@@ -206,47 +256,136 @@ CexpSym	cesp;
 		asymbol *sp=*(asymbol**)cesp->value.ptv;
 		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
 	}
+
+	/* resort the address index */
+	qsort((void*)cst->aindex,
+			cst->nentries,
+			sizeof(*cst->aindex),
+			_cexp_addrcomp);
 }
 
+/* All 's_xxx()' routines defined here are for use with
+ * bfd_map_over_sections()
+ */
+
+/* compute the size requirements for a section */
 static void
 s_count(bfd *abfd, asection *sect, PTR arg)
 {
 Segment		seg=segOf((LinkData)arg, sect);
+#if DEBUG>0
 	printf("Section %s, flags 0x%08x\n",
 			bfd_get_section_name(abfd,sect), sect->flags);
 	printf("size: %i, alignment %i\n",
 			bfd_section_size(abfd,sect),
 			(1<<bfd_section_alignment(abfd,sect)));
-	if (SEC_ALLOC & sect->flags) {
-		seg->size+=bfd_section_size(abfd,sect);
+#endif
+	if (SEC_ALLOC & bfd_get_section_flags(abfd,sect)) {
 		seg->size+=(1<<bfd_get_section_alignment(abfd,sect));
+		seg->size+=bfd_section_size(abfd,sect);
+		/* exception handler frame tables have to be 0 terminated and
+		 * we must reserve a little extra space.
+		 */
+		if ( !strcmp(bfd_get_section_name(abfd,sect), EH_SECTION_NAME) ) {
+			asymbol *asym;
+			/* allocate space for a terminating 0 */
+			seg->size+=sizeof(long);
+			/* create a symbol to tag the terminating 0 */
+			asym=((LinkData)arg)->eh_frame_e_sym=bfd_make_empty_symbol(abfd);
+			bfd_asymbol_name(asym) = EH_FRAME_END_PATTERN;
+			asym->value=(symvalue)bfd_section_size(abfd,sect);
+			asym->section=sect;
+		}
 	}
 }
+
+/* count the number of linkonce sections */
+static void
+s_count_linkonce(bfd *abfd, asection *sect, PTR arg)
+{
+	if (SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect))
+		(*(long*)arg)++;
+}
+
+/* filter the linkonce sections of a new object leaving only
+ * the ones which have not been loaded previously
+ */
+
+typedef struct FilterLinkonceRec_ {
+	asymbol **startp;
+	asymbol **endp;
+} FilterLinkonceRec, *FilterLinkonce;
+
+static void
+s_filter_linkonce(bfd *abfd, asection *sect, PTR arg)
+{
+asymbol **asymp;
+FilterLinkonce	fl=(FilterLinkonce)arg;
+CexpSym			ts=0;
+
+	if (SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect)) {
+		const char *secn=bfd_get_section_name(abfd,sect);
+		/* has a section with this name already been loaded?
+		 * Scan the linkonce sections of this module first:
+		 */
+		for (asymp=fl->startp; asymp<fl->endp; asymp++) {
+			if (!strcmp(bfd_asymbol_name(*asymp), secn)) {
+				break;
+			}
+		}
+		if (asymp>=fl->endp)
+			asymp=0;
+		if ( !asymp && !(ts=cexpSymLookup(bfd_get_section_name(abfd,sect), 0))) {
+			asymbol *newsym;
+			/* it's the first instance; create a new symbol for it */
+			assert(newsym = bfd_make_empty_symbol(abfd));
+			bfd_asymbol_name(newsym) = secn;
+			newsym->section = sect;
+			newsym->flags |= BSF_GLOBAL | BSF_SECTION_SYM | BSF_KEEP;
+			*fl->endp++=newsym;
+		} else {
+			if ( DEBUG || (SEC_LINK_DUPLICATES & bfd_get_section_flags(abfd,sect)))
+				fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
+			/* discard this section */
+			sect->flags &= ~SEC_ALLOC;
+		}
+	}
+}
+
+/* compute the section's vme for loading */
 
 static void
 s_setvma(bfd *abfd, asection *sect, PTR arg)
 {
 Segment		seg=segOf((LinkData)arg, sect);
+LinkData	ld=(LinkData)arg;
 
 	if (SEC_ALLOC & sect->flags) {
 		seg->vmacalc=align_power(seg->vmacalc, bfd_get_section_alignment(abfd,sect));
+#if DEBUG>0
 		printf("%s allocated at 0x%08x\n",
 				bfd_get_section_name(abfd,sect),
 				seg->vmacalc);
+#endif
 		bfd_set_section_vma(abfd,sect,seg->vmacalc);
 		seg->vmacalc+=bfd_section_size(abfd,sect);
+		if ( ld->eh_frame_e_sym && bfd_get_section(ld->eh_frame_e_sym) == sect ) {
+			/* allocate space for a terminating 0 */
+			seg->vmacalc+=sizeof(long);
+		}
 		sect->output_section = sect;
 	}
 }
 
 
+/* read the section contents and process the relocations.
+ */
 static void
 s_reloc(bfd *abfd, asection *sect, PTR arg)
 {
 LinkData	ld=(LinkData)arg;
 int			i;
 long		err;
-char		buf[1000];
 
 	if ( ! (SEC_ALLOC & sect->flags) )
 		return;
@@ -264,7 +403,6 @@ char		buf[1000];
 		bfd_section_size(abfd,sect)
 	);
 
-printf("TSILL ASYMS  0x%08x\n", ld->st);
 	/* if there are relocations, resolve them */
 	if ((SEC_RELOC & sect->flags)) {
 		arelent **cr=0,r;
@@ -284,31 +422,29 @@ printf("TSILL ASYMS  0x%08x\n", ld->st);
 			return;
 		}
 		for (i=0; i<sz; i++) {
-			arelent *r=cr[i];
-			if (bfd_is_und_section(bfd_get_section(*r->sym_ptr_ptr))) {
+			arelent 	*r=cr[i];
+			asection	*symsect=bfd_get_section(*r->sym_ptr_ptr);
+			if (   bfd_is_und_section(symsect) ||					
+				   /* reloc references an undefined sym */
+				! (SEC_ALLOC & bfd_get_section_flags(abfd,symsect))
+				   /* reloc references a dropped linkonce */
+			    ) {
 				CexpModule	mod;
 				asymbol		*sp;
 				CexpSym		ts=cexpSymLookup(bfd_asymbol_name((sp=*(r->sym_ptr_ptr))),&mod);
 				if (ts) {
-				/* Resolved reference; replace the symbol pointer
-				 * in this slot with a new asymbol holding the
-				 * resolved value.
-				 */
-				sp=*r->sym_ptr_ptr=bfd_make_empty_symbol(abfd);
-				/* copy name pointer */
-				bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
-				sp->value=(symvalue)ts->value.ptv;
-				sp->section=bfd_abs_section_ptr;
-				sp->flags=BSF_GLOBAL;
-				/* mark the referenced module in the bitmap */
-				assert(mod->id < MAX_NUM_MODULES);
-				BITMAP_SET(ld->depend,mod->id);
+					/* Resolved reference; replace the symbol pointer
+					 * in this slot with a new asymbol holding the
+					 * resolved value.
+					 */
+					sp=*r->sym_ptr_ptr=asymFromCexpSym(abfd,ts,ld->depend,mod);
 				} else {
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
 		continue;
 				}
 			}
+#if DEBUG > 0
 			printf("relocating (%s=",
 					bfd_asymbol_name(*(r->sym_ptr_ptr))
 					);
@@ -316,6 +452,7 @@ printf("TSILL ASYMS  0x%08x\n", ld->st);
 			bfd_asymbol_value(*(r->sym_ptr_ptr)),
 			r->address,
 			r->sym_ptr_ptr);
+#endif
 
 			if ((err=bfd_perform_relocation(
 				abfd,
@@ -340,6 +477,9 @@ buildCtorsDtors(LinkData ld, CexpModule mod)
 {
 VoidFnPtr	*cfnp,*dfnp;
 asymbol		**asymp;
+	/* TODO: search for magic module initializer/finalizer symbol for
+	 *       supporting C modules
+	 */
 	if (ld->nCtors) {
 		mod->ctor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->ctor_list) * (ld->nCtors));
 		memset(mod->ctor_list,0,sizeof(*mod->ctor_list) * (ld->nCtors));
@@ -366,17 +506,35 @@ asymbol		**asymp;
 	}
 }
 
+/* convert a CexpSym to a (temporary) BFD symbol and update module
+ * dependencies
+ */
+static asymbol *
+asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod)
+{
+asymbol *sp = bfd_make_empty_symbol(abfd);
+	/* TODO: check size and alignment */
+
+	/* copy pointer to name */
+	bfd_asymbol_name(sp) = csym->name;
+	sp->value=(symvalue)csym->value.ptv;
+	sp->section=bfd_abs_section_ptr;
+	sp->flags=BSF_GLOBAL;
+	/* mark the referenced module in the bitmap */
+	assert(mod->id < MAX_NUM_MODULES);
+	BITMAP_SET(depend,mod->id);
+	return sp;
+}
+
 /* resolve undefined and common symbol references;
- * The routine also rearranges the symbol table for
- * all common symbols that must be created to be located
- * at the beginning of the symbol list.
+ * The routine also creates a list of
+ * all common symbols that need to be created.
  *
  * RETURNS:
  *   value >= 0 : OK, number of new common symbols
- *   value <0   : -number of errors (unresolved refs or multiple definitions)
+ *   value <  0 : -number of errors (unresolved refs or multiple definitions)
  *
  * SIDE EFFECTS:
- *   - all new common symbols moved to the beginning of the table
  *   - resolved undef or common slots are replaced by new symbols
  *     pointing to the ABS section
  *   - KEEP flag is set for all globals defined by this object.
@@ -387,7 +545,6 @@ resolve_syms(bfd *abfd, asymbol **syms, LinkData ld)
 {
 asymbol		*sp;
 int			i,num_new_commons=0,errs=0;
-CexpModule	mod;
 
 	/* resolve undefined and common symbols;
 	 * find name clashes
@@ -396,8 +553,11 @@ CexpModule	mod;
 		asection	*sect=bfd_get_section(sp);
 		CexpSym		ts;
 		int			res;
+		CexpModule	mod;
 
-printf("TSILL scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp));
+#if DEBUG>2
+		printf("scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp));
+#endif
 		/* count constructors/destructors */
 		if ((res=isCtorDtor(sp,1/*warn*/))) {
 			if (res>0)
@@ -406,61 +566,42 @@ printf("TSILL scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp)
 				ld->nDtors++;
 		}
 
+		/* mark end with 32-bit 0 if this symbol is contained
+ 		 * in a ".eh_frame" section
+		 */
+		if (!strcmp(EH_FRAME_BEGIN_PATTERN, bfd_asymbol_name(sp)))
+			ld->eh_frame_b_sym=sp;
+
 		/* we only care about global symbols
 		 * (NOTE: undefined symbols are neither local
 		 *        nor global)
+		 * the only exception are the name symbols of
+		 * we created for 'linkonce' sections (s_filter_linkonce())
 		 */
-		if ( (BSF_LOCAL & sp->flags) ) {
+		if ( (BSF_LOCAL & sp->flags) &&
+			!(  (BSF_SECTION_SYM & sp->flags) &&
+				(SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect))) ) {
 			continue;
 		}
 
 		ts=cexpSymLookup(bfd_asymbol_name(sp), &mod);
 
 		if (bfd_is_und_section(sect)) {
-			/* do some magic on symbols which _do_ have a
+			/* do some magic on undefined symbols which do have a
 			 * type. These are probably sitting in a shared
-			 * library but _do_ have a valid value.
+			 * library and _do_ have a valid value. (This is the
+			 * case when loading the symbol table e.g. on a 
+			 * linux platform.)
 			 */
 			if (!ts && bfd_asymbol_value(sp) && (BSF_FUNCTION & sp->flags)) {
 					sp->flags |= BSF_KEEP;
 			}
 			/* resolve references at relocation time */
-#if 0
-			if (ts) {
-				/* Resolved reference; replace the symbol pointer
-				 * in this slot with a new asymbol holding the
-				 * resolved value.
-				 */
-				sp=syms[i]=bfd_make_empty_symbol(abfd);
-				/* copy name pointer */
-				bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
-				sp->value=(symvalue)ts->value.ptv;
-				sp->section=bfd_abs_section_ptr;
-				sp->flags=BSF_GLOBAL;
-				/* mark the referenced module in the bitmap */
-				assert(mod->id < MAX_NUM_MODULES);
-				BITMAP_SET(depend,mod->id);
-			} else {
-				fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
-				errs++;
-			}
-#endif
 		}
 		else if (bfd_is_com_section(sect)) {
 			if (ts) {
 				/* use existing value of common sym */
-				sp = bfd_make_empty_symbol(abfd);
-
-				/* TODO: check size and alignment */
-
-				/* copy pointer to old name */
-				bfd_asymbol_name(sp) = bfd_asymbol_name(syms[i]);
-				sp->value=(symvalue)ts->value.ptv;
-				sp->section=bfd_abs_section_ptr;
-				sp->flags=BSF_GLOBAL;
-				/* mark the referenced module in the bitmap */
-				assert(mod->id < MAX_NUM_MODULES);
-				BITMAP_SET(ld->depend,mod->id);
+				sp = asymFromCexpSym(abfd,ts,ld->depend,mod);
 			} else {
 				/* it's the first definition of this common symbol */
 
@@ -480,14 +621,19 @@ printf("TSILL scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp)
 			}
 			syms[i]=sp; /* use new instance */
 		} else {
+			/* any other symbol, i.e. neither undefined nor common */
 			if (ts) {
-				fprintf(stderr,"Symbol '%s' already exists\n",bfd_asymbol_name(sp));
-
-				errs++;
-				/* TODO: check size and alignment; allow multiple
-				 *       definitions??? - If yes, we have to track
-				 *		 the dependencies also.
-				 */
+				if (sp->flags & BSF_WEAK) {
+					/* use existing instance */
+					sp=syms[i]=asymFromCexpSym(abfd,ts,ld->depend,mod);
+				} else {
+					fprintf(stderr,"Symbol '%s' already exists\n",bfd_asymbol_name(sp));
+					errs++;
+					/* TODO: check size and alignment; allow multiple
+					 *       definitions??? - If yes, we have to track
+					 *		 the dependencies also.
+					 */
+				}
 			} else {
 				/* new symbol defined by the loaded object; account for it */
 				/* mark for second pass */
@@ -499,7 +645,7 @@ printf("TSILL scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp)
 	return errs ? -errs : num_new_commons;
 }
 
-/* make a dummy section holding the new common data introduced by
+/* make a dummy section holding the new common data objects introduced by
  * the newly loaded file.
  *
  * RETURNS: 0 on failure, nonzero on success
@@ -528,12 +674,20 @@ asection	*csect;
 		/* set new common symbol values */
 		for (val=0,i=0; i<num_new_commons; i++) {
 			asymbol *sp;
-			int tsill;
+			int apwr;
 
 			sp = bfd_make_empty_symbol(abfd);
 
-			val=align_power(val,(tsill=get_align_pwr(abfd,*new_common_ps[i])));
-printf("TSILL align_pwr %i\n",tsill);
+			/* to minimize fragmentation, the new commons have been sorted
+			 * in decreasing order according to their alignment requirements
+			 * (probably not supported on formats other than ELF)
+			 */
+			val=align_power(val,(
+							apwr=
+							get_align_pwr(abfd,*new_common_ps[i])));
+#if DEBUG > 0
+			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(sp),apwr);
+#endif
 			/* copy pointer to old name */
 			bfd_asymbol_name(sp) = bfd_asymbol_name(*new_common_ps[i]);
 			sp->value=val;
@@ -548,15 +702,14 @@ printf("TSILL align_pwr %i\n",tsill);
 	return 0;
 }
 
-#define TSILL(asyms) {int tsill; for (tsill=0; tsill<tsill_num_new_commons; tsill++) printf("TSILL %s, 0x%08x\n",bfd_asymbol_name(asyms[tsill]),bfd_asymbol_value(asyms[tsill])); } while (0)
-int tsill_num_new_commons;
 
 static int
 slurp_symtab(bfd *abfd, LinkData ld)
 {
-asymbol 		**asyms=0;
-long			i,nsyms;
-long			num_new_commons;
+asymbol 			**asyms=0;
+long				i,nsyms,n_linkonce;
+long				num_new_commons;
+FilterLinkonceRec	flr;
 
 	if (!(HAS_SYMS & bfd_get_file_flags(abfd))) {
 		fprintf(stderr,"No symbols found\n");
@@ -566,25 +719,33 @@ long			num_new_commons;
 		fprintf(stderr,"Fatal error: illegal symtab size\n");
 		return -1;
 	}
-	if (i) {
-		asyms=(asymbol**)xmalloc(i);
+
+	/* count the number of 'linkonce' section in this module */
+	n_linkonce=0;
+	bfd_map_over_sections(abfd, s_count_linkonce, &n_linkonce);
+	if (n_linkonce && !i)
+		n_linkonce++; /* terminating 0 */
+
+	/* we reserve space in the asymbol table for the names of
+	 * all encountered linkonce sections. We will create asymbols
+	 * for these names for our internal use further down the line.
+	 */
+	if (i + n_linkonce) {
+		asyms=(asymbol**)xmalloc(i + n_linkonce * sizeof(asymbol*));
 	}
-	nsyms= i/sizeof(asymbol*) - 1;
+	nsyms= i ? i/sizeof(asymbol*) - 1 : 0;
 	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {
 		bfd_perror("Canonicalizing symtab");
 		goto cleanup;
 	}
 
-	/* do a sanity check */
 
-
-	if ((tsill_num_new_commons=num_new_commons=resolve_syms(abfd,asyms,ld))<0) {
+	if ( (num_new_commons=resolve_syms(abfd,asyms,ld)) <0 ) {
 		goto cleanup;
 	}
 
-TSILL(asyms);	
 	/*
-	 *	sort st[0]..st[num_new_commons-1] by alignment
+	 *	sort the list of new_commons by alignment
 	 */
 	if (align_size_compare && num_new_commons)
 		qsort(
@@ -593,7 +754,17 @@ TSILL(asyms);
 			sizeof(*ld->new_commons),
 			align_size_compare);
 	
-TSILL(asyms);	
+	/* filter the 'linkonce' sections appending asymbols
+	 * for the newly loaded 'linkonce' section names to the
+	 * asymbol table.
+	 */
+	flr.startp=flr.endp=asyms+nsyms;
+
+	if (n_linkonce) {
+		bfd_map_over_sections(abfd, s_filter_linkonce, &flr);
+		*flr.endp=0;
+	}
+
 	/* Now, everything is in place to build our internal symbol table
 	 * representation.
 	 * We cannot do this later, because the size information will be lost.
@@ -601,12 +772,14 @@ TSILL(asyms);
 	 * after relocation has been performed.
 	 */
 
-	ld->cst=cexpCreateSymTbl(asyms, sizeof(*asyms), nsyms, filter, assign, 0);
+	ld->cst=cexpCreateSymTbl(asyms,
+							 sizeof(*asyms),
+							 nsyms + (flr.endp-flr.startp),
+							 filter, assign, 0);
 
 	if (0!=make_new_commons(abfd,ld->new_commons,num_new_commons))
 		goto cleanup;
 
-TSILL(asyms);	
 	ld->st=asyms;
 	asyms=0;
 
@@ -654,6 +827,9 @@ LinkDataRec		ldr;
 int				rval=1,i,j;
 CexpSym			sane;
 
+	/* clear out the private data area; the cleanup code
+	 * relies on this...
+	 */
 	memset(&ldr,0,sizeof(ldr));
 
 	ldr.depend = mod->needs;
@@ -686,25 +862,25 @@ CexpSym			sane;
 	}
 
 	/* the first thing to be loaded must be the system
-	 * symbol table. Reject to load anything...
+	 * symbol table. Reject to load anything in this case
+	 * which allows for using the executable as the
+	 * symbol file.
 	 */
 	if ( ! (0==cexpSystemModule) ) {
 
-	ldr.errors=0;
+	/* compute the memory space requirements */
 	bfd_map_over_sections(abfd, s_count, &ldr);
 
 	/* allocate segment space */
 	for (i=0; i<NUM_SEGS; i++)
 		ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk=xmalloc(ldr.segs[i].size);
 
-	ldr.errors=0;
+	/* compute and set the base addresses for all sections to be allocated */
 	bfd_map_over_sections(abfd, s_setvma, &ldr);
 
 	ldr.errors=0;
 memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
-TSILL(ldr.st);	
 	bfd_map_over_sections(abfd, s_reloc, &ldr);
-TSILL(ldr.st);	
 	if (ldr.errors)
 		goto cleanup;
 
@@ -725,7 +901,11 @@ TSILL(ldr.st);
 			 sane->value.ptv==(CexpVal)&_edata ) {
 
         	/* OK, sanity test passed */
+
 #ifdef HAVE_BFD_DISASSEMBLER
+			/* as a side effect, since we have an open BFD, we
+			 * use it to fetch a disassembler for the target
+			 */
 			if (!(cexpBfdDisassembler = disassembler(abfd)))
 				bfd_perror("Warning: no disassembler found");
 #endif
@@ -739,7 +919,23 @@ TSILL(ldr.st);
 
 	flushCache(&ldr);
 
-	/* build and call constructors */
+	/* if there is an exception frame table, we
+	 * have to register it with libgcc. If it was
+	 * in its own section, we also must write a terminating 0
+	 */
+	if (ldr.eh_frame_b_sym) {
+		extern __register_frame();
+printf("TSILL registering EH_FRAME 0x%08x\n",
+		bfd_asymbol_value(ldr.eh_frame_b_sym));
+		if ( ldr.eh_frame_e_sym ) {
+			/* eh_frame was in its own section; hence we have to write a terminating 0
+			 */
+			*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
+		}
+		__register_frame(bfd_asymbol_value(ldr.eh_frame_b_sym));
+	}
+
+	/* build ctor/dtor lists */
 	if (ldr.nCtors || ldr.nDtors) {
 		buildCtorsDtors(&ldr,mod);
 	}
@@ -754,6 +950,7 @@ TSILL(ldr.st);
 
 	rval=0;
 
+	/* fall through to release unused resources */
 cleanup:
 	if (ldr.st)
 		free(ldr.st);

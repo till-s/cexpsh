@@ -331,8 +331,16 @@ cleanup:
 void
 cexpFreeSymTbl(CexpSymTbl *pt)
 {
-CexpSymTbl st=*pt;
+CexpSymTbl	st=*pt;
+CexpSym		s;
+int			i;
 	if (st) {
+		/* release help info */
+		for (s=st->syms, i=0;  i<st->nentries; i++,s++) {
+			if (s->flags & CEXP_SYMFLG_MALLOC_HELP) {
+				free(s->help);
+			}
+		}
 		free(st->syms);
 		free(st->strtbl);
 		free(st->aindex);
@@ -344,20 +352,26 @@ CexpSymTbl st=*pt;
 int
 cexpSymPrintInfo(CexpSym s, FILE *f)
 {
-CexpType t=s->value.type;
+int			i=0,k;
+CexpType	t=s->value.type;
+
 	if (!f) f=stdout;
 
-	/* convert variables (which are internally treated as pointers)
-	 * to their base type for display
-	 */
-	if (!CEXP_TYPE_FUNQ(t))
-		t=CEXP_TYPE_PTR2BASE(t);	
-	return
-		fprintf(f,"%p[%4d]: %s %s\n",
+	i+=fprintf(f,"%p[%6d]: ",
 			(void*)s->value.ptv,
-			s->size,
-			cexpTypeInfoString(t),
-			s->name);
+			s->size);
+	if (!CEXP_TYPE_FUNQ(t)) {
+		i+=cexpTAPrintInfo(&s->value, f);
+	} else {
+		for (k=0; k<30; k++)
+			fputc(' ',f);
+		i+=k;
+		i+=fprintf(f,"%s",cexpTypeInfoString(t));
+	}
+	while (i++<50)
+		fputc(' ',f);
+	i+=fprintf(f,"%s\n", s->name);
+	return i;
 }
 
 /* do a binary search for an address returning its aindex number */
@@ -391,4 +405,63 @@ CexpSym
 cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
 {
 	return t->aindex[cexpSymTblLkAddrIdx(addr,margin,f,t)];
+}
+
+/* currently, we have only very rudimentary support; just enough
+ * for 'HELP'
+ */
+static char *
+symHelp(CexpSym sym, va_list ap)
+{
+CexpTypedVal v;
+char *newhelp=0;
+int  verbose=0;
+
+	if ((v=va_arg(ap,CexpTypedVal))) {
+		switch (v->type) {
+			case TUCharP:
+				newhelp = v->tv.p;
+				break;
+			case TULong:
+				verbose = v->tv.l;
+				break;
+			default:
+				return "Cexp Help: Warning, invalid argument";
+
+		}
+	}
+	
+	if (newhelp) {
+		if (sym->flags & CEXP_SYMFLG_MALLOC_HELP)
+			free(sym->help);
+		sym->help=strdup(newhelp);
+		sym->flags |= CEXP_SYMFLG_MALLOC_HELP;
+	} else {
+		if (verbose)
+			cexpSymPrintInfo(sym,stdout);
+		if (sym->help)
+			fprintf(stdout,"%s\n",sym->help);
+		else
+			fprintf(stdout,"No help available\n");
+	}
+	return 0;
+}
+
+char *
+cexpSymMember(CexpTypedVal returnVal, CexpSym sym, char *mname, ...)
+{
+char 	*rval="member not implemented";
+va_list ap;
+
+	returnVal->type = TULong;
+	returnVal->tv.l = 0;
+
+	va_start(ap, mname);
+
+	if (!strcmp("help",mname)) {
+		rval=symHelp(sym,ap);
+	}
+
+	va_end(ap);
+	return rval;
 }

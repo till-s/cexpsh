@@ -468,32 +468,40 @@ cexpTVTrueQ(CexpTypedVal v)
 		return 0;
 }
 
-void
+int
 cexpTAPrintInfo(CexpTypedAddr a, FILE *f)
 {
-int i;
+int i=0;
 
 	if (CEXP_TYPE_PTRQ(a->type)) {
-		i=fprintf(f,"%20p",a->ptv->p);
+		i+=fprintf(f,"%p",a->ptv->p);
 	} else {
+		if (a->type != TVoid && 0==a->ptv) {
+			i+=fprintf(f,"NULL");
+		} else {
 		switch (a->type) {
 			default:
 				assert(0=="type mismatch");
 			case TUChar:
-				i=fprintf(f,"0x%02x ('%c'==%i)",a->ptv->c,a->ptv->c,a->ptv->c); break;
+				i+=fprintf(f,"0x%02x ('%c'==%i)",a->ptv->c,a->ptv->c,a->ptv->c); break;
 			case TUShort:
-				i=fprintf(f,"0x%04x (==%i)",a->ptv->s,a->ptv->s); break;
+				i+=fprintf(f,"0x%04x (==%i)",a->ptv->s,a->ptv->s); break;
 			case TULong:
-				i=fprintf(f,"0x%08lx (==%li)",a->ptv->l,a->ptv->l); break;
+				i+=fprintf(f,"0x%08lx (==%li)",a->ptv->l,a->ptv->l); break;
 			case TFloat:
-				i=fprintf(f,"%g",a->ptv->f); break;
+				i+=fprintf(f,"%g",a->ptv->f); break;
 			case TDouble:
-				i=fprintf(f,"%g",a->ptv->d); break;
+				i+=fprintf(f,"%g",a->ptv->d); break;
+			case TVoid:
+				i+=fprintf(f,"VOID"); break;
+		}
 		}
 	}
+
 	for (;i<30;i++)
 		fputc(' ',f);
-	fprintf(f,"%s",cexpTypeInfoString(a->type));
+	i+=fprintf(f,"%s",cexpTypeInfoString(a->type));
+	return i;
 }
 
 const char *

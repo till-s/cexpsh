@@ -16,12 +16,13 @@ typedef struct CexpSymRec_ {
 	CexpTypedAddrRec	value;
 	int					size;
 	unsigned			flags;
+	char				*help;
 } CexpSymRec, *CexpSym;
 
 /* flags associated with symbols */
 #define CEXP_SYMFLG_GLBL		(1<<0) /* a global symbol */
 #define CEXP_SYMFLG_WEAK		(1<<1) /* a weak symbol   */
-#define CEXP_SYMFLG_PASS_CTX 	(1<<2) /* implicitely pass parser context to the function described by this symbol */
+#define CEXP_SYMFLG_MALLOC_HELP	(1<<3) /* whether the help info is static or malloc()ed */
 
 
 typedef struct CexpSymTblRec_	*CexpSymTbl;
@@ -43,5 +44,15 @@ cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t);
 /* print info about a symbol to FILE */
 int
 cexpSymPrintInfo(CexpSym s, FILE *f);
+
+/* Invoke member with name 'mname' on a symbol
+ * The member must know how to understand the optional
+ * arguments.
+ *
+ * Returns 0 if OK, error message on failure.
+ */
+
+char *
+cexpSymMember(CexpTypedVal returnVal, CexpSym sym, char *mname, ...);
 
 #endif

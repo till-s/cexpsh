@@ -171,8 +171,7 @@ varprint(const char *name, CexpSym s, void *arg)
 FILE	*f=stdout;
 spencer_regexp	*rc=arg;
 	if (spencer_regexec(rc,name)) {
-		cexpTAPrintInfo(&s->value,f);
-		fprintf(f,": %s\n",name);
+		cexpSymPrintInfo(s,f);
 	}
 	return 0;
 }
@@ -255,8 +254,7 @@ CexpModule		mod;
 	}
 	if ((s=cexpVarLookup(name,0))) {
 		fprintf(f,"User Variable:\n");
-		cexpTAPrintInfo(&s->value,stdout);
-		fprintf(f,": %s\n",name);
+		cexpSymPrintInfo(s,f);
 		rval=0;
 	}
 	return rval;

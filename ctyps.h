@@ -186,7 +186,15 @@ cexpTypePromote(CexpTypedVal a, CexpTypedVal b);
 const char *
 cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...);
 
-void
+/* this routine prints info about the typed address 'a'
+ * to a file (without newline).
+ * RETURNS: number or chars written
+ *
+ * NOTE: it is legal to pass a NULL argument (for 'a')
+ * which will cause the routine to print spaces for
+ * pretty printing.
+ */
+int
 cexpTAPrintInfo(CexpTypedAddr a, FILE *f);
 
 /* convert a typed address to a typed value */

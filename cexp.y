@@ -39,15 +39,17 @@
 /* acceptable characters for identifiers - must not
  * overlap with operators
  */
-#define ISIDENTCHAR(ch) ('_'==(ch) || '.'==(ch) || '@'==(ch))
+#define ISIDENTCHAR(ch) ('_'==(ch) || '@'==(ch))
 
 #define LEXERR	-1
 void yyerror();
 int  yylex();
 
+typedef char *LString;
+
 typedef struct CexpParserCtxRec_ {
 	char			*chpt;
-	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
+	LString			lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
 } CexpParserCtxRec;
@@ -90,6 +92,10 @@ CexpSym rval;
 		CexpTypedAddrRec	lval;
 		CexpBinOp			op;
 	}							fixexp;
+	struct			{
+		CexpSym				sym;
+		char				*mname;		/* string kept in the line string table */
+	}							method;
 	unsigned long				ul;
 }
 
@@ -116,6 +122,7 @@ CexpSym rval;
 %type  <val>	call
 %type  <val>	funcp
 %type  <val>	castexp
+%type  <method> symmethod
 
 %type  <typ>	fpcast pcast cast typeid fptype
 
@@ -146,6 +153,7 @@ CexpSym rval;
 %right		'~'
 %right		'!'
 %left		CALL
+%left		'.'
 
 %%
 
@@ -463,19 +471,25 @@ castexp: unexp
 					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
 ;	
 
+symmethod:
+		VAR '.' IDENT { $$.sym = $1; $$.mname=$3; }
+	|
+		UVAR '.' IDENT { $$.sym = $1; $$.mname=$3; }
+	|
+		FUNC '.' IDENT { $$.sym = $1; $$.mname=$3; }
+;
+
 
 
 call:
-		'(' commaexp ')' %prec CALL{ $$=$2; } |
-		funcp
-/*
+		'(' commaexp ')' %prec CALL{ $$=$2; }
+	|	funcp
 	|	symmethod '(' ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, 0))); }
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, 0))); }
 	|	symmethod '(' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, &$3, 0))); }
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, 0))); }
 	|	symmethod '(' exp ',' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, &$3, &$5, 0))); }
-*/
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, &$5, 0))); }
 	|	call '(' ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
 	|	call '(' exp ')'
@@ -513,11 +527,11 @@ call:
 /* add a string to the line string table returning its index
  * RETURNS a negative number on error
  */
-char *
+LString
 lstAddString(CexpParserCtx env, char *string)
 {
-char			*rval=0;
-char			**chppt;
+LString			rval=0;
+LString			*chppt;
 int				i;
 	for (i=0,chppt=env->lineStrTbl;
 		 i<sizeof(env->lineStrTbl)/sizeof(env->lineStrTbl[0]);
@@ -530,7 +544,7 @@ int				i;
 		if ((rval=malloc(strlen(string)+1))) {
 			*chppt=rval;
 			strcpy(rval,string);
-			return rval;
+			return (LString) rval;
 		}
 	}
 	fprintf(stderr,"Cexp: Line String Table exhausted\n");
@@ -555,6 +569,8 @@ int hasE=0;
 	/* first, we put ch to the buffer */
 	*(chpt++)=(char)ch; size--; /* assume it's still safe */
 	getch();
+	if (!isdigit(ch))
+		return '.'; /* lonely '.' without attached number is perhaps a field separator */
 	do {
 		while(isdigit(ch) && size) {
 			*(chpt++)=(char)ch; if (!--size) return prerr();
@@ -669,8 +685,9 @@ char *chpt;
 		rval->val.type=TULong;
 		return NUMBER;
 	} else if ('.'==ch) {
-		/* also a fractional number */
-		return scanfrac(sbuf,sbuf,limit,rval,pa);
+		/* perhaps also a fractional number */
+		return
+			scanfrac(sbuf,sbuf,limit,rval,pa);
 	} else if (isalpha(ch) || ISIDENTCHAR(ch)) {
 		/* slurp in an identifier */
 		chpt=sbuf;

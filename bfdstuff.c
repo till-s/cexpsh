@@ -98,7 +98,7 @@
 /* magic symbol names for C++ support; probably gcc specific */
 #define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
 /* static/global CTOR/DTOR has no init_priority (highest priority is 1) */
-#define INIT_PRIO_NONE		1000000
+#define INIT_PRIO_NONE			1000000
 #ifdef OBSOLETE_EH_STUFF	/* old suselinux-ppc modified gcc needed that */
 #define EH_FRAME_BEGIN_PATTERN	"__FRAME_BEGIN__"
 #define EH_FRAME_END_PATTERN	"__FRAME_END__"
@@ -603,7 +603,7 @@ long		err;
 				sect,
 				0 /* output bfd */,
 				0))) {
-				bfd_perror("Relocation failed");
+				fprintf(stderr,"Relocation failed: relocation_status %i\n",err);
 				ld->errors++;
 			}
 		}
@@ -1205,14 +1205,14 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 	/* system symbol table sanity check */
 	if ((sane=cexpSymTblLookup("cexpLoadFile",ldr.cst))) {
 		/* this must be the system table */
-		extern void *_edata, *_etext;
+		extern char _edata[], _etext[];
 
         /* it must be the main symbol table */
         if ( sane->value.ptv==(CexpVal)cexpLoadFile     &&
        	     (sane=cexpSymTblLookup("_etext",ldr.cst))  &&
-			 sane->value.ptv==(CexpVal)&_etext          &&
+			 sane->value.ptv==(CexpVal)_etext          &&
              (sane=cexpSymTblLookup("_edata",ldr.cst))  &&
-			 sane->value.ptv==(CexpVal)&_edata ) {
+			 sane->value.ptv==(CexpVal)_edata ) {
 
         	/* OK, sanity test passed */
 

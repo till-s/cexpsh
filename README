@@ -91,8 +91,13 @@ evaluates to the unsigned long array element
 some_array[25]. Alternatively, you can redeclare
 its type:
 
-Cexp> long *some_array
+Cexp> long *some_array !
 Cexp> *(some_array + 25)
+
+Note the exclamation mark: terminating a variable declaration with an
+exclamation mark allows you to redefine its type. Only new variables
+may be declared without the '!'. This protects you from erroneously
+use existing symbols.
 
 Cexp provides a series of lookup functions
 for symbols. Most noteworthy:

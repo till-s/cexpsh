@@ -154,7 +154,7 @@ CexpSym rval;
 %token <binop>	MODOP		/* +=, -= & friends */
 
 %type  <varp>	anyvar
-%type  <val>	redef line
+%type  <val>	def redef newdef line
 %type  <val>	commaexp
 %type  <val>	exp
 %type  <val>	binexp
@@ -210,21 +210,26 @@ redef:	typeid anyvar
 					{ EVAL($3->type = CEXP_TYPE_BASE2PTR($1);); CHECK(cexpTA2TV(&$$,$3)); }
 	| 	fptype '(' '*' anyvar ')' '(' ')'
 					{ EVAL($4->type = $1); CHECK(cexpTA2TV(&$$,$4)); }
-	|	typeid IDENT
+;
+
+newdef: typeid IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($2, $1))) YYERROR; );
+					  EVAL(if (!(found = varCreate($2, $1))) YYERROR;);
 					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
 	| 	typeid '*' IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR; );
+					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR;);
 					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
 	| 	fptype '(' '*' IDENT ')' '(' ')'
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($4, $1))) YYERROR; );
+					  EVAL(if (!(found = varCreate($4, $1))) YYERROR;);
 					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
+;
+
+def: newdef | redef '!'
 ;
 
 commaexp:	exp
@@ -240,7 +245,11 @@ line:	'\n'
 						yyerror("unknown symbol/variable; '=' expected");
 						YYERROR;
 					}
-	|	redef '\n'
+	|	def '\n'
+	|   redef '\n'	{
+						fprintf(stderr,"Symbol already defined; append '!' to enforce recast\n");
+						YYERROR;
+					}
 	|	commaexp '\n'
 					{FILE *f=((CexpParserCtx)parm)->f;
 						$$=$1;

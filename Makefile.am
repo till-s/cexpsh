@@ -70,6 +70,8 @@ cexpsyms.o: cexp.tab.h
 cexp.tab.c cexp.tab.h: cexp.y
 	bison -v -d -p cexp $^
 
+%ctyps.o: jumptab.c
+
 jumptab.c: gentab
 	./$^ > $@
 

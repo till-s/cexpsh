@@ -103,9 +103,20 @@ RETURNS: First module ID found, NULL on no match.",
 	HELP(
 "Dump info about a module to 'f' (stdout if NULL).\n\
 If NULL is passed for the module ID, info about all\n\
-modules is given.",
+modules is given. 'level' selects Info verbosity.\n\
+RETURNS: mod->next",
 		int,
-		cexpModuleInfo,(CexpModule mod, FILE *f)
+		cexpModuleInfo,(CexpModule mod, int level, FILE *f)
+	),
+	HELP(
+"Dump info about a module's section addresses in a \n\
+format suitable to GDB to 'f' (stdout if NULL).\n\
+If NULL is passed for the module ID, info about all\n\
+modules is given. Default prefix (if NULL) is\n\
+'add-symbol-file'\n\
+RETURNS: mod->next",
+		int,
+		cexpModuleDumpGdbSectionInfo, (CexpModule mod, char *prefix, FILE *feil)
 	),
 	HELP(
 "The main interpreter loop, it can be registered with a shell...",

@@ -150,7 +150,7 @@ getNextSym(int *pindex, CexpModule *pmod, void *addr)
 	return (*pmod)->symtbl->aindex[*pindex];
 }
 
-void
+int
 cexpDisassemble(void *addr, int n, disassemble_info *di)
 {
 FILE			*f;
@@ -162,7 +162,7 @@ int				found;
 
 	if (!bfdDisassembler) {
 		fprintf(stderr,"No disassembler support\n");
-		  return;
+		  return -1;
 	}
 
 	if (!di) {
@@ -260,4 +260,5 @@ int				found;
 	/* restore the stream */
 	di->stream = f;
 	di->fprintf_func = orig_fprintf;
+	return 0;
 }

@@ -37,7 +37,7 @@ static char *desc[]={
 const char *
 cexpTypeInfoString(CexpType to)
 {
-int t;
+int t=0; /* keep compiler happy */
 	if (CEXP_TYPE_FUNQ(to)) {
 		switch (to) {
 			case TFuncP:  t=0; break;
@@ -457,11 +457,11 @@ int i;
 			case TUShort:
 				i=fprintf(f,"0x%04x (==%i)",v->tv.s,v->tv.s); break;
 			case TULong:
-				i=fprintf(f,"0x%08x (==%i)",v->tv.l,v->tv.l); break;
+				i=fprintf(f,"0x%08lx (==%li)",v->tv.l,v->tv.l); break;
 			case TFloat:
 				i=fprintf(f,"%g",v->tv.f); break;
 			case TDouble:
-				i=fprintf(f,"%lg",v->tv.d); break;
+				i=fprintf(f,"%g",v->tv.d); break;
 		}
 	}
 	for (;i<30;i++)

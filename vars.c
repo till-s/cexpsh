@@ -125,7 +125,7 @@ static CexpVar
 findN_LOCK(char *name, lh *succ)
 {
 lh		p,v;
-int		missed;
+int		missed=1;
 	__LOCK;
 		/* walk backwards; the lhrAdd adds elements 'before' the list head in t' */
 		for (v=gblList.head.p, p=&gblList.head;
@@ -189,7 +189,7 @@ void *
 cexpVarWalk(CexpVarWalker walker, void *usrArg)
 {
 CexpVar v;
-void	*rval;
+void	*rval=0;
 	__LOCK;
 	walking++;
 	for (v=(CexpVar)gblList.head.p; v; v=(CexpVar)v->head.p) {

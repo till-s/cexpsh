@@ -1,22 +1,25 @@
 /* $Id$ */
 
 /* 'main' program for CEXP which reads lines of input
- * and calls the parser (yyparse()) on each of them...
+ * and calls the parser (cexpparse()) on each of them...
  */
 
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
 
-#include "cexp.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+
 #include <readline/readline.h>
 #include <readline/history.h>
+
 #include <regexp.h>
+#include "elfsyms.h"
+#include "vars.h"
 
 #ifdef YYDEBUG
-extern int yydebug;
+extern int cexpdebug;
 #endif
 
 static void
@@ -36,13 +39,25 @@ usage(char *nm)
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 
+#ifndef NODEBUG /* externally override */
 #define DEBUG
+#endif
+
 #ifdef DEBUG
 #include <math.h>
-double f,g,h;
-char c,d,e;
-int a,b;
+/* create a couple of variables for testing */
 
+/* NOTE: these names are global and likely to
+ *       clash - however, I have to type them
+ *       over and over during testing and hence
+ *       I want them to be simple - just undef
+ *       DEBUG
+ */
+double	f,g,h;
+char	c,d,e;
+int		a,b;
+
+/* a wrapper to link a math routine for testing doubles */
 void root(double * res, double n)
 {*res= sqrt(n);}
 #endif
@@ -65,7 +80,7 @@ regexp	*rc=arg;
 }
 
 /* alternate entries for the lookup functions */
-void
+int
 lkup(char *re)
 {
 extern	CexpSym _cexpSymTblLookupRegex();
@@ -75,7 +90,7 @@ int		ch=0;
 
 	if (!(rc=regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
-		return;
+		return -1;
 	}
 
 	for (s=0; !ch && (s=_cexpSymTblLookupRegex(rc,25,s,0,0));) {
@@ -89,13 +104,16 @@ int		ch=0;
 	cexpVarWalk(varprint,(void*)rc);
 
 	if (rc) free(rc);
+	return 0;
 }
 
-void
+int
 lkaddr(void *addr)
 {
 	cexpSymTblLkAddr(addr, 8, 0, 0);
+	return 0;
 }
+
 int
 main(int argc, char **argv)
 {
@@ -118,7 +136,7 @@ while ((opt=getopt(argc, argv, optstr))>=0) {
 		default:  fprintf(stderr,"Unknown Option %c\n",opt);
 		case 'h': usage(argv[0]); return(1);
 #ifdef YYDEBUG
-		case 'd': yydebug=1;
+		case 'd': cexpdebug=1;
 #endif
 	}
 }
@@ -133,7 +151,7 @@ fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)main);
 
 while ((line=readline("Cexpr>"))) {
 	cexpResetParserCtx(ctx,line);
-	yyparse((void*)ctx);
+	cexpparse((void*)ctx);
 	add_history(line);
 	free(line);
 }

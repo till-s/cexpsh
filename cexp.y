@@ -10,7 +10,7 @@
 #include <ctype.h>
 #include <string.h>
 #define _INSIDE_CEXP_Y
-#include "cexp.h"
+#include "elfsyms.h"
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 
@@ -34,6 +34,13 @@
 #define LEXERR	-1
 void yyerror();
 int  yylex();
+
+typedef struct CexpParserCtxRec_ {
+	CexpSymTbl		symtbl;
+	unsigned char	*chpt;
+	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
+	unsigned long	evalInhibit;
+} CexpParserCtxRec;
 
 %}
 %pure_parser
@@ -96,10 +103,10 @@ input:	line		{ YYACCEPT; }
 
 line:	'\n'
 	|	exp '\n'
-					{CexpType t=$1.type;
+					{
 						if (CEXP_TYPE_FPQ($1.type)) {
 							CHECK(cexpTypeCast(&$1,TDouble,0));
-							printf("%lf\n",$1.tv.d,t);
+							printf("%f\n",$1.tv.d);
 						}else {
 							CHECK(cexpTypeCast(&$1,TULong,0));
 							printf("0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
@@ -597,5 +604,9 @@ cexpFreeParserCtx(CexpParserCtx ctx)
 void
 yyerror(char*msg)
 {
+/* unfortunately, even %pure_parser doesn't pass us the parser argument along.
+ * hence, it is not possible for a reentrant parser to tell us where we
+ * should print :-( however, our caller may try to redirect stderr...
+ */
 fprintf(stderr,"Cexp syntax error: %s\n",msg);
 }

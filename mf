@@ -1,12 +1,14 @@
 ARCH=linux-x86
 PROG=ce
-CFLAGS=-g -O
+CFLAGS=-g -O -Wall
 WRAP=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
 REGEXP_PATH=/home/till_tp/till/xfm/regexp
 #REGEXP_PATH=/home/till/slac/xfm/regexp
+#NOTE: must be bison, because we want a reentrant
+#      parser (%pure_parser)
 YACC=bison
-YFLAGS=-d -y -ocexp.tab.c
+YFLAGS=-d -p cexp
 
 MAKEDEPEND=gccmakedep
 
@@ -39,7 +41,7 @@ $(PROG): $(OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ -L $(LIBELF_PATH)/build-$(ARCH)/lib $(WRAP_LDFLAGS) -lelf $(LIBS)
 
 cexp.tab.c cexp.tab.h: cexp.y
-	bison -d $^
+	bison $(YFLAGS) $^
 
 gentab: gentab.c
 	$(CC) -O -o $@ $^
@@ -59,5 +61,5 @@ clean:
 elfsyms.c: cexp.h
 cexp.h: cexp.tab.h
 
-depend:
+depend:	cexp.tab.h
 	$(MAKEDEPEND) $(CFLAGS) $(SRCS)

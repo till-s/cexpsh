@@ -48,6 +48,9 @@ DEFINES  += -DYYDEBUG -DCONFIG_STRINGS_LIVE_FOREVER $(USE_READLINE_$(USE_READLIN
 CPPFLAGS += -I/usr/local/rtems/powerpc-rtems/include
 CFLAGS   +=
 
+# need bison to generate a reentrant parser
+YACC=bison
+
 #
 # Add your list of files to delete here.  The config files
 #  already know how to delete some stuff, so you may want
@@ -62,6 +65,8 @@ all:	${ARCH} $(SRCS) $(LIB)
 
 %.tab.c %.tab.h: %.y
 	bison -d -p $(^:%.y=%) $^
+# remove the default rule which tries to make cexp.c from cexp.y
+cexp.c: ;
 
 $(LIB): ${OBJS}
 	$(make-library)

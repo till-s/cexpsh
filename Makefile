@@ -27,8 +27,12 @@ prep: $(if $(wildcard Makefile.am),src bootstrap,xsyms)
 
 YFLAGS=-v -d -p cexp
 
+ifndef BISON
+BISON=bison
+endif
+
 cexp.tab.c cexp.tab.h: cexp.y
-	bison $(YFLAGS) $^
+	$(BISON) $(YFLAGS) $^
 
 # remove the default rule which tries to make cexp.c from cexp.y
 cexp.c: ;
@@ -37,7 +41,7 @@ gentab: gentab.c
 	$(CC) -O -o $@ $^
 
 jumptab.c: gentab
-	if ! ./$^ > $@; then $(RM) $@ $^; exit 1; fi
+	if ./$^ > $@; then true ; else $(RM) $@ $^; exit 1; fi
 	$(RM) $^
 
 links:	$(LINKDIR)/binutils-2.13 $(LINKDIR)/regexp $(LINKDIR)/libelf-0.8.0 $(LINKDIR)/libtecla-1.4.1
@@ -45,12 +49,25 @@ links:	$(LINKDIR)/binutils-2.13 $(LINKDIR)/regexp $(LINKDIR)/libelf-0.8.0 $(LINK
 
 src: cexp.tab.c cexp.tab.h jumptab.c
 
+ifdef tools_prefix
+# AUTOPATH = $(tools_prefix)/
+# must use the real search path; providing absolute path
+# when calling autotools doesn't work because automake seems
+# to call 'autoconf'.
+PATH:= $(tools_prefix):$(PATH)
+endif
+
+ACLOCAL    = $(AUTOPATH)aclocal
+AUTOCONF   = $(AUTOPATH)autoconf 
+AUTOHEADER = $(AUTOPATH)autoheader
+AUTOMAKE   = $(AUTOPATH)automake
+
 bootstrap-xsyms bootstrap-cexp:
-	aclocal && autoconf && autoheader && automake -ac
+	$(ACLOCAL) && $(AUTOCONF) && $(AUTOHEADER) && $(AUTOMAKE) -ac
 
 bootstrap: bootstrap-cexp
-	(cd libtecla; autoconf)
-	(cd regexp; aclocal && autoconf && automake)
+	(cd libtecla; $(AUTOCONF))
+	(cd regexp; $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE))
 
 clean:
 	$(RM) xsyms

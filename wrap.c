@@ -65,7 +65,7 @@ typedef struct hackbuf_ {
 static HackBuf bufs[MAXBUFS]={{0},};
 
 off_t
-__wrap_lseek(int fd, off_t off, int whence)
+my_lseek(int fd, off_t off, int whence)
 {
 off_t	rval=0,got;
 
@@ -100,7 +100,7 @@ off_t	rval=0,got;
 }
 
 void *
-__wrap_mmap(void *start, size_t len, int prot, int flags, int fd, off_t offset)
+my_mmap(void *start, size_t len, int prot, int flags, int fd, off_t offset)
 {
 	assert(0==start);
 	fprintf(stderr,"MMAP WRAP: Mapping fd %li, offset 0x%08lx, len %li\n",
@@ -110,7 +110,7 @@ __wrap_mmap(void *start, size_t len, int prot, int flags, int fd, off_t offset)
 }
 
 int
-__wrap_munmap(void *start, size_t len)
+my_munmap(void *start, size_t len)
 {
 int i;
 	for (i=0; i<MAXBUFS; i++) {
@@ -132,7 +132,7 @@ return -1;
 }
 
 int
-__wrap_ftruncate(int fd, off_t len)
+my_ftruncate(int fd, off_t len)
 {
 	assert(fd<MAXBUFS);
 	if (len>0) {

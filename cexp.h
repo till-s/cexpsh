@@ -27,15 +27,15 @@ extern  CexpModule	cexpSystemModule;
  * 'module_name' may be 0 in which case the filename
  * will be used as the module name.
  *
- * RETURNS: 0 on success, nonzero on failure
+ * RETURNS: module handle on success, 0 on failure
  */
 
-int
+CexpModule
 cexpModuleLoad(char *file_name, char *module_name);
 
 /* unload a module */
 int
-cexpModuleUnload(char *module_name);
+cexpModuleUnload(CexpModule moduleHandle);
 
 typedef struct CexpParserCtxRec_	*CexpParserCtx;
 

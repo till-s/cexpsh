@@ -18,15 +18,6 @@
 
 #define CACHE_LINE_SIZE 32
 
-#define MAX_NUM_MODULES 256
-#define LD_WORDLEN		5
-#define BITMAP_DEPTH	((MAX_NUM_MODULES)>>(LD_WORDLEN))
-#define BITMAP_SET(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) |= (1<<((bitno)&((1<<LD_WORDLEN)-1))))
-#define BITMAP_CLR(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) &= ~(1<<((bitno)&((1<<LD_WORDLEN)-1))))
-#define BITMAP_TST(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) &  (1<<((bitno)&((1<<LD_WORDLEN)-1))))
-#define BITMAP_DECLARE(bm)	BitmapWord bm[BITMAP_DEPTH]
-typedef	unsigned long	BitmapWord;
-
 /* an output segment description */
 typedef struct SegmentRec_ {
 	PTR				chunk;		/* pointer to memory */
@@ -43,7 +34,7 @@ typedef struct LinkDataRec_ {
 	asymbol			**st;
 	CexpSymTbl		cst;
 	int				errors;
-	BITMAP_DECLARE(depend);
+	BitmapWord		*depend;
 } LinkDataRec, *LinkData;
 
 static CexpSymTbl
@@ -332,8 +323,9 @@ CexpModule	mod;
 		 * (NOTE: undefined symbols are neither local
 		 *        nor global)
 		 */
-		if ( (BSF_LOCAL & sp->flags) )
+		if ( (BSF_LOCAL & sp->flags) ) {
 			continue;
+		}
 
 		ts=cexpSymLookup(bfd_asymbol_name(sp), &mod);
 
@@ -490,6 +482,8 @@ long			num_new_commons;
 		goto cleanup;
 	}
 
+	/* do a sanity check */
+
 
 	if ((num_new_commons=resolve_syms(abfd,asyms,ld->depend))<0) {
 		goto cleanup;
@@ -542,52 +536,6 @@ int i,j;
 #endif
 }
 
-#if 0
-typedef struct CexpModuleRec_ {
-	SymTab
-	char *name;
-	Segments					/* memory segments */
-	CexpModuleList	depend;		/* modules referenced this one */
-	CexpModule		next;		/* linked list of modules */
-} CexpModuleRec, *CexpModule;
-#endif
-
-
-/* NOTE: the caller of this helper must hold the module lock
- *
- * RETURNS: new unused module id, -1 on error
- */
-
-#define MSBITNO ((1<<LD_WORDLEN)-1)
-#define MSBIT	(((BitmapWord)1)<<MSBITNO)
-
-static long
-module_id_alloc(void)
-{
-BITMAP_DECL(used);
-BitmapWord  freebits;
-CexpModule	m;
-long		rval,i;
-
-	memset(used,0,sizeof(used));
-
-	/* mark all used ids */
-	for (m=cexpSystemModule; m; m=m->next) {
-			BITMAP_SET(used,m->id);
-	}
-	for (i=0; i<BITMAP_DEPTH; i++) {
-		freebits  = ~used[i];
-		freebits &= MSBIT | (MSBIT-1);
-		if ( freebits ) {
-			/* there are unused bits in this word */
-			for (rval=0; rval < (1<<LD_WORDLEN); rval++, freebits>>=1)
-				if (freebits & 1)
-					return (i<<LD_WORDLEN) + rval;
-		}
-	}
-	return -1;
-}
-
 
 /* the caller of this routine holds the module lock */
 int
@@ -596,8 +544,11 @@ cexpLoadFile(char *filename, CexpModule mod)
 bfd 			*abfd=0;
 LinkDataRec		ldr;
 int				rval=1,i,j;
+CexpSym			sane;
 
 	memset(&ldr,0,sizeof(ldr));
+
+	ldr.depend = mod->needs;
 
 	/* basic check for our bitmaps */
 	assert( (1<<LD_WORDLEN) <= sizeof(BitmapWord)*8 );
@@ -612,14 +563,6 @@ int				rval=1,i,j;
 	mdbgInit();
 #endif
 
-	if ((i=module_id_alloc())<0) {
-		fprintf(stderr,
-			"Unable to allocate a module ID (more than %i loaded??)\n",
-			MAX_NUM_MODULES);
-		goto cleanup;
-	}
-	mod->id=i;
-
 	if ( ! (abfd=bfd_openr(filename,0)) ) {
 		bfd_perror("Opening object file");
 		goto cleanup;
@@ -633,6 +576,11 @@ int				rval=1,i,j;
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
 	}
+
+	/* the first thing to be loaded must be the system
+	 * symbol table. Reject to load anything...
+	 */
+	if ( ! (0==cexpSystemModule) ) {
 
 	ldr.errors=0;
 	bfd_map_over_sections(abfd, s_count, &ldr);
@@ -650,20 +598,34 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 	if (ldr.errors)
 		goto cleanup;
 
+	}
+
 	cexpSymTabSetValues(ldr.cst);
+
+	/* system symbol table sanity check */
+	if ((sane=cexpSymTblLookup("cexpLoadFile",ldr.cst))) {
+		/* this must be the system table */
+		extern void *_edata, *_etext;
+		
+        /* it must be the main symbol table */
+        if ( sane->value.ptv==(CexpVal)cexpLoadFile     &&
+       	     (sane=cexpSymTblLookup("_etext",ldr.cst))  &&
+			 sane->value.ptv==(CexpVal)&_etext          &&
+             (sane=cexpSymTblLookup("_edata",ldr.cst))  &&
+			 sane->value.ptv==(CexpVal)&_edata ) {
+
+        	/* OK, sanity test passed */
+
+		} else {
+			fprintf(stderr,"SANITY CHECK FAILED! Stale symbol file?\n");
+			goto cleanup;
+		}
+	}
+
 
 	flushCache(&ldr);
 
 	/* TODO: call constructors */
-
-	/* TODO: set dependency lists
-
-	for (m=first, i=0; m; m=m->next, i++) {
-		if (BITMAP_TST(ldr.depend,i))
-			add_to_dep_lists(thismod, m);
-	}
-
-	*/
 
 
 	/* move the relevant data over to the module */
@@ -690,15 +652,3 @@ cleanup:
 #endif
 	return rval;
 }
-
-/* TODO: unload a module
-	
-	if (check_references())
-		error("still needed");
-
-	remove_from_module_list(this);
-
-	invalidate_caches();
-	free_resources();
-	remove_from_deplists();
- */

@@ -27,6 +27,10 @@ below for more information.
 What is New?
 ------------
 
+ - 2003/02/14: CEXP_1.2.beta ("Valentine") released.
+   It supports G++ prioritized execution of static
+   constructors/destructors.
+
  - 2003/02/13: CEXP_1.1.beta is released. It fixes a bug
    of the exception handler registration.
    

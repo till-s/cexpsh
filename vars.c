@@ -33,7 +33,7 @@
  *       locking scheme could be implemented...
  */
 
-static CexpLock _varlock;
+static CexpLock _varlock=0;
 #define __LOCK		cexpLock(_varlock)
 #define __UNLOCK	cexpUnlock(_varlock)
 
@@ -133,10 +133,11 @@ static CexpVarRec gblList={{(void*)0},{0},{0},(CexpStr)1};
 static CexpStrRec strTab ={{0}};
 
 void
-cexpVarInit(void)
+cexpVarInitOnce(void)
 {
 /* initialize the global lock */
-cexpLockCreate(&_varlock);
+if (!_varlock)
+	cexpLockCreate(&_varlock);
 __LOCK;
 	/* use gblList.name as an indicator for the
 	 * very first call...
@@ -346,7 +347,7 @@ unsigned long value,f;
 CexpTypedAddr val;
 int	ch;
 
-  cexpVarInit();
+  cexpVarInitOnce();
 
   {
 	CexpVar vv;

@@ -8,9 +8,9 @@
 
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
 
-/* initialize the facility */
+/* initialize the facility: this routine must exactly be called ONCE */
 void
-cexpVarInit(void);
+cexpVarInitOnce(void);
 
 /* destroy all variables */
 void

@@ -18,7 +18,7 @@ static CexpRWLockRec	_rwlock={0};
 #define __WUNLOCK()	cexpWriteUnlock(&_rwlock)
 
 void
-cexpModuleInit(void)
+cexpModuleInitOnce(void)
 {
 #ifndef NO_THREAD_PROTECTION
 	if (!_rwlock.mutex) {

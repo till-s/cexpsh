@@ -265,6 +265,20 @@ lkaddr(void *addr)
 	return 0;
 }
 
+/* This initialization code should be called exactly once */
+int
+cexpInit(void *arg)
+{
+static int done=0;
+	if (!done) {
+		cexpModuleInitOnce();
+		cexpVarInitOnce();
+		cexpContextInitOnce();
+		done=1;
+	}
+	return 1;
+}
+
 /* a wrapper to call cexp main with a variable arglist */
 int
 cexp(char *arg0,...)
@@ -324,9 +338,10 @@ cexp_main(int argc, char **argv)
  * 'next' field.
  * In a multithreaded environment, the global variable
  * 'cexpCurrentContext' must be maintained on a per-thread
- * basis. This requires the use of special OS magic.
+ * basis. This requires the use of special OS magic (see
+ * context.h).
  */
-CexpContext cexpCurrentContext=0;
+CexpContextOSD cexpCurrentContext=0;
 
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
@@ -374,8 +389,11 @@ if (argc>oc.optind)
 	script=argv[oc.optind];
 
 /* make sure vital code is initialized */
-cexpModuleInit();
-cexpVarInit();
+
+{
+	static int initialized=0;
+	cexpContextRunOnce(&initialized, cexpInit);
+}
 
 if (!cexpSystemModule) {
 	if (!symfile)
@@ -398,7 +416,7 @@ context.next=0;
 cexpDisassemblerInit(&context.dinfo, stdout);
 #endif
 
-if (!cexpCurrentContext) {
+if (!cexpContextGetCurrent()) {
 	/* topmost frame */
 #ifdef USE_TECLA
 	context.gl = new_GetLine(200,2000);
@@ -412,12 +430,12 @@ if (!cexpCurrentContext) {
 } else {
 #ifdef USE_TECLA
 	/* re-use caller's line editor */
-	context.gl = cexpCurrentContext->gl;
+	context.gl = cexpContextGetCurrent()->gl;
 #endif
 }
 /* push our frame to the top */
-context.next=cexpCurrentContext;
-cexpCurrentContext = &context;
+context.next=cexpContextGetCurrent();
+cexpContextSetCurrent(&context);
 
 do {
 	if (!(ctx=cexpCreateParserCtx())) {
@@ -478,8 +496,8 @@ cleanup:
 	
 } while (-1==rval);
 
-cexpCurrentContext = cexpCurrentContext->next;
-if (!cexpCurrentContext) {
+/* cexpContextSetCurrent() returns its argument for convenience */
+if ( ! cexpContextSetCurrent(cexpContextGetCurrent()->next) ) {
 	/* we'll exit the topmost instance */
 #ifdef USE_TECLA
 	del_GetLine(context.gl);

@@ -14,6 +14,27 @@
 extern "C" {
 #endif
 
+/* Depending on the threading environment, this
+ * routine should be called prior to invoking
+ * the first instance of 'cexp'.
+ * Under the following circumstances, it is safe
+ * to omit this step:
+ *
+ *  - in a single threaded environment
+ *  - when configured with USE_EPICS_OSI
+ *  - if an RTEMS initialization task starts
+ *    the first instance of cexp.
+ *
+ * Otherwise, there exists a (minor) race
+ * condition for multiple tasks initializing
+ * vital structures in parallel.
+ *
+ * The routine returns 1 for convenience, so
+ * it could be used in a C++ static constructor.
+ */
+int
+cexpInit(void *unused);
+
 /* Managing modules (object code and symbols) */
 typedef struct CexpModuleRec_	*CexpModule;
 

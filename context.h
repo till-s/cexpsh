@@ -40,16 +40,53 @@ typedef struct CexpContextRec_ {
 #endif
 } CexpContextRec;
 
-extern CexpContext	cexpCurrentContext;
-
 /* register/unregister the cexpCurrentContext with the OS */
-void cexpContextRegister(void);
-void cexpContextUnregister(void);
+void				cexpContextRegister(void);
+void				cexpContextUnregister(void);
+/* retrieve/set the current task's context */
+CexpContext			cexpContextGetCurrent(void);
+CexpContext			cexpContextSetCurrent(CexpContext);
+
+/* Note that the Register/Unregister and the Set/Get
+ * semantics are actually two different approaches to
+ * the problem.
+ * Register/Unregister is used in combination with
+ * RTEMS task variables (Get/Set map to simple
+ * variable assignments in this case).
+ * Get/Set are used by the EPICS or pthread APIs
+ * where a task specific variable must explicitely
+ * retrieved and stored (Register/Unregister do
+ * nothing in this case).
+ */
 
 #ifdef NO_THREAD_PROTECTION
 
-#define cexpContextRegister()	do {} while(0)
-#define cexpContextUnregister()	do {} while(0)
+typedef CexpContext CexpContextOSD;
+
+#define cexpContextInitOnce()		do {} while (0)
+#define cexpContextRegister()		do {} while (0)
+#define cexpContextUnregister()		do {} while(0)
+#define cexpContextGetCurrent()		cexpCurrentContext
+#define cexpContextSetCurrent(c)	(cexpCurrentContext=(c))
+
+#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) { (*(pdone))++; fn(0); } } while (0)
+
+#elif defined(USE_EPICS_OSI)
+
+#include <epicsThread.h>
+
+typedef epicsThreadPrivateId	CexpContextOSD;
+
+#define cexpContextInitOnce()	do { if (!cexpCurrentContext) cexpCurrentContext = epicsThreadPrivateCreate(); } while (0)
+
+#define cexpContextRegister()	do {  } while (0)
+#define cexpContextUnregister()	do {  } while (0)
+
+#define cexpContextGetCurrent()		((CexpContext)epicsThreadPrivateGet(cexpCurrentContext))
+/* cexpContextSetCurrent() returns its argument for convenience */
+#define cexpContextSetCurrent(c)	(epicsThreadPrivateSet(cexpCurrentContext,c) , c)
+
+#define cexpContextRunOnce(pdone, fn)	epicsThreadOnce(pdone,(void (*)(void*))fn,0)
 
 #elif defined(__rtems)
 
@@ -61,18 +98,38 @@ long rtems_task_variable_add();
 long rtems_task_variable_delete();
 #endif
 
-#define cexpContextRegister()	rtems_task_variable_add(\
-									RTEMS_SELF,\
-									&cexpCurrentContext,\
-									0 /* context is part of the stack, hence\
-									   * released automatically\
-									   */\
-			   					)
-#define cexpContextUnregister()	rtems_task_variable_delete(\
-									RTEMS_SELF,\
-									&cexpCurrentContext)
+typedef CexpContext CexpContextOSD;
+
+#define cexpContextInitOnce()		do {} while (0)
+#define cexpContextRegister()		do { \
+										rtems_task_variable_add(\
+										RTEMS_SELF,\
+										&cexpCurrentContext,\
+										0 /* context is part of the stack, hence\
+										   * released automatically\
+										   */); \
+			   						} while (0)
+#define cexpContextUnregister()		do { \
+										rtems_task_variable_delete(\
+										RTEMS_SELF,\
+										&cexpCurrentContext); \
+									} while (0)
+#define cexpContextGetCurrent()		cexpCurrentContext
+#define cexpContextSetCurrent(c)	(cexpCurrentContext=(c))
+
+/* We assume the first instance of 'cexp' will be executed by
+ * an initialization task or a an initialization task will
+ * explicitely call cexpInit(), hence we don't bother
+ * about race conditions in cexpInit().
+ */
+
+#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) { (*(pdone))++; fn(0); } } while (0)
+
 #else
 #error "You need to implement cexpContextRegister & friends for this OS"
 #endif
+
+/* OS dependent representation of the thread context */
+extern CexpContextOSD	cexpCurrentContext;
 
 #endif

@@ -4,7 +4,7 @@
 
 /* Wrapper header for mutexes */
 
-#ifdef USE_EPICS_LOCKS
+#ifdef USE_EPICS_OSI
 
 #include <epicsMutex.h>
 

@@ -68,14 +68,24 @@ typedef void			(*VoidFnPtr)(void);
 #define	CEXPMOD_INITIALIZER_SYM	"_cexpModuleInitialize"
 #define CEXPMOD_FINALIZER_SYM   "_cexpModuleFinalize"
 
+/* Version to protect the layout of CexpModuleRec, CexpSymRec, CexpTARec */
+#define CEXPMOD_MAGIC	"cexp0000"
+
 typedef struct CexpModuleRec_ {
-	CexpSymTbl			symtbl;
 	char				*name;
 	CexpModule			next;
+	CexpSym				*section_syms;	/* NULL terminated list to section address symbols
+										 * pointer may be NULL if there is no list
+										 */
+	unsigned long		text_vma;		/* where the text segment was loaded */
+/* ^^^^ FIELDS ABOVE HERE ARE USED BY THE gencore UTILITY ^^^^^^^^^^^^^^^^
+ * when changing anything, 'gencore' must be changed accordingly and the
+ * magic number be changed
+ */
+	CexpSymTbl			symtbl;
 	ModuleId 			id;			/* unique ID */
 	void				*memSeg;	/* actual memory */
 	unsigned long		memSize;	/* size of the loaded stuff */
-	unsigned long		text_vma;	/* where the text segment was loaded */
 	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one */
 	BITMAP_DECLARE(needs);			/* bitmap of module ids this module depends on */
 	VoidFnPtr			*ctor_list;

@@ -8,7 +8,7 @@
 
 /*
  * Copyright 2002, Stanford University and
- * 		Till Straumann <strauman@slac.stanford.edu>
+ * 		Till Straumann <strauman@@slac.stanford.edu>
  * 
  * Stanford Notice
  * ***************
@@ -177,14 +177,14 @@ usage(char *nm)
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
-	fprintf(stderr, "       Author: Till Straumann <strauman@@slac.stanford.edu\n");
-	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Author:    Till Straumann <strauman@@slac.stanford.edu\n");
+	fprintf(stderr, "       Licensing: EPICS open license - consult the LICENSE file for details\n");
 }
 
 static void
 version(char *nm)
 {
-	fprintf(stderr,"%s release $Name$, build date %s\n",nm,cexp_build_date);
+	fprintf(stderr,"This is %s release $Name$, build date %s\n",nm,cexp_build_date);
 }
 
 #ifdef DEBUG

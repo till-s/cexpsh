@@ -704,9 +704,7 @@ int			i,num_new_commons=0,errs=0;
  		 * in a ".eh_frame" section
 		 */
 		if (!strcmp(EH_FRAME_BEGIN_PATTERN, bfd_asymbol_name(sp))) {
-#if 0
 			ld->eh_frame_b_sym=sp;
-#endif
 
 		/* check for magic initializer/finalizer symbols */
 		} else
@@ -718,11 +716,25 @@ int			i,num_new_commons=0,errs=0;
 			/* store a pointer to the internal symbol table slot; we lookup the
 			 * value after relocation
 			 */
-			ld->iniCallback=syms+i;
+			if (ld->iniCallback) {
+				fprintf(stderr,
+						"Only one '%s' may be present in a loaded object\n",
+						CEXPMOD_INITINALIZER_SYM);
+				errs++;
+			} else {
+				ld->iniCallback=syms+i;
+			}
 
 		} else if (!strcmp(CEXPMOD_FINALIZER_SYM, bfd_asymbol_name(sp))) {
 			sp->flags |= BSF_LOCAL;
-			ld->finiCallback=syms+i;
+			if (ld->finiCallback) {
+				fprintf(stderr,
+						"Only one '%s' may be present in a loaded object\n",
+						CEXPMOD_FINALIZER_SYM);
+				errs++;
+			} else {
+				ld->finiCallback=syms+i;
+			}
 		}
 
 
@@ -730,6 +742,8 @@ int			i,num_new_commons=0,errs=0;
 		 * (NOTE: undefined symbols are neither local
 		 *        nor global)
 		 * The only exception are the name symbols of allocated sections
+		 * - there may be quite a lot of them ("gnu.linkonce.x.yyy") in a
+		 * large C++ object...
 		 */
 
 		if ( BSF_LOCAL & sp->flags ) {

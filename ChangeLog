@@ -1,4 +1,8 @@
 Changes since CEXP-1.4.beta ("Helvetia")
+ 2004/10/29:
+ - BFD file loader now searches PATH environment variable for object
+   files (non-absolute names only, of course).
+ - plugged a few minor memory leaks
  2004/5/20:
  - New syntax: '< scriptfile' implemented
  - Implemented 'builtin' symbol tables. 'xsyms' can help generating

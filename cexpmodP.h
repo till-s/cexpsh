@@ -110,6 +110,7 @@ typedef struct CexpModuleRec_ {
 									 * module is left untouched. This can e.g. be used to
 									 * prevent a 'in-use' driver from being unloaded.
 									 */
+	char				*fileName;
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

@@ -58,6 +58,7 @@
 /*#include <libiberty.h>*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <assert.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -337,7 +338,7 @@ isCtorDtor(asymbol *asym, int quiet, int *pprio)
 static const char *
 filter(void *ext_sym, void *closure)
 {
-LinkData	ld=closure;
+/* LinkData	ld=closure; */
 asymbol		*asym=*(asymbol**)ext_sym;
 
 		if ( !(BSF_KEEP & asym->flags) )
@@ -1237,6 +1238,7 @@ struct stat						dummybuf;
 enum bfd_architecture			arch;
 unsigned long					mach;
 char							*targ;
+char							*thename = 0;
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -1264,40 +1266,78 @@ char							*targ;
 	/* lazy init of regexp pattern */
 	if (!ctorDtorRegexp)
 		ctorDtorRegexp=cexp_regcomp(CTOR_DTOR_PATTERN);
-
-#if 0
-	if ( ! (ldr.abfd=bfd_openr(filename,0)) )
+	
 	{
-		bfd_perror("Opening object file");
-		goto cleanup;
+	/* Search relative file in the PATH */
+	char *path    = getenv("PATH");
+	char *col;
+
+	thename       = malloc(MAXPATHLEN);
+
+	if ( '/' == filename[0] || !path )
+		path = "";
+
+	col = path-1;
+	do {
+	path = col+1;
+	/* 'path' is never NULL; either "" (absolute file or env var not set)
+     * or a colon separated list.
+	 * If there is no '.' or empty element in the path, the current
+	 * directory is NOT searched (e.g. PATH=/a/b/c/d searches only
+	 * /a/b/c/d, PATH=/a/b/c/d: searches /a/b/c/d, then '.'
+	 */
+	if ( (col = strchr(path,':')) ) {
+		strncpy(thename,path,col-path);
+		thename[col-path] = 0;
+	} else {
+		strcpy(thename,path);
 	}
-#else
+	/* don't append a separator if the prefix is empty */
+	if ( *thename )
+		strcat(thename,"/");
+	strcat(thename,filename);
+		
 #ifdef __rtems__
-	/* RTEMS has no NFS support (yet), and the TFTPfs is strictly
+	/* The RTEMS TFTPfs is strictly
 	 * sequential access (no lseek(), no stat()). Hence, we copy
 	 * the file to scratch file in memory (IMFS).
 	 */
 
 	/* we assume that a file we cannot stat() but open() is on TFTPfs */
-	is_on_tftp = stat(filename, &dummybuf) ? open(filename,O_RDONLY) : -1;
+	is_on_tftp = stat(thename, &dummybuf) ? open(thename,O_RDONLY) : -1;
 	if ( is_on_tftp >= 0 ) {
 		if ( ! (f=copyFileToTmp(is_on_tftp, tmpfname)) ) {
+			/* file was found but couldn't make copy; this is an error */
 			goto cleanup;
 		}
 		filename=tmpfname;
 	} else
 #endif
-	if (  ! (f=fopen(filename,"r")) ) {
+	if (  ! (f=fopen(thename,"r")) ) {
+		if ( errno != ENOENT ) {
+			/* stop searching; file seems to be there but unreadable */
+			break;
+		}
+	} else {
+		filename=thename;
+	}
+	} while ( !f && col );
+
+	if ( !f ) {
 		perror("opening object file");
 		goto cleanup;
 	}
+
+
 	if ( ! (ldr.abfd=bfd_openstreamr(filename,0,f)) ) {
 		bfd_perror("Opening BFD on object file stream");
 		goto cleanup;
 	}
+
+	}
 	/* ldr.abfd now holds the descriptor and bfd_close_all_done() will release it */
 	f=0;
-#endif
+
 	if (!bfd_check_format(ldr.abfd, bfd_object)) {
 		bfd_perror("Checking format");
 		goto cleanup;
@@ -1481,12 +1521,15 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		mod->finiCallback=(int(*)(CexpModule)) bfd_asymbol_value((*(asymbol**)ldr.finiCallback));
 	}
 
-	mod->cleanup = bfdCleanupCallback;
-	mod->text_vma= ldr.text_vma;
+	mod->cleanup  = bfdCleanupCallback;
+	mod->text_vma = ldr.text_vma;
+
+	mod->fileName = thename;
+	thename       = 0;
 
 	/* store the frame info in the modPvt field */
-	mod->modPvt=ehFrame;
-	ehFrame=0;
+	mod->modPvt   = ehFrame;
+	ehFrame       = 0;
 
 	rval=0;
 
@@ -1500,6 +1543,8 @@ cleanup:
 		assert(my__deregister_frame);
 		my__deregister_frame(ehFrame);
 	}
+
+	free(thename);
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);

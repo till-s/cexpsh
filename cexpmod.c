@@ -312,6 +312,8 @@ int		level = (int)closure;
 CexpSym	*psects;
 	fprintf(f,"Module '%s' (0x%08x):\n",
 				m->name, (unsigned)m);
+	if ( level > 0 )
+		fprintf(f,"Full path '%s'\n",m->fileName);
 	if ( level > 1 ) {
 		fprintf(f,"  %li symbol table entries\n",
 						m->symtbl->nentries);
@@ -607,9 +609,13 @@ CexpModule
 cexpModuleLoad(char *filename, char *modulename)
 {
 CexpModule m,tail,nmod,rval=0;
+char       *slash = filename ? strrchr(filename,'/') : 0;
+
+	if (slash)
+		slash++;
 
 	if (!modulename)
-		modulename=filename;
+		modulename=slash ? slash : filename;
 
 	if (!modulename)
 		modulename="SYSTEM-BUILTIN";
@@ -716,6 +722,7 @@ CexpModule mod=*mp;
 		free(mod->ctor_list);
 		free(mod->dtor_list);
 		free(mod->section_syms);
+		free(mod->fileName);
 		cexpFreeSymTbl(&mod->symtbl);
 		free(mod);
 	}

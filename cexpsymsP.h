@@ -7,12 +7,14 @@
 /* our implementation of the symbol table holds more information
  * that we make public
  */
-typedef struct PrivSymTblRec_ {
-	/* NOTE: the stab field MUST be first, so we can cast pointers around */
-	CexpSymTblRec	stab;	/* symbol table, sorted in ascending order (key=name) */
-	char		*strtbl;	/* string table */
-	CexpSym		*aindex;	/* an index sorted to ascending addresses */
-} PrivSymTblRec, *PrivSymTbl;
+typedef struct CexpSymTblRec_ {
+	unsigned long	nentries;
+	CexpSym			syms; 		/* symbol table, sorted in ascending order (key=name) */
+	char			*name;		/* name of this table */
+	char			*strtbl;	/* string table */
+	CexpSym			*aindex;	/* an index sorted to ascending addresses */
+	CexpSymTbl		next;		/* linked list of tables */
+} CexpSymTblRec;
 
 int
 _cexp_addrcomp(const void *a, const void *b);

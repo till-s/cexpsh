@@ -259,9 +259,9 @@ CexpSymTbl	t=0;
 void
 cexpFreeSymTbl(CexpSymTbl *pt)
 {
-PrivSymTbl st=(PrivSymTbl)*pt;
+CexpSymTbl st=*pt;
 	if (st && (st!=(void*)cexpSysSymTbl || pt==&cexpSysSymTbl)) {
-		free(st->stab.syms);
+		free(st->syms);
 		free(st->strtbl);
 		free(st->aindex);
 		free(st);
@@ -293,16 +293,14 @@ CexpType t=s->value.type;
 CexpSym
 cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
 {
-PrivSymTbl	pt;
 int			lo,hi,mid;
 	if (!f) f=stdout;
 	if (!t) t=cexpSysSymTbl;
 
-	pt=(PrivSymTbl)t;
 	lo=0; hi=t->nentries-1;
 	while (lo < hi) {
 		mid=(lo+hi)>>1;
-		if (addr > (void*)pt->aindex[mid]->value.ptv)
+		if (addr > (void*)t->aindex[mid]->value.ptv)
 			lo=mid+1;
 		else
 			hi=mid;
@@ -311,7 +309,7 @@ int			lo,hi,mid;
 	lo-=margin; if (lo<0) 			 	lo=0;
 	hi+=margin; if (hi>=t->nentries)	hi=t->nentries-1;
 	while (lo<=hi)
-		cexpSymPrintInfo(pt->aindex[lo++],f);
-	return pt->aindex[mid];
+		cexpSymPrintInfo(t->aindex[lo++],f);
+	return t->aindex[mid];
 }
 

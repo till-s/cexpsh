@@ -30,6 +30,8 @@
 
 #include "cexpsymsP.h"
 
+#define  SYSTAB_NAME "SYSTEM"
+
 /* filter the symbol table entries we're interested in */
 
 /* NOTE: this routine defines the CexpType which is assigned
@@ -99,7 +101,7 @@ Elf32_Ehdr	*ehdr;
 Elf_Scn		*scn;
 Elf32_Shdr	*shdr=0;
 Elf_Data	*strs;
-PrivSymTbl	rval=0;
+CexpSymTbl	rval=0;
 CexpSym		sane;
 #ifdef USE_ELF_MEMORY
 char		*buf=0,*ptr=0;
@@ -181,7 +183,7 @@ int			fd=-1;
 		goto cleanup;
 
 	/* get the string table */
-	if ((rval=(PrivSymTbl)malloc(sizeof(*rval)))) {
+	if ((rval=(CexpSymTbl)malloc(sizeof(*rval)))) {
 		long		n,nsyms,nDstSyms,nDstChars;
 		char		*strtab,*src,*dst;
 		Elf32_Sym	*syms, *sp;
@@ -202,7 +204,10 @@ int			fd=-1;
 			}
 		}
 
-		rval->stab.nentries=nDstSyms;
+		/* name of this  symbol table */
+		nDstChars+=strlen(SYSTAB_NAME)+1;
+
+		rval->nentries=nDstSyms;
 
 		/* create our copy of the symbol table - ELF contains
 		 * many things we're not interested in and also, it's not
@@ -210,7 +215,7 @@ int			fd=-1;
 		 */
 		
 		/* allocate all the table space */
-		if (!(rval->stab.syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
+		if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
 			goto cleanup;
 
 
@@ -218,8 +223,15 @@ int			fd=-1;
                     !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
 			goto cleanup;
 
+		/* name of this table */
+		dst=rval->strtbl;
+		src=SYSTAB_NAME;
+		while (*(dst++)=*(src++))
+			/* nothing else to do */;
+		rval->name = rval->strtbl;
+
 		/* now copy the relevant stuff */
-		for (sp=syms,n=0,cesp=rval->stab.syms,dst=rval->strtbl; n<nsyms; sp++,n++) {
+		for (sp=syms,n=0,cesp=rval->syms; n<nsyms; sp++,n++) {
 			CexpType t;
 			if (filter(sp,&t)) {
 				/* copy the name to the string table and put a pointer
@@ -241,7 +253,7 @@ int			fd=-1;
 
 				cesp->value.type = t;
 				cesp->value.ptv  = (CexpVal)sp->st_value;
-				rval->aindex[cesp-rval->stab.syms]=cesp;
+				rval->aindex[cesp-rval->syms]=cesp;
 				
 				cesp++;
 			}
@@ -249,12 +261,12 @@ int			fd=-1;
 		/* mark the last table entry */
 		cesp->name=0;
 		/* sort the tables */
-		qsort((void*)rval->stab.syms,
-			rval->stab.nentries,
-			sizeof(*rval->stab.syms),
+		qsort((void*)rval->syms,
+			rval->nentries,
+			sizeof(*rval->syms),
 			_cexp_namecomp);
 		qsort((void*)rval->aindex,
-			rval->stab.nentries,
+			rval->nentries,
 			sizeof(*rval->aindex),
 			_cexp_addrcomp);
 	} else {
@@ -273,21 +285,21 @@ int			fd=-1;
 
 #ifndef ELFSYMS_TEST_MAIN
 	/* do a couple of sanity checks */
-	if ((sane=cexpSymTblLookup("cexpSlurpElf",&rval->stab))) {
+	if ((sane=cexpSymTblLookup("cexpSlurpElf",rval))) {
 		extern void *_edata, *_etext;
 		/* it must be the main symbol table */
 		if (sane->value.ptv!=(CexpVal)cexpSlurpElf)
 			goto bailout;
-		if (!(sane=cexpSymTblLookup("_etext",&rval->stab)) || sane->value.ptv!=(CexpVal)&_etext)
+		if (!(sane=cexpSymTblLookup("_etext",rval)) || sane->value.ptv!=(CexpVal)&_etext)
 			goto bailout;
-		if (!(sane=cexpSymTblLookup("_edata",&rval->stab)) || sane->value.ptv!=(CexpVal)&_edata)
+		if (!(sane=cexpSymTblLookup("_edata",rval)) || sane->value.ptv!=(CexpVal)&_edata)
 			goto bailout;
 		/* OK, sanity test passed */
 	}
 #endif
 
 
-	return &rval->stab;
+	return rval;
 
 bailout:
 	fprintf(stderr,"ELFSYMS SANITY CHECK FAILED: you possibly loaded the wrong symbol table\n");
@@ -315,7 +327,7 @@ cleanup:
 int
 elfsyms_main(int argc, char **argv)
 {
-int		fd,nsyms;
+int			fd,nsyms;
 CexpSymTbl	t;
 CexpSym		symp;
 
@@ -333,7 +345,7 @@ CexpSym		symp;
 	fprintf(stderr,"%i symbols found\n",t->nentries);
 	symp=t->syms;
 	for (nsyms=0; nsyms<t->nentries;  nsyms++) {
-		symp=((PrivSymTbl)t)->aindex[nsyms];
+		symp=t->aindex[nsyms];
 		fprintf(stderr,
 			"%02i 0x%08xx (%2i) %s\n",
 			symp->value.type,

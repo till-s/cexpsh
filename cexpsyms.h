@@ -18,11 +18,6 @@ typedef struct CexpSymRec_ {
 	unsigned			flags;
 } CexpSymRec, *CexpSym;
 
-typedef struct CexpSymTblRec_ {
-	unsigned long	nentries;
-	CexpSym			syms;
-} CexpSymTblRec;
-
 /* Symbol table management */
 
 /* read an ELF file from a file

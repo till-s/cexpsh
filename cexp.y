@@ -839,7 +839,9 @@ cexpResetParserCtx(CexpParserCtx ctx, char *buf)
 void
 cexpFreeParserCtx(CexpParserCtx ctx)
 {
+#if 0	/* leave the symbol table alone */
 	cexpFreeSymTbl(&ctx->symtbl);
+#endif
 	releaseStrings(ctx);
 }
 

@@ -8,6 +8,7 @@
 #include <readline/history.h>
 #endif
 #include "vars.h"
+#include "cexplock.h"
 
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
 
@@ -27,44 +28,10 @@
 /* TODO: if ever deemed necessary, a multiple read / single write
  *       locking scheme could be implemented...
  */
-#ifdef __rtems
 
-#if defined(RTEMS_TODO_DONE) /* avoid pulling in <rtems.h> until we can do this in a BSP independent way */
-#include <rtems.h>
-#else
-#define rtems_id unsigned long
-long rtems_semaphore_obtain();
-long rtems_semaphore_create();
-long rtems_semaphore_create();
-#define rtems_build_name( _C1, _C2, _C3, _C4 ) \
-  ( (_C1) << 24 | (_C2) << 16 | (_C3) << 8 | (_C4) )
-#define RTEMS_NO_TIMEOUT 0
-#define RTEMS_WAIT		 0
-#define RTEMS_FIFO		 0
-#define RTEMS_BINARY_SEMAPHORE 0x10
-#endif
-
-static rtems_id _varlock;
-#define __LOCK		rtems_semaphore_obtain(_varlock, RTEMS_WAIT, RTEMS_NO_TIMEOUT)
-#define __UNLOCK	rtems_semaphore_release(_varlock)
-/* IMPORTANT: use a standard (not simple) binary semaphore that may nest */
-static inline void
- __LCKINI(void)
-{
-	rtems_semaphore_create(
-		rtems_build_name('c','e','x','p'),
-		1,/*initial count*/
-		RTEMS_FIFO|RTEMS_BINARY_SEMAPHORE,
-		0,
-		&_varlock);
-}
-#elif defined(NO_THREAD_PROTECTION)
-#define __LOCK
-#define __UNLOCK
-#define __LCKINI() do {} while(0)
-#else
-#error "thread protection not implemented for this target system"
-#endif
+static CexpLock _varlock;
+#define __LOCK		cexpLock(_varlock)
+#define __UNLOCK	cexpUnlock(_varlock)
 
 typedef struct lhR_ {
 	struct lhR_	*p;
@@ -165,7 +132,7 @@ void
 cexpVarInit(void)
 {
 /* initialize the global lock */
-__LCKINI();
+cexpLockInit(&_varlock);
 __LOCK;
 	/* use gblList.name as an indicator for the
 	 * very first call...

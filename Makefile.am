@@ -79,15 +79,15 @@ bin_PROGRAMS=xsyms
 endif
 
 
-cexp-elfsyms.o libcexp_a-elfsyms.o: install-libelf-local
+cexp-elfsyms.$(OBJEXT) libcexp_a-elfsyms.$(OBJEXT): install-libelf-local
 
 if NATIVE_LIBELF
 else
-xsyms.o: install-libelf-local
+xsyms-xsyms.$(OBJEXT): install-libelf-local
 endif
 
 install-libelf-local:
-	$(MAKE) -C @LIBELF@ prefix=`pwd`/libelf-local install
+	$(MAKE) -C @LIBELF@ prefix=`pwd`/libelf-local exec_prefix=`pwd`/libelf-local datadir=`pwd`/libelf-local/share install
 
 remove-libelf-local:
 	$(RM) -r libelf-local

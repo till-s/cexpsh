@@ -11,6 +11,7 @@
 #include <string.h>
 #define _INSIDE_CEXP_Y
 #include "cexpsyms.h"
+#include "cexpmod.h"
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 
@@ -669,7 +670,7 @@ char *chpt;
 			return KW_LONG;
 		else if (!strcmp(sbuf,"double"))
 			return KW_DOUBLE;
-		else if ((rval->sym=cexpSymTblLookup(sbuf, 0)))
+		else if ((rval->sym=cexpSymLookup(sbuf, 0)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
 		else if ((rval->uvar.plval=cexpVarLookup(sbuf,0))) {
 #ifdef CONFIG_STRINGS_LIVE_FOREVER
@@ -783,12 +784,7 @@ char *chpt;
 /* re-initialize a parser context to parse 'buf';
  * If called with a NULL argument, a new
  * context is created and initialized.
- * Note that the ELF symbol file name is only needed
- * if a new symbol table is created. 
- * As a side effect, the system table (cexpSysSymTbl)
- * is initialized if and only if it has not been
- * created before. OTOH, if the file name is omitted (NULL)
- * and there is a sysSymTbl, that one is used.
+ *
  * RETURNS: initialized context
  */
 
@@ -812,17 +808,15 @@ char		**chppt;
 }
 
 CexpParserCtx
-cexpCreateParserCtx(CexpSymTbl t)
+cexpCreateParserCtx()
 {
 CexpParserCtx	ctx=0;
 
 	/* make sure the variable facility is initialized */
 	cexpVarInit();
 
-	if (t) {
-		assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
-		memset(ctx,0,sizeof(*ctx));
-	}
+	assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
+	memset(ctx,0,sizeof(*ctx));
 	return ctx;
 }
 

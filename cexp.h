@@ -14,47 +14,30 @@
 extern "C" {
 #endif
 
-typedef struct CexpSymTblRec_ *CexpSymTbl;
+/* Managing modules (object code and symbols) */
+typedef struct CexpModuleRec_	*CexpModule;
 
-typedef struct CexpParserCtxRec_ *CexpParserCtx;
-
-/* Symbol table management */
-
-/* the global system image symbol table */
-extern CexpSymTbl cexpSysSymTbl;
-
-/* Read an ELF file's ".symtab" section and create an
- * internal symbol table representation.
- * The first call to cexpCreateSymTbl() will also set
- * the global 'cexpSysSymTbl'.
- * If the file name argument is NULL, the routine
- * returns cexpSysSymTbl.
- *
- * The ELF file may be the system's object file
- * itself (needs more memory during execution of
- * this routine) or a stripped down version containing
- * only the symbol table. Such a stripped down
- * symbol file may be created with the 'xsyms' 
- * utility.
+/* you may use this to check if the system module
+ * (i.e. system symbol table) has been loaded
+ * already...
  */
-CexpSymTbl
-cexpCreateSymTbl(char *elfFileName);
+extern  CexpModule	cexpSystemModule;
 
-/* free a symbol table (*ps).
- * Note that if *ps is the sysSymTbl,
- * it will only be released if
- * ps==sysSymTbl. I.e:
+/* load an object file and register it as 'module_name'
+ * 'module_name' may be 0 in which case the filename
+ * will be used as the module name.
  *
- * CexpSymTbl p=cexpSysSymTbl;
- * cexpFreeSymTbl(&p);
- * 
- * will _not_ free up the cexpSysSymTbl
- * but merely set *p to zero. However,
- * cexpFreeSymTbl(&sysSymTbl) _will_
- * release the global table.
+ * RETURNS: 0 on success, nonzero on failure
  */
-void
-cexpFreeSymTbl(CexpSymTbl *psymtbl);
+
+int
+cexpModuleLoad(char *file_name, char *module_name);
+
+/* unload a module */
+int
+cexpModuleUnload(char *module_name);
+
+typedef struct CexpParserCtxRec_	*CexpParserCtx;
 
 /* The C expression parser */
 
@@ -73,7 +56,7 @@ cexpFreeSymTbl(CexpSymTbl *psymtbl);
  */
 
 CexpParserCtx
-cexpCreateParserCtx(CexpSymTbl t);
+cexpCreateParserCtx(void);
 
 /* reset a parser context; this routine
  * must be called before calling the parser
@@ -92,11 +75,7 @@ cexpCreateParserCtx(CexpSymTbl t);
 void
 cexpResetParserCtx(CexpParserCtx ctx, char *linebuf);
 
-/* Release a parser context. This frees up the
- * associated symbol table UNLESS it is the
- * global system symbol table which must be
- * deleted with an explicit call to 
- * cexpFreeSymTbl(&sysSymTbl); (see above).
+/* Release a parser context.
  * 
  * NOTE: UVARS (user variables) are NOT part of
  *       the parser context - they are currently
@@ -112,12 +91,10 @@ cexpFreeParserCtx(CexpParserCtx ctx);
  * A typical calling sequence for the CEXP utility
  * is as follows:
  *
- *      / * Note: here, we try to re-use the system symTbl if
- *        *       it exists already.
+ *      / * Note: the system module/symbol table must be
+ *        *       loaded prior to calling this.
  *        * /
- *      CexpParserCtx ctx=cexpCreateParserCtx(
- *                            cexpSysSymTbl ? cexpSysSymTbl :
- *                            cexpCreateSymTbl(filename));
+ *      CexpParserCtx ctx=cexpCreateParserCtx();
  *		char        *line;
  *
  *           while ((line=readline("prompt>"))) {
@@ -126,11 +103,12 @@ cexpFreeParserCtx(CexpParserCtx ctx);
  *                free(line);
  *           }
  *           cexpFreeParserCtx(ctx);
- *           / * optionally release the global symbol table
- *             * otherwise, it may be left in place for reuse
- *             * by another instance of this code...
- *             * /
- *           cexpFreeSymTbl(&cexpSysSymTbl);
+ *
+ *      / * optionally release the global symbol table
+ *        * at thie point. Otherwise, it may be left in
+ *        * place for reuse by another instance of this
+ *        * code...
+ *        * /
  */
 
 #ifndef _INSIDE_CEXP_Y
@@ -198,6 +176,7 @@ cexp_kill(jmp_buf *ctxt, int doWhat);
 #define CEXP_MAIN_NO_SYMS	2	/* unable to open symbol table */
 #define CEXP_MAIN_NO_SCRIPT	3	/* unable to open script file */
 #define CEXP_MAIN_KILLED	4	/* main loop was killed */
+#define CEXP_MAIN_NO_MEM	5	/* no memory */
 
 #ifdef __cplusplus
 };

@@ -18,16 +18,9 @@ typedef struct CexpSymRec_ {
 	unsigned			flags;
 } CexpSymRec, *CexpSym;
 
-/* Symbol table management */
+typedef struct CexpSymTblRec_	*CexpSymTbl;
 
-/* read an ELF file from a file
- * and create an internal representation of
- * the symbol table.
- * All libelf resources are released upon
- * return from this routine.
- */
-CexpSymTbl
-cexpSlurpElf(char *elfSymFileName);
+/* Symbol table management */
 
 /* lookup a symbol by name */
 CexpSym

@@ -29,6 +29,7 @@
 #include <regexp.h>
 
 #include "cexpsymsP.h"
+#include "cexpmodP.h"
 
 #define  SYSTAB_NAME "SYSTEM"
 
@@ -93,7 +94,7 @@ filter(Elf32_Sym *sp,CexpType *pt)
  * All libelf resources are released upon return from this
  * routine.
  */
-CexpSymTbl
+static CexpSymTbl
 cexpSlurpElf(char *filename)
 {
 Elf			*elf=0;
@@ -319,6 +320,12 @@ cleanup:
 		close(fd);
 	if (elf_errno()) fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
 	return 0;
+}
+
+int
+cexpLoadFile(char *filename, CexpModule new_module)
+{
+	return (new_module->symtbl=cexpSlurpElf(filename)) ? 0 : -1;
 }
 
 #ifdef ELFSYMS_TEST_MAIN

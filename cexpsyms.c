@@ -43,16 +43,10 @@ _cexp_addrcomp(const void *a, const void *b)
 	return (*sa)->value.ptv-(*sb)->value.ptv;
 }
 
-/* THE global system symbol table. We might have to think about
- * this again, once RTEMS has a dynamic loader...
- */
-CexpSymTbl cexpSysSymTbl=0;
-
 CexpSym
 cexpSymTblLookup(char *name, CexpSymTbl t)
 {
 CexpSymRec key;
-	if (!t) t=cexpSysSymTbl;
 	key.name = name;
 	return (CexpSym)bsearch((void*)&key,
 				t->syms,
@@ -73,7 +67,6 @@ CexpSym	found=0;
 
 	if (max<1)	max=25;
 	if (!f)		f=stdout;
-	if (!t)		t=cexpSysSymTbl;
 	if (!s)		s=t->syms;
 
 	while (s->name && max) {
@@ -236,31 +229,11 @@ regexp	*rc;
 }
 
 
-CexpSymTbl
-cexpCreateSymTbl(char *symFileName)
-{
-CexpSymTbl	t=0;
-	if (symFileName) {
-		t=cexpSlurpElf(symFileName);
-		if (!t) {
-			fprintf(stderr,"Unable to read symbol table file '%s'\n",symFileName);
-			fprintf(stderr,"Trying to use existing sysSymTbl\n");
-		} else if (!cexpSysSymTbl) {
-			cexpSysSymTbl=t;
-		}
-	}
-	if (!t && !(t=cexpSysSymTbl)) {
-			fprintf(stderr,"ERROR: unable to find a valid symbol table\n");
-	}
-	return t;
-}
-
-
 void
 cexpFreeSymTbl(CexpSymTbl *pt)
 {
 CexpSymTbl st=*pt;
-	if (st && (st!=(void*)cexpSysSymTbl || pt==&cexpSysSymTbl)) {
+	if (st) {
 		free(st->syms);
 		free(st->strtbl);
 		free(st->aindex);
@@ -295,9 +268,9 @@ cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
 {
 int			lo,hi,mid;
 	if (!f) f=stdout;
-	if (!t) t=cexpSysSymTbl;
 
 	lo=0; hi=t->nentries-1;
+		
 	while (lo < hi) {
 		mid=(lo+hi)>>1;
 		if (addr > (void*)t->aindex[mid]->value.ptv)
@@ -312,4 +285,3 @@ int			lo,hi,mid;
 		cexpSymPrintInfo(t->aindex[lo++],f);
 	return t->aindex[mid];
 }
-

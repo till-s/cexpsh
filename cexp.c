@@ -42,7 +42,7 @@ static char *my_readline(char *prompt)
 #endif
 
 #include <regexp.h>
-#include "cexpsyms.h"
+#include "cexpmod.h"
 #include "vars.h"
 
 #include "getopt/mygetopt_r.h"
@@ -113,7 +113,7 @@ regexp	*rc=arg;
 int
 lkup(char *re)
 {
-extern	CexpSym _cexpSymTblLookupRegex();
+extern	CexpSym _cexpSymLookupRegex();
 regexp	*rc=0;
 CexpSym s;
 int		ch=0;
@@ -127,7 +127,7 @@ int		nl=tgetnum("li");
 		return -1;
 	}
 
-	for (s=0; !ch && (s=_cexpSymTblLookupRegex(rc,nl,s,0,0));) {
+	for (s=0; !ch && (s=_cexpSymLookupRegex(rc,nl,s,0,0));) {
 		char *line;
 		line=readline("More (Y/n)?");
 		ch=line[0];
@@ -148,12 +148,13 @@ union {
 CexpSym			s;
 CexpTypedAddr	ptv;
 } v;
-int rval=-1;
+int				rval=-1;
+CexpModule		mod;
 
 	if (!f) f=stdout;
 
-	if ((v.s=cexpSymTblLookup(name,0))) {
-		fprintf(f,"System Symbol Table:\n");
+	if ((v.s=cexpSymLookup(name,&mod))) {
+		fprintf(f,"Module '%s' Symbol Table:\n", cexpModuleName(mod));
 		cexpSymPrintInfo(v.s,f);
 		rval=0;
 	}
@@ -169,7 +170,7 @@ int rval=-1;
 int
 lkaddr(void *addr)
 {
-	cexpSymTblLkAddr(addr, 8, 0, 0);
+	cexpSymLkAddr(addr, 8, 0, 0);
 	return 0;
 }
 
@@ -260,11 +261,22 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 if (argc>oc.optind)
 	script=argv[oc.optind];
 
-do {
-	if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(symfile)))) {
-		fprintf(stderr,"Need an elf symbol table file arg\n");
+if (!cexpSystemModule) {
+	if (!symfile)
+		fprintf(stderr,"Need a symbol file argument\n");
+	else if (cexpModuleLoad(symfile,"SYSTEM"))
+		fprintf(stderr,"Unable to load system symbol table\n");
+	if (!cexpSystemModule) {
 		usage(argv[0]);
 		return CEXP_MAIN_NO_SYMS;
+	}
+}
+
+do {
+	if (!(ctx=cexpCreateParserCtx())) {
+		fprintf(stderr,"Unable to create parser context\n");
+		usage(argv[0]);
+		return CEXP_MAIN_NO_MEM;
 	}
 
 	if (!(rval=setjmp(mainContext))) {

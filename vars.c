@@ -23,7 +23,11 @@
  * is hidden within this file and may easily be changed.
  */
 
-/* use a global lock to keep the lists consistent */
+/* use a global lock to keep the lists consistent;
+ * note that the locking scheme does _only_ keep the
+ * lists consistent. It does currently _not_ protect
+ * looked-up variables from becoming stale.
+ */
 
 /* TODO: if ever deemed necessary, a multiple read / single write
  *       locking scheme could be implemented...

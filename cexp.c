@@ -438,12 +438,102 @@ CexpContextOSD cexpCurrentContext=0;
 
 extern char *cexpBuiltinCpuArch;
 
+#define ST_DEPTH 10
+
+static char *skipsp(register char *p)
+{
+	while ( *p && (' '==*p || '\t'==*p ) )
+		p++;
+	return p; 
+}
+
+static char *getp(register char *p)
+{
+char *e;
+char term;
+	p = skipsp(p);
+	if ( (term='\'') ==  *p || (term='"' == *p) ) {
+		p++;
+		if ( (e = strchr(p,term)) ) {
+			/* '..' or ".." commented string -- no escapes supported */
+			*e=0;
+			return p;
+		}
+		/* no terminator found; treat normally */
+		p--;
+	}
+	for ( e=p; *e && !isspace(*e); e++ )
+		;
+	*e = 0;
+	return p;	
+}
+
+static int
+process_script(CexpParserCtx ctx, char *name, int quiet)
+{
+int  rval = 0;
+FILE *filestack[ST_DEPTH];
+int  sp=-1;
+char buf[500]; /* limit line length to 500 chars :-( */
+int  i;
+
+sprintf(buf,"<%s\n",name);
+
+goto skipFirstPrint;
+
+do {
+	register char *p;
+
+	if ( !quiet ) {
+		for ( i=0; i<=sp; i++ )
+			printf("  ");
+		printf("%s", buf);
+		fflush(stdout);
+	}
+skipFirstPrint:
+
+	p = skipsp(buf);
+    if ( '<' == *p ) {
+		/* extract path */
+        p = getp(p+1);
+		/* PUSH a new script on the stack */
+		if ( !quiet ) {
+			for ( i=0; i<=sp; i++ )
+				fputc('<',stdout);
+			printf("'%s':\n",p);
+		}
+		if ( ++sp >= ST_DEPTH || !(filestack[sp] = fopen(p,"r")) ) {
+			if ( sp >= ST_DEPTH ) {
+				fprintf(stderr,"Scripts too deply nested (only %i levels supported)\n",ST_DEPTH);
+				rval = CEXP_MAIN_NO_MEM;
+			} else {
+				rval = CEXP_MAIN_NO_SCRIPT;
+				perror("opening script file");
+			}
+			sp--;
+		}
+    } else {
+		/* handle simple comments as a courtesy... */
+		if ( '#' != *p ) {
+			cexpResetParserCtx(ctx,buf);
+			cexpparse((void*)ctx);
+		}
+    }
+
+    while ( sp >= 0 && !fgets(buf, sizeof(buf), filestack[sp] ) ) {
+		/* EOF reached; POP script off */
+		fclose(filestack[sp]);
+		sp--;
+    }
+} while ( sp >= 0 );
+return rval;
+}
+
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
 {
 CexpContextRec		context;	/* the public parts of this instance's context */
 CexpContext			myContext;
-FILE				*scr=0;
 char				*line=0,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
@@ -578,35 +668,24 @@ do {
 			callback(argc, argv, &context);
 	
 		if (script) {
-			char buf[500]; /* limit line length to 500 chars :-( */
-			if (!(scr=fopen(script,"r"))) {
-				perror("opening scriptfile");
-				rval=CEXP_MAIN_NO_SCRIPT;
+			if (rval = process_script(ctx, script, quiet))
 				goto cleanup;
-			}
-			if (!quiet)
-				printf("'%s':\n",script);
-			while (fgets(buf,sizeof(buf),scr)) {
-				if (!quiet) {
-					printf("  %s",buf);
-					fflush(stdout);
-				}
-				cexpResetParserCtx(ctx,buf);
-				cexpparse((void*)ctx);
-			}
-			fclose(scr);
-			scr=0;
 		} else {
 			tmp = argc>0 ? argv[0] : "Cexp";
 			prompt=malloc(strlen(tmp)+2);
 			strcpy(prompt,tmp);
 			strcat(prompt,">");
 			while ((line=readline_r(prompt,rl_context))) {
+				/* skip empty lines */
 				if (*line) {
-					/* skip empty lines */
-					cexpResetParserCtx(ctx,line);
-					cexpparse((void*)ctx);
-					add_history(line);
+					if ( '<' == *(tmp=skipsp(line)) ) {
+						process_script(ctx,tmp+1,quiet);
+					} else {
+						/* interactively process this line */
+						cexpResetParserCtx(ctx,line);
+						cexpparse((void*)ctx);
+						add_history(line);
+					}
 				}
 				free(line); line=0;
 			}
@@ -626,7 +705,6 @@ cleanup:
 		free(prompt); 			prompt=0;
 		free(line);   			line=0;
 		cexpFreeParserCtx(ctx); ctx=0;
-		if (scr) fclose(scr);	scr=0;
 	
 } while (-1==rval);
 

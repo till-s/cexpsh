@@ -324,6 +324,29 @@ a script:
 
   Cexp> cexp("script_file")
 
+While the former syntax involves recursive execution of
+Cexp, it is now also possible to let the current instance
+divert its input to read from a script using the
+'<' operator:
+
+  Cexp> < script_file
+
+There are slight syntactic differences when using this syntax,
+though. Evaluation of the file name is not performed by
+the parser but by a simple preprocessor. The filename doesn't have
+to be embedded in double quotes (but it can be). Note that
+no escape sequences are recognized. It is possible, however,
+to use filenames with embedded whitespace by enclosing the
+script name in single or double quotes. In this case, the
+entire string between matching quotes is used. E.g., (RHS
+string delimiter is '"' -- remember that there are no escape
+sequences...):
+
+  < a b c     --> read from file "a"
+  < 'a b' "c" --> read from file "a b"
+  < "a'b"     --> read from file "a'b"
+  < "a\"b"    --> read from file "a\\" (a followed by a single backslash)
+
 
 Loadable Modules / Runtime Loader
 ---------------------------------

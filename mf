@@ -10,7 +10,8 @@ YFLAGS=-d -y -ocexp.tab.c
 
 sym_OBJS=
 exmpl_OBJS=
-ce_OBJS=elfsyms.o cexp.tab.o
+ce_OBJS=elfsyms.o cexp.tab.o vars.o
+ce_CFLAGS=-DNO_THREAD_PROTECTION
 ce_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp
 elfsyms_CFLAGS=-DCEXP_TEST_MAIN
 

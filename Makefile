@@ -10,7 +10,11 @@ APP=elf
 APP_BSP = svgm5
 
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0/
-LIBREADLINE_PATH=/home/till/rtems/apps/add_ons/readline/
+LIBREADLINE_PATH=/home/till/rtems/apps/add_ons/readline-4.2/
+REGEXP_PATH=/home/till/slac/xfm/regexp
+LIBTERMCAP=/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
+#/home/till/rtems/apps/add_ons/ncurses-5.2/lib -lncurses
+#/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
 
 
 RTEMS_MAKEFILE_PATH=$(PROJECT_ROOT)/powerpc-rtems/$(APP_BSP)/
@@ -18,7 +22,7 @@ RTMSLIBDIR=$(RTEMS_MAKEFILE_PATH)/lib
 
 
 # C source names, if any, go here -- minus the .c
-C_PIECES=init wrap cexp.tab elfsyms ce
+C_PIECES=init wrap cexp.tab elfsyms ce vars
 C_FILES=$(C_PIECES:%=%.c)
 C_O_FILES=$(C_PIECES:%=${ARCH}/%.o)
 
@@ -59,7 +63,7 @@ include $(RTEMS_ROOT)/make/leaf.cfg
 
 DEFINES  +=
 CPPFLAGS += -I$(LIBELF_PATH)/lib -I$(LIBELF_PATH)/build-powerpc-rtems/lib
-CPPFLAGS += -I$(LIBREADLINE_PATH)
+CPPFLAGS += -I$(REGEXP_PATH) -I$(LIBREADLINE_PATH)
 CFLAGS   += -O2 -Winline
 
 #
@@ -70,10 +74,13 @@ CFLAGS   += -O2 -Winline
 #
 
 # TS: this didn't work :-( LD_PATHS  +=
-LD_LIBS   += -lm -L../build-powerpc-rtems/lib -lelf
+LD_LIBS   += -lm -L$(LIBELF_PATH)/build-powerpc-rtems/lib -lelf
+LD_LIBS	  += -L$(REGEXP_PATH)/${ARCH} -lregexp
+LD_LIBS   += -L$(LIBREADLINE_PATH)/${ARCH} -lreadline
+LD_LIBS   += -L$(LIBTERMCAP)
 # ../drivers/${ARCH}/libdrv.a
 LDFLAGS   +=
-# -Wl,--wrap=lseek -Wl,--wrap=mmap -Wl,--wrap=munmap
+#-Wl,--wrap=lseek -Wl,--wrap=mmap -Wl,--wrap=munmap -Wl,--wrap=ftruncate
 
 #
 # Add your list of files to delete here.  The config files

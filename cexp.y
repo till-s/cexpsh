@@ -1,12 +1,14 @@
 %{
 #include <stdio.h>
 #include <fcntl.h>
-#include <readline/readline.h>
-#include <readline/history.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 #define _INSIDE_CEXP_Y
 #include "cexp.h"
 #undef  _INSIDE_CEXP_Y
+#include "vars.h"
 
 #define BOOLTRUE	1
 #define YYPARSE_PARAM	parm
@@ -27,6 +29,11 @@
 #define FILLER
 #endif
 
+/* acceptable characters for identifiers - must not
+ * overlap with operators
+ */
+#define ISIDENTCHAR(ch) ('_'==(ch) || '.'==(ch) || '@'==(ch))
+
 #define FILL1	FILLER
 #define FILL2	FILL1 FILLER
 #define FILL3	FILL2 FILLER
@@ -39,6 +46,8 @@
 #define FILL10  FILLARG FILL9
 
 #define LEXERR	-1
+void yyerror();
+int  yylex();
 %}
 %pure_parser
 
@@ -49,12 +58,17 @@
 	unsigned long	*laddr;	/* an long address */
 	CexpFuncPtr		func;	/* function  pointer */
 	CexpSym			sym;	/* a symbol table entry */
+	struct			{
+		char			*name;
+		unsigned long	val;	
+	}				uvar;	/* copy of a UVAR */
 }
 
 
 %token <num>	NUMBER
 %token <caddr>  STR_CONST
-%token <caddr>	IDENT
+%token <caddr>	IDENT		/* an undefined identifier */
+%token <uvar>  	UVAR		/* user variable */
 /* NOTE: elfsym.c relies on the order of FUNC..VAR */
 %token <sym>	FUNC LABEL CHAR_VAR SHORT_VAR VAR
 %token			CHAR_CAST	/* keyword 'char' */
@@ -96,7 +110,7 @@
 input:	line		{ YYACCEPT; }
 
 line:	'\n'
-	|		exp '\n' { printf("0x%08x (%i)\n",$1,$1); }
+	|		exp '\n' { printf("0x%08lx (%ld)\n",$1,$1); }
 ;
 
 exp:	binexp 
@@ -107,6 +121,17 @@ exp:	binexp
 					{ $$=$3&0xffff; EVAL(*(unsigned short*)$1 = (unsigned short)$$); }
 	|	llval '=' exp
 					{ $$=$3; 		EVAL(*$1 = $$); }
+	|	IDENT '=' exp
+					{ $$=$3;		EVAL(if (!cexpVarSet($1,$3,1/*allow creation*/)) {	\
+												yyerror("unable to add new variable");	\
+												YYERROR; 								\
+											}); }
+	|	UVAR  '=' exp
+					{ $$=$3;		EVAL(if (!cexpVarSet($1.name,$3,1/*allow creation*/)) {	\
+												yyerror("unable to add new variable");	\
+												YYERROR; 								\
+											}); }
+
 ;
 
 binexp:	unexp
@@ -159,6 +184,8 @@ and:	binexp AND
 
 unexp:	VAR
 					{ $$=*(unsigned long*)$1->val.addr; }
+	|	UVAR
+					{ $$=$1.val; }
 	|	LABEL		
 					{ $$=(unsigned long)$1->val.addr; }
 	|	NUMBER
@@ -237,6 +264,9 @@ sptr:	'&' SHORT_VAR %prec ADDR
 					{ $$=(unsigned short*)$5; }
 ;
 
+/* NOTE: for now, we consider it not legal to
+ *       deal with pointers to UVARs
+ */
 lptr:	'&' VAR	 %prec ADDR
 					{ $$=$2->val.addr; }
 	|	'(' LONG_CAST '*' ')' unexp %prec CAST
@@ -285,16 +315,25 @@ call:	funcp '(' ')'
 unsigned char *
 lstAddString(CexpParserCtx env, char *string)
 {
-unsigned char *rval=0;
-	if (env->lstLen<sizeof(env->lineStrTbl)/sizeof(env->lineStrTbl[0])) {
-		if ((rval=malloc(strlen(string)+1))) {
-			env->lineStrTbl[env->lstLen++]=rval;
-			strcpy(rval,string);
+unsigned char	*rval=0;
+char			**chppt;
+int				i;
+	for (i=0,chppt=env->lineStrTbl;
+		 i<sizeof(env->lineStrTbl)/sizeof(env->lineStrTbl[0]);
+		 i++,chppt++) {
+		if (*chppt) {
+			if  (strcmp(string,*chppt))			continue;
+			else /* string exists already */	return *chppt;
 		}
-	} else {
-		fprintf(stderr,"Cexp: Line String Table exhausted\n");
+		/* string exists already */
+		if ((rval=malloc(strlen(string)+1))) {
+			*chppt=rval;
+			strcpy(rval,string);
+			return rval;
+		}
 	}
-	return rval;
+	fprintf(stderr,"Cexp: Line String Table exhausted\n");
+	return 0;
 }
 
 #define ch (*pa->chpt)
@@ -349,7 +388,7 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 		do {
 			*(chpt++)=ch;
 			getch();
-		} while (isalnum(ch) && (--limit > 0));
+		} while ((isalnum(ch)||ISIDENTCHAR(ch)) && (--limit > 0));
 		*chpt=0;
 		/* is it one of the type cast keywords? */
 		if (!strcmp(sbuf,"char"))
@@ -358,11 +397,14 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 			return SHORT_CAST;
 		else if (!strcmp(sbuf,"long"))
 			return LONG_CAST;
-		else if (rval->sym=cexpSymTblLookup(sbuf, pa->symtbl))
+		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
 			return rval->sym->type;
+		else if (cexpVarLookup(sbuf, &rval->uvar.val)) {
+			return (rval->uvar.name=lstAddString(pa,sbuf)) ? UVAR : LEXERR;
+		}
 
 		/* it's a currently undefined symbol */
-		return (rval->caddr=lstAddString(pa,sbuf)) >= 0 ? IDENT : LEXERR;
+		return (rval->caddr=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */
 		char *dst;
@@ -445,8 +487,13 @@ releaseStrings(CexpParserCtx ctx)
 {
 int			i;
 char		**chppt;
+	/* make sure the variable facility is initialized */
+	cexpVarInit();
+
 	/* release the line string table */
-	for (i=0,chppt=ctx->lineStrTbl; i<ctx->lstLen; i++,chppt++) {
+	for (i=0,chppt=ctx->lineStrTbl;
+		 i<sizeof(ctx->lineStrTbl)/sizeof(ctx->lineStrTbl[0]);
+		 i++,chppt++) {
 		if (*chppt) {
 			free(*chppt);
 			*chppt=0;
@@ -455,10 +502,12 @@ char		**chppt;
 }
 
 CexpParserCtx
-cexpCreateParserCtx(char *symFileName)
+cexpCreateParserCtx(CexpSymTbl t)
 {
 CexpParserCtx	ctx=0;
-CexpSymTbl		t=cexpCreateSymTbl(symFileName);
+
+	/* make sure the variable facility is initialized */
+	cexpVarInit();
 
 	if (t) {
 		assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
@@ -468,7 +517,7 @@ CexpSymTbl		t=cexpCreateSymTbl(symFileName);
 	return ctx;
 }
 
-CexpParserCtx
+void
 cexpResetParserCtx(CexpParserCtx ctx, char *buf)
 {
 	ctx->chpt=buf;
@@ -483,7 +532,7 @@ cexpFreeParserCtx(CexpParserCtx ctx)
 	releaseStrings(ctx);
 }
 
-int
+void
 yyerror(char*msg)
 {
 fprintf(stderr,"Cexp syntax error: %s\n",msg);

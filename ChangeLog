@@ -1,5 +1,21 @@
+Changes since CEXP-1.4.beta ("Helvetia")
 
 Changes since CEXP-1.3.beta ("good friday")
+
+ 2003/7/31:
+ - added info about 'xsym' cross tool and updated configure
+   magic to do real cross-builds for 'xsyms' (especially if
+   using bfd. On a ELF host, it's OK to use a native libelf
+   to build 'xsyms' for any ELF(32) target.
+ - fixed BFD xsyms '.sym' extension handling.
+ - added a architecture check to the BFD loader after getting
+   obscure errors when trying to load x86 objects to a PPC
+   system :-(
+ - hacked libtecla so the 'newline' action passes nonprinting
+   characters which ended the line along to the application.
+   This can be used to implement 'hotkeys' (as used by the SVGM
+   bootloader).
+ - simplified HELP macro usage.
 
  2003/7/1:
  - moved more routines to the public interface:

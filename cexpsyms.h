@@ -54,6 +54,9 @@
 typedef struct CexpSymRec_ {
 	const char			*name;
 	CexpTypedAddrRec	value;
+/* ^^^ fields above here are used by the 'gencore' [host] utility which must
+ *     be adapted if anything is changed; see cexpmodP.h for details
+ */
 	int					size;
 	unsigned			flags;
 	char				*help;

@@ -583,6 +583,14 @@ As is said: C++ IS THE DEVIL in the detail. While linking C (and even fortran et
 code compiled with different compilers (e.g. libraries) is seamless under a common
 ABI, it is very complex if not impossible with C++.
 
+Important PowerPC ABI Information
+---------------------------------
+Cexp currently does not support the short data areas according to the SYSV/EABI
+specifications. Short data sections are merged by Cexp into the normal data
+segment and hence cannot be accessed via R13/R2. Hence, when compiling loadable
+modules, the compiler's -msdata flag must not be set to either of 'eabi', 'sysv'
+or 'use'.
+
 LICENSING & DISCLAIMERS
 -----------------------
 

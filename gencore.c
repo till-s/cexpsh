@@ -116,7 +116,7 @@ static void usage(int code)
 const bfd_arch_info_type *arch = bfd_scan_arch("");
 
 	fprintf(stderr,
-		"Usage: %s [-hCc] [-r registers] [-p pc] [-s sp] [-f fp] [-e register_block_offset] [-a vma] memory_image_file [core_file_name] [-V symbol=magic_string]\n\n",
+		"Usage: %s [-hCc] [-r registers] [-p pc] [-s sp] [-f fp] [-e register_block_offset] [-x ELF_executable] [-a vma] memory_image_file [core_file_name] [-V symbol=magic_string]\n\n",
 		progn);
 	fprintf(stderr,
 		"       Generate a core file from a raw memory image.\n");
@@ -141,6 +141,8 @@ const bfd_arch_info_type *arch = bfd_scan_arch("");
 	fprintf(stderr,
 		"       -e offset         : registers are read at 'offset' in the memory image\n");
 	fprintf(stderr,
+		"       -x ELF_executable : try to read register block offset using its symbol in the ELF executable\n");
+	fprintf(stderr,
 		"       -V strvar=strval  : do validity check on memory image. Look for and\n");
 	fprintf(stderr,
 		"                           compare a string variable. Yield an error if 'string'\n");
@@ -155,7 +157,7 @@ const bfd_arch_info_type *arch = bfd_scan_arch("");
 	fprintf(stderr,
 		"       -c                : same as -V; use the CEXP magic string for validation\n");
 	fprintf(stderr,
-		"       -C                : same as -c; if the magic string is found, dump section\n");
+		"       -C                : same as -c; if the magic string is found, dump section -- NEEDS -x\n");
 	fprintf(stderr,
 		"                           address info for use by GDB (although you could and\n");
 	fprintf(stderr,

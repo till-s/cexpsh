@@ -73,8 +73,13 @@ public:
 
 
 
-AClass foo( "GLOBAL" );
-BClass foobar( "GLOBAL" );
+AClass too0(   "GLOBAL    priority 101 - first   (should initialize in step 1") __attribute__(( init_priority(101) ));
+AClass foo(    "GLOBAL    default-pri  - second  (should initialize in step 6" );
+BClass foobar( "GLOBAL    default-pri  - third   (should initialize in step 7" );
+AClass too(    "GLOBAL    priority 200 - fourth  (should initialize in step 4") __attribute__(( init_priority(200) ));
+AClass too1(   "GLOBAL    priority 101 - fifth   (should initialize in step 2") __attribute__(( init_priority(101) ));
+AClass toobar( "GLOBAL    priority 200 - sixth   (should initialize in step 5") __attribute__(( init_priority(200) ));
+AClass qoobar( "GLOBAL    priority 110 - seventh (should initialize in step 3") __attribute__(( init_priority(150) ));
 
 void
 cdtest(void)

@@ -13,7 +13,7 @@
  *
  */
 
-/* Author: Till Straumann, 8/2002 */
+/* Author: Till Straumann, 8/2002 - 2/2003 */
 
 /*
  * Copyright 2002, Stanford University and
@@ -89,16 +89,16 @@
 #define DEBUG_SECT		(1<<1)
 #define DEBUG_RELOC		(1<<2)
 #define DEBUG_SYM		(1<<3)
+#define DEBUG_CDPRI		(1<<4)
 
-/*
-#define	DEBUG			(DEBUG_RELOC|DEBUG_SYM|DEBUG_SECT)
-*/
 #define DEBUG			(0)
 
 #include "spencer_regexp.h"
 
 /* magic symbol names for C++ support; probably gcc specific */
 #define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
+/* static/global CTOR/DTOR has no init_priority (highest priority is 1) */
+#define INIT_PRIO_NONE		1000000
 #ifdef OBSOLETE_EH_STUFF	/* old suselinux-ppc modified gcc needed that */
 #define EH_FRAME_BEGIN_PATTERN	"__FRAME_BEGIN__"
 #define EH_FRAME_END_PATTERN	"__FRAME_END__"
@@ -251,7 +251,7 @@ asymbol			*spb=**(asymbol***)b;
  *          0 otherwise
  */
 static inline int
-isCtorDtor(asymbol *asym, int quiet)
+isCtorDtor(asymbol *asym, int quiet, int *pprio)
 {
 	/* From bfd/linker.c: */
 	/* "A constructor or destructor name starts like this:
@@ -261,7 +261,15 @@ isCtorDtor(asymbol *asym, int quiet)
 	   comes along with even worse naming restrictions)."  */
 
 	if (spencer_regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
-		switch (*(ctorDtorRegexp->endp[0]-2)) {
+		register char *tail = ctorDtorRegexp->endp[0];
+		/* read the priority */
+		if (pprio) {
+			if (isdigit(*tail))
+				*pprio = atoi(tail);
+			else
+				*pprio = INIT_PRIO_NONE;
+		}
+		switch (*(tail-2)) {
 			case 'I':	return  1; /* constructor */
 			case 'D':	return -1; /* destructor  */
 			default:
@@ -416,8 +424,6 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 		 * we must reserve a little extra space.
 		 */
 		if ( !strcmp(secn, EH_SECTION_NAME) ) {
-			/* allocate space for a terminating 0 */
-			seg->size+=sizeof(long);
 #ifdef OBSOLETE_EH_STUFF
 			asymbol *asym;
 			/* create a symbol to tag the terminating 0 */
@@ -428,6 +434,8 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 #else
 			((LinkData)arg)->eh_section = sect;
 #endif
+			/* allocate space for a terminating 0 */
+			seg->size+=sizeof(long);
 		}
 	}
 }
@@ -603,6 +611,29 @@ long		err;
 	}
 }
 
+typedef struct CtorSymRec_ {
+	asymbol	*sym;	/* the symbol */
+	int	pri;	/* priority we have extracted already */
+} CtorSymRec, *CtorSym;
+
+static int
+ctor_cmp(const void *a, const void *b)
+{
+register int	 diff;
+register CtorSym sa = (CtorSym)a;
+register CtorSym sb = (CtorSym)b;
+
+	/* priorities are in inverse order */
+	if ( (diff = sa->pri - sb->pri ) )
+		return diff;
+
+	/* same priority -- enforce keeping the current
+	 * ordering
+	 */
+	return sa-sb;
+}
+
+
 /* build the module's static constructor and
  * destructor lists.
  */
@@ -610,31 +641,72 @@ static void
 buildCtorsDtors(LinkData ld, CexpModule mod)
 {
 asymbol		**asymp;
+CtorSym		ctorsyms = 0;
+CtorSym		dtorsyms = 0;
+int			i,j;
 
 	if (ld->nCtors) {
 		mod->ctor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->ctor_list) * (ld->nCtors));
 		memset(mod->ctor_list,0,sizeof(*mod->ctor_list) * (ld->nCtors));
+		ctorsyms=(CtorSym)xmalloc(sizeof(*ctorsyms) * ld->nCtors);
 	}
 	if (ld->nDtors) {
 		mod->dtor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->dtor_list) * (ld->nDtors));
 		memset(mod->dtor_list,0,sizeof(*mod->dtor_list) * (ld->nDtors));
+		dtorsyms=(CtorSym)xmalloc(sizeof(*dtorsyms) * ld->nDtors);
 	}
+
 	for (asymp=ld->st; *asymp; asymp++) {
-		switch (isCtorDtor(*asymp,0/*quiet*/)) {
+		int	pri;
+		switch (isCtorDtor(*asymp,0/*quiet*/, &pri)) {
 			case 1:
 				assert(mod->nCtors<ld->nCtors);
-				mod->ctor_list[mod->nCtors++]=(VoidFnPtr)bfd_asymbol_value(*asymp);
+				ctorsyms[mod->nCtors].sym = *asymp;
+				ctorsyms[mod->nCtors].pri = pri;
+				mod->nCtors++;
 			break;
 
 			case -1:
 				assert(mod->nDtors<ld->nDtors);
-				mod->dtor_list[mod->nDtors++]=(VoidFnPtr)bfd_asymbol_value(*asymp);
+				dtorsyms[mod->nDtors].sym = *asymp;
+				dtorsyms[mod->nDtors].pri = pri;
+				mod->nDtors++;
 			break;
 
 			default:
 			break;
 		}
 	}
+	assert(mod->nCtors == ld->nCtors);
+	assert(mod->nDtors == ld->nDtors);
+
+	/* sort the ctors/dtors to support ordered initialization/destruction */
+	if (ld->nCtors)
+		qsort(ctorsyms, ld->nCtors, sizeof(*ctorsyms), ctor_cmp); 
+	if (ld->nDtors)
+		qsort(dtorsyms, ld->nDtors, sizeof(*dtorsyms), ctor_cmp); 
+
+	/* store the symbol values in the module's ctor/dtor lists */
+	for (i=0; i<ld->nCtors; i++) {
+		mod->ctor_list[i]=(VoidFnPtr)bfd_asymbol_value(ctorsyms[i].sym);
+#if (DEBUG) & DEBUG_CDPRI
+		printf("Ctor %.40s at priority %i\n",
+				bfd_asymbol_name(ctorsyms[i].sym),
+				ctorsyms[i].pri);
+#endif
+	}
+	/* inverse the order of calling the destructors */
+	for (i=0, j=ld->nDtors-1; i<ld->nDtors; i++,j--) {
+		mod->dtor_list[i]=(VoidFnPtr)bfd_asymbol_value(dtorsyms[j].sym);
+#if (DEBUG) & DEBUG_CDPRI
+		printf("Dtor %.40s at priority %i\n",
+				bfd_asymbol_name(dtorsyms[i].sym),
+				dtorsyms[i].pri);
+#endif
+	}
+
+	free(ctorsyms);
+	free(dtorsyms);
 }
 
 /* convert a CexpSym to a (temporary) BFD symbol and update module
@@ -700,7 +772,7 @@ int			i,num_new_commons=0,errs=0;
 						bfd_get_section_name(abfd,sect));
 #endif
 		/* count constructors/destructors */
-		if ((res=isCtorDtor(sp,1/*warn*/))) {
+		if ((res=isCtorDtor(sp,1/*warn*/,0/*don't care about priority*/))) {
 			if (res>0)
 				ld->nCtors++;
 			else

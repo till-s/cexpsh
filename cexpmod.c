@@ -412,6 +412,7 @@ CexpModule m,tail,nmod,rval=0;
 		nmod->nCtors=0;
 	}
 
+	/* call 'non-C++' constructor */
 	if (nmod->iniCallback)
 		nmod->iniCallback(nmod);
 

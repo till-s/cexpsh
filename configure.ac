@@ -39,7 +39,9 @@ enable_cexp=no
 fi
 
 dnl is this a 'xsyms' only checkout?
-AC_CHECK_FILE($srcdir/cexp.y,,enable_cexp=no)
+if test ! -f $srcdir/cexp.y ; then
+	enable_cexp=no
+fi
 
 if test "$enable_cexp" != "no" ; then
 
@@ -95,11 +97,15 @@ dnl		AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
 	fi
 	if test "$we_have_native_libelf" != "yes" ; then
 dnl     AC_CONFIG_SUBDIRS needs a literal arg :-(
-		AC_CHECK_FILE($srcdir/$LIBELF,,AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY"))
+		if test ! -d $srcdir/$LIBELF ; then
+			AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY")
+		fi
 		AC_CONFIG_SUBDIRS(libelf-0.8.2)
 	fi
 else
-	AC_CHECK_FILE($srcdir/binutils,,AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY))
+	if test ! -d $srcdir/binutils ; then
+		AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY)
+	fi
 fi
 
 if test "$enable_bfd" != "no" ; then

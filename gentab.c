@@ -77,7 +77,12 @@ int
 main()
 {
 int mask;
-	printf("/* WARNING: DO NOT EDIT THIS MACHINE-GENERATED FILE */\n");
+	printf("/* WARNING: DO NOT EDIT THIS AUTOMATICALLY-GENERATED FILE */\n");
+	printf("#define JUMPTAB_ARGLIST(args) ");
+for (mask=0; mask < MAXBITS; mask++)
+	printf(",args[%i]",mask);
+	printf("\n");
+	printf("#define MAXBITS %i\n",MAXBITS);
 for (mask=0; mask< (1<<MAXBITS); mask++) {
 	printf("typedef %s (*",typ[RES]); tnam(mask); printf(")("); targs(mask); printf(");\n");
 	printf("static  %s ",typ[RES]);    fnam(mask); protoargs(); printf("\n");
@@ -88,9 +93,5 @@ for (mask=0; mask < (1<<MAXBITS); mask++) {
 	printf("\t"); fnam(mask); printf(",\n");
 }
 	printf("};\n");
-	printf("#define JUMPTAB_ARGLIST(args) ");
-for (mask=0; mask < MAXBITS; mask++)
-	printf(",args[%i]",mask);
-	printf("\n");
 return 0;
 }

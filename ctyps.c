@@ -584,7 +584,10 @@ cleanup:
  *       actual call through the jumptable
  *       in cexpTVFnCall must be modified.
  */
-#define MAXBITS	5
+/* NOTE: this is now defined in gentab.c
+ * only - it is then copied to jumptab.c...
+ * #define MAXBITS	5
+ */
 
 /* maximal number of unsigned long only arguments
  * NOTE: if this is changed, the typedefs for L10
@@ -624,6 +627,10 @@ typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
  * above).
  */
 #include "jumptab.c"
+
+#if MAXBITS > MAXARGS
+#error "MAXBITS (as defined in gentab.c) must be < MAXARGS"
+#endif
 
 const char *
 cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)

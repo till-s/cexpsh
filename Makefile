@@ -89,3 +89,13 @@ xsyms: xsyms.c xsyms-bfd.c
 install:
 	@echo You must install 'xsyms' manually
 	exit 1
+
+REVISION=$(filter-out $$%,$$Name$$)
+tar: regexp prep
+	@if [ -z $(REVISION) ] ; then \
+		echo "I need a version checked out with a revision tag to make a tarball";\
+		exit 1;\
+    else \
+		echo tarring revision $(REVISION);\
+		tar cfz $(if $(wildcard tarexcl),x tarexcl) $(REVISION).tgz -C .. $(shell basename `pwd`) ;\
+    fi

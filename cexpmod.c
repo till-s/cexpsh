@@ -657,6 +657,7 @@ CexpModule m,tail,nmod,rval=0;
 		for (found=0,max=1; (found=_cexpSymTblLookupRegex(rc,&max,found,0,nmod->symtbl)); found++,max=1) {
 			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, nmod->symtbl);
 		}
+		cexp_regfree(rc);
 	}
 
 	/* call the constructors */

@@ -924,6 +924,7 @@ void
 cexpFreeParserCtx(CexpParserCtx ctx)
 {
 	releaseStrings(ctx);
+	free(ctx);
 }
 
 void

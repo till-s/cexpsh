@@ -14,6 +14,11 @@
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 
+/* not letting them live makes not much sense */
+#ifndef CONFIG_STRINGS_LIVE_FOREVER
+#define CONFIG_STRINGS_LIVE_FOREVER
+#endif
+
 #define YYPARSE_PARAM	parm
 #define YYLEX_PARAM		parm
 #define YYERROR_VERBOSE

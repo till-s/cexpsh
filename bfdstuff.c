@@ -931,7 +931,7 @@ long				num_new_commons;
 
 	/* Allocate space for the symbol table  */
 	if (i) {
-		asyms=(asymbol**)xmalloc((i) * sizeof(asymbol*));
+		asyms=(asymbol**)xmalloc((i));
 	}
 	nsyms= i ? i/sizeof(asymbol*) - 1 : 0;
 	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {

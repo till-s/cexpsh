@@ -91,6 +91,7 @@ bootstrap-xsyms bootstrap-cexp:
 #	ln -s binutils binutils-x
 bootstrap: bootstrap-cexp
 	(cd libtecla; $(AUTOCONF))
+	(cd regexp;   $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE) -ac$(AUTOFORCE))
 
 clean-xsyms:
 	$(RM) xsyms

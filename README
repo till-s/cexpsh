@@ -47,11 +47,13 @@ double  (*)()
 
 and interprets C-style expressions, e.g.
 
-	printf("Hello world")
+  Cexp> printf("Hello world")
 
-	some_variable = 0xdeadbeef
+  Cexp> some_variable = 0xdeadbeef
 
-	some_double_variable = *(double*)&some_variable
+  Cexp> some_double_variable = *(double*)&some_variable
+
+  Cexp> a=printf, a && a("The square root of 2 is %g\n",sqrt(2.0))
 
 Symbol Table
 ------------
@@ -61,17 +63,7 @@ file) and guesses the variable types from their sizes.
 (Guess is only supported on ELF targets.)
 
 In some cases, this guess is obviously wrong, but you can 
-always cast the symbol to the correct type. Assume
-you have a variable 'str' of which you know it's a 
-character array. Since it's size (on an ELF target)
-exceeds the size of any known variable, cexp will
-report 'str' as 'void'. You may simply re-cast the
-symbol using the statement
-
-Cexp> char *str
-
-After that, cexp has 'learned' the correct type.
-
+always cast the symbol to the correct type.
 Arrays are normally 'void' like every symbol for whose
 type Cexp cannot make a guess.
 It is still possible, however, to
@@ -82,16 +74,18 @@ Cexp> *(((long*)&some_array)+25)
 
 evaluates to the unsigned long array element
 some_array[25]. Alternatively, you can redeclare
-its type like in the string example above:
+its type:
 
 Cexp> long *some_array
 Cexp> *(some_array + 25)
+
+After that, cexp has 'learned' the correct type.
 
 Cexp provides a series of lookup functions
 for symbols. Most noteworthy:
 
 lkup(char *regexp)
-lkAddr(unsigned long addr)
+lkaddr(unsigned long addr)
 
 These are just normal C functions which can be
 invoked by Cexp. Note that lkup() takes a regular
@@ -100,23 +94,24 @@ expression argument allowing for powerful searching.
 C-Expression Parser / Interpreter
 ---------------------------------
 The C expression parser has some restrictions:
-    - no '?' ':' expression
-    - no [], '->'
-    - no multilevel pointer dereferencing (since e.g. char**
-      is not a valid type, Cexp cannot dereference 
-      **addr. You must explicitly cast this:
+  - no '?' ':' expression
+  - no [], '->'
+  - the '.' operator has a special meaning - see below
+  - no multilevel pointer dereferencing (since e.g. char**
+    is not a valid type, Cexp cannot dereference 
+    **addr. You must explicitly cast this:
 
-        *(char*)*(long*)some_char_pointer_pointer
+      Cexp> *(char*)*(long*)some_char_pointer_pointer
 
-      which assumes that sizeof(long) == sizeof(char*)
-      for the particular machine.
+which assumes that sizeof(long) == sizeof(char*)
+for the particular machine.
 
 However, most of the other operators are available, including
 the 'comma' operator and the logical '&&' and '||' with the
 correct semantics, i.e. conditional evaluation of expression
 parts e.g.
 
-      (dd=deviceDetect(_some_device_address)) && driverInit(dd)
+  Cexp> (dd=deviceDetect(_some_device_address)) && driverInit(dd)
 
 will call the driverInit() function only if deviceDetect()
 returns a nonzero value.
@@ -130,12 +125,17 @@ Function calling:
 The user is responsible for feeding properly typed arguments;
 unused arguments will be filled with integral 0, which on 
 most ABIs is safe.
-Since the ELF symbol table (Cexp is not using .stab but .symtab)
+Since the symbol table (on ELF, Cexp is not using .stab but .symtab)
 provides no info about a function's return type, Cexp assumes
 all functions to return long. Floating point functions
 must be cast appropriately:
 
-    ((double(*)())sqrt)(2.345)
+  Cexp> ((double(*)())sqrt)(2.345)
+
+Or
+
+  Cexp> double (*sqrt)()
+  Cexp> sqrt(2.345)
 
 A lot of type casting can be avoided by using user
 defined variables, see below.
@@ -217,7 +217,7 @@ is defined, or if you request 'verbose' help:
 
 Cexp> some_symbol.help(1)
 
-The symbol address, value and type information are printed
+the symbol address, value and type information are printed
 (same format as the 'lkup' output).
 
 You can add/modify help information to a symbol (e.g. a user
@@ -236,6 +236,9 @@ the help information is not propagated to 's'. If 'sqrt'
 had help information, it would need to be copied:
 
 Cexp> s.help(sqrt.help())
+
+This example shows that the return value of the 'help() member'
+is the address of the (static) help text string.
 
 How to Start/Invoke Cexp - Simple Scripts
 -----------------------------------------
@@ -261,11 +264,16 @@ with zeroes...
 
 The calling syntax of cexp_main/cexp is as follows:
 
-cexp [-s <symbolfile>] [-h] [-d] [<scriptfile>]
+cexp [-s <symbolfile>] [-h] [-d] [-q] [<scriptfile>]
 
 -h and -d have the obvious effect of printing usage
 info and enabling debugging information (only available
 if compiled with YYDEBUG defined).
+
+The -q ('quiet') flag instructs cexp not to print
+any normal output (errors are still reported to stderr)
+on stdout. This behavior can be desirable when evaluating
+scripts.
 
 Note that the -s option MUST be used the first time
 'Cexp' is started and it must be provided with an
@@ -283,13 +291,13 @@ cexp then reads commands from stdin (using the TECLA
 library) or alternatively from a script file.
 
 Cexp ignores any characters present on a line
-after it reads the comment characters
+after it reads the comment tokens
 '#' or '//'.
 
 Example for invoking Cexp from Cexp to evaluate
 a script:
 
-    Cexp> cexp("script_file")
+  Cexp> cexp("script_file")
 
 Loadable Modules / Runtime Loader
 ---------------------------------
@@ -298,7 +306,46 @@ When built against the BFD library, cexp is capable of
 dynamically loading object files into a running program.
 Cexp keeps track of module dependencies. Note that this
 only covers symbol table dependencies. Cexp rejects
-unloading a module 'A' if there is still another module 'B"
- loaded
+unloading a module 'A' if there is still another module,
+'B' loaded which had undefined symbols resolved against 'A's
+symbols. Obviously, more subtle dependencies, such as
+threads using a modules text or data cannot be tracked
+easily.
 
-a another module.
+An object file (AKA 'module') can be loaded invoking the
+command:
+
+  Cexp> someModule=cexpModuleLoad("someModule.o")
+
+The loader returns a 'module ID', which in this example
+is stored in the user variable 'someModule'. If errors
+occur during the load (such as undefined references or
+multiple symbol definitions), they are reported and a NULL
+module ID is returned.
+
+After loading, C++ static constructors are executed and
+exception handler frames are registered. Note that these
+features are probably only supported on ELF and, especially
+the exception handling, might only work for gcc compiled
+code. Unfortunately, even different versions of gcc and/or
+target architectures involve varying implementations of
+exception handling - YMMV...
+
+An (unused) module can be unloaded by passing its ID to
+cexpModuleUnload() (prior to unloading, the C++ static
+destructors are executed):
+
+  Cexp> cexpModuleUnload(someModule)
+
+Two more routines are useful in this context:
+
+  cexpModuleInfo([ID])
+
+prints info about a specific module (ID) or all currently
+loaded modules if passed NULL ID.
+
+  cexpModuleFindByName("regexp")
+
+searches the list of modules for a regular expression and
+reports the IDs of all matches. It returns the first ID
+found (or NULL if there was no match).

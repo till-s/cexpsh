@@ -490,8 +490,14 @@ long		err;
 			asection	*symsect=bfd_get_section(*r->sym_ptr_ptr);
 			if (   bfd_is_und_section(symsect) ||					
 				   /* reloc references an undefined sym */
-				! (SEC_ALLOC & bfd_get_section_flags(abfd,symsect))
+				( !(SEC_ALLOC & bfd_get_section_flags(abfd,symsect)) &&
 				   /* reloc references a dropped linkonce */
+				  !( bfd_is_abs_section(symsect) && (ld->eh_section == sect) ) )
+				   /* it does reference a dropped linkonce but in the eh_frame
+					* this will be ignored by the frame unwinder (I hope - I did
+					* some digging through libgcc (gcc-3.2) sources and it seemed
+					* so althouth it's a very complicated issue)
+					*/
 			    ) {
 				CexpModule	mod;
 				asymbol		*sp;
@@ -503,6 +509,8 @@ long		err;
 					 */
 					sp=*r->sym_ptr_ptr=asymFromCexpSym(abfd,ts,ld->depend,mod);
 				} else {
+printf("TSILL isabs: %i, ehsect %s, sect %s\n", bfd_is_abs_section(symsect),
+				bfd_get_section_name(abfd,ld->eh_section),bfd_get_section_name(sect));
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
 		continue;

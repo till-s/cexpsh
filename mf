@@ -1,0 +1,40 @@
+ARCH=linux-x86
+PROG=sym
+CFLAGS=-g -O
+WRAP=YES
+LIBELF_PATH=/home/till/rtems/libelf-0.8.0
+YACC=bison
+YFLAGS=-d -y -ocexp.tab.c
+
+sym_OBJS=
+exmpl_OBJS=
+ce_OBJS=elfsyms.o cexp.tab.o
+ce_LIBS=-lreadline -lncurses
+
+WRAP_OBJS_YES=wrap.o
+WRAP_OBJS_NO=
+
+WRAP_LDFLAGS_YES=-Wl,--wrap=lseek -Wl,--wrap=mmap -Wl,--wrap=munmap -Wl,--wrap=ftruncate
+WRAP_LDFLAGS_NO=
+
+OBJS=$($(PROG)_OBJS) $(PROG).o $(WRAP_OBJS_$(WRAP))
+WRAP_LDFLAGS=$(WRAP_LDFLAGS_$(WRAP))
+LIBS=$($(PROG)_LIBS) 
+
+
+all: $(PROG)
+
+$(PROG): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ -L $(LIBELF_PATH)/build-$(ARCH)/lib $(WRAP_LDFLAGS) -lelf $(LIBS)
+
+cexp.tab.c cexp.tab.h: cexp.y
+	bison -d $^
+
+%.o:	%.c
+	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -o $@ $^
+
+clean:
+	$(RM) -f $(PROG) $(OBJS) wrap.o *.tab.c *.tab.h
+
+elfsyms.c: cexp.h
+cexp.h: cexp.tab.h

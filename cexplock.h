@@ -34,9 +34,9 @@ long rtems_semaphore_destroy();
 
 #define rtems_build_name( _C1, _C2, _C3, _C4 ) \
   ( (_C1) << 24 | (_C2) << 16 | (_C3) << 8 | (_C4) )
-#define RTEMS_NO_TIMEOUT 0
-#define RTEMS_WAIT		 0
-#define RTEMS_FIFO		 0
+#define RTEMS_NO_TIMEOUT 		0
+#define RTEMS_WAIT		 		0
+#define RTEMS_PRIORITY			0x04	/* must be set to get priority inheritance */
 #define RTEMS_BINARY_SEMAPHORE	0x10
 #define RTEMS_INHERIT_PRIORITY	0x40
 #endif
@@ -52,7 +52,7 @@ cexpLockCreate(CexpLock *l)
 	rtems_semaphore_create(
 		rtems_build_name('c','e','x','p'),
 		1,/*initial count*/
-		RTEMS_FIFO|RTEMS_BINARY_SEMAPHORE|RTEMS_INHERIT_PRIORITY,
+		RTEMS_PRIORITY|RTEMS_BINARY_SEMAPHORE|RTEMS_INHERIT_PRIORITY,
 		0,
 		l);
 }

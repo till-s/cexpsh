@@ -17,9 +17,11 @@
 #include "config.h"
 #endif
 
+#define _INSIDE_CEXP_
 #include "cexp.h"
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
+#include "help.h"
 
 /* Oh well; rtems/score/ppctypes.h defines boolean and bfd
  * defines boolean as well :-( Can't you people use names
@@ -1092,6 +1094,18 @@ printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b
 	}
 	if (ldr.finiCallback) {
 		mod->finiCallback=(int(*)(CexpModule)) bfd_asymbol_value((*(asymbol**)ldr.finiCallback));
+	}
+
+	/* add help strings to symbol table */
+	{
+	asymbol *sp;
+	int		len=strlen(CEXP_HELP_TAB_NAME);
+	for (i=0; (sp=ldr.st[i]); i++) {
+		if (0==strncmp(CEXP_HELP_TAB_NAME,bfd_asymbol_name(sp),len)) {
+			/* this module has a help table; add it to the symbol table */
+			cexpAddHelpToSymTab((CexpHelpTab)bfd_asymbol_value(sp), mod->symtbl);
+		}
+	}
 	}
 
 	mod->cleanup = bfdCleanupCallback;

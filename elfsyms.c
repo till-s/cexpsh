@@ -25,10 +25,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <spencer_regexp.h>
+
 #include <libelf/libelf.h>
 
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
+#define _INSIDE_CEXP_
+#include "help.h"
 
 /* filter the symbol table entries we're interested in */
 
@@ -95,7 +99,7 @@ int 		s=sp->st_size;
 	break;
 
 	case STT_NOTYPE:
-		t=TVoidP;
+		t=TVoid;
 	break;
 
 	default:
@@ -281,7 +285,20 @@ cleanup:
 int
 cexpLoadFile(char *filename, CexpModule new_module)
 {
-	return (new_module->symtbl=cexpSlurpElf(filename)) ? 0 : -1;
+CexpSym			found;
+spencer_regexp	*rc;
+int				rval=-1,max;;
+
+	assert(rc=spencer_regcomp(CEXP_HELP_TAB_NAME));
+	if ((new_module->symtbl=cexpSlurpElf(filename))) {
+		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,new_module->symtbl); found++,max=1) {
+printf("TSILL found '%s'\n",found->name);
+			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, new_module->symtbl);
+		}
+		rval=0;
+	}
+	free(rc);
+	return rval;
 }
 
 #ifdef ELFSYMS_TEST_MAIN

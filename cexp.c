@@ -66,7 +66,7 @@ int	 l;
 	}
 	return rval;
 }
-#elif defined(USE_TECLA)
+#elif defined(HAVE_TECLA)
 
 #include <libtecla.h>
 
@@ -188,7 +188,7 @@ CexpModule		m;
 int				ch=0,tsaved=0;
 int				nl;
 struct termios	tatts,rawatts;
-#ifndef USE_TECLA
+#ifndef HAVE_TECLA
 struct winsize	win;
 #endif
 
@@ -201,7 +201,7 @@ struct winsize	win;
 	for (s=0,m=0; !ch ;) {
 		unsigned char ans;
 
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 		{
 		GlTerminalSize ts=gl_terminal_size(cexpContextGetCurrent()->gl, 80, 24);
 		nl = ts.nline;
@@ -388,7 +388,7 @@ CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 #define	rl_context  context.gl
 #else
 #define rl_context  0
@@ -458,7 +458,7 @@ context.next=0;
 
 if (!cexpContextGetCurrent()) {
 	/* topmost frame */
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 	CPL_MATCH_FN(cexpSymComplete);
 	context.gl = new_GetLine(200,2000);
 	if (!context.gl) {
@@ -470,7 +470,7 @@ if (!cexpContextGetCurrent()) {
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();
 } else {
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 	/* re-use caller's line editor */
 	context.gl = cexpContextGetCurrent()->gl;
 #endif
@@ -552,7 +552,7 @@ cleanup:
 /* cexpContextSetCurrent() returns its argument for convenience */
 if ( ! cexpContextSetCurrent(cexpContextGetCurrent()->next) ) {
 	/* we'll exit the topmost instance */
-#ifdef USE_TECLA
+#ifdef HAVE_TECLA
 	del_GetLine(context.gl);
 #endif
 	cexpContextUnregister();

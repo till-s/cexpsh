@@ -3,6 +3,7 @@
 #ifndef CEXP_CEXPSYMS_P_H
 #define CEXP_CEXPSYMS_P_H
 #include "cexpsyms.h"
+#include <spencer_regexp.h>
 
 /* our implementation of the symbol table holds more information
  * that we make public
@@ -52,6 +53,14 @@ cexpFreeSymTbl(CexpSymTbl *tbl);
 /* do a binary search for a symbol's aindex number */
 int
 cexpSymTblLkAddrIdx(void *addr, int margin, FILE *f, CexpSymTbl t);
+
+/* a semi-public routine which takes a precompiled regexp.
+ * The reason this is not public is that we try to keep
+ * the public from having to deal with/know about the regexp
+ * implementation, i.e. which variant, which headers etc.
+ */
+CexpSym
+_cexpSymTblLookupRegex(spencer_regexp *rc, int *pmax, CexpSym s, FILE *f, CexpSymTbl t);
 
 #define LOAD_CHUNK    2000
 

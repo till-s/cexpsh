@@ -105,6 +105,7 @@
 #endif
 #define EH_SECTION_NAME			".eh_frame"
 #define TEXT_SECTION_NAME		".text"
+#define DSO_HANDLE_NAME			"__dso_handle"
 
 /* using one static variable for the pattern matcher is
  * OK since the entire cexpLoadFile() routine is called
@@ -166,6 +167,7 @@ typedef struct LinkDataRec_ {
 	asection		*eh;
 	void			*iniCallback;
 	void			*finiCallback;
+	CexpModule		module;
 } LinkDataRec, *LinkData;
 
 /* forward declarations */
@@ -189,6 +191,10 @@ typedef struct LinkDataRec_ {
  */
 static void (*my__register_frame)(void*)=0;
 static void (*my__deregister_frame)(void*)=0;
+
+/* Support for __cxa_atexit() */
+static void (*my__cxa_finalize)(/*dso_handle*/ void*)=0;
+static CexpSym	my__dso_handle = 0;
 
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
@@ -565,21 +571,55 @@ long		err;
 					* so althouth it's a very complicated issue)
 					* NOTE: the converse case - i.e. if an eh_frame section in the
 					*       object we are loading right now	references a 'linkonce'
-                    *       section we have deleted - is probably OK. We relocate
-                    *       the EH info to a PC range already in memory - this should
+					*       section we have deleted - is probably OK. We relocate
+					*       the EH info to a PC range already in memory - this should
 					*       be safe. I also found some comments in bfd/elflink and 
 					*       libgcc which give me some confidence.
 					*/
 			    ) {
 				CexpModule	mod;
 				asymbol		*sp;
-				CexpSym		ts=cexpSymLookup(bfd_asymbol_name((sp=*(r->sym_ptr_ptr))),&mod);
+				CexpSym		ts;
+
+				ts=cexpSymLookup(bfd_asymbol_name((sp=*(r->sym_ptr_ptr))),&mod);
 				if (ts) {
-					/* Resolved reference; replace the symbol pointer
-					 * in this slot with a new asymbol holding the
-					 * resolved value.
-					 */
-					sp=*r->sym_ptr_ptr=asymFromCexpSym(abfd,ts,ld->depend,mod);
+					if (my__dso_handle == ts) {
+						/* they are looking for __dso_handle; give them
+						 * our module handle.
+						 *
+						 * We assume the system module has its own
+						 * __dso_handle symbol and hence we can simply
+						 * compare the symbol handles.
+						 *
+						 * The pathological case of a module asking for
+						 * __dso_handle and a g++ version which supports
+						 * __cxa_atexit/__cxa_finalize() but does NOT
+						 * define its own __dso_handle will fail.
+						 *
+						 * Note however that we assert that we have either
+						 * both, __cxa_finalize AND __dso_handle or neither.
+						 * --> we will get either an undefined symbol reference
+						 *     (module asks for __dso_handle but libgcc has
+						 *      no __cxa_finalize() and no __dso_handle)
+						 *     or assert() fails
+						 *     [below, where the symbols are looked up]
+						 *     (module asks for __dso_handle, libgcc has not
+						 *     both)
+						 */
+						sp = bfd_make_empty_symbol(abfd);
+						/* copy pointer to name */
+						bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
+						sp->value = (symvalue)ld->module;
+						sp->section=bfd_abs_section_ptr;
+						sp->flags=BSF_LOCAL;
+					} else {
+						/* Resolved reference; replace the symbol pointer
+						 * in this slot with a new asymbol holding the
+						 * resolved value.
+						 */
+						sp=asymFromCexpSym(abfd,ts,ld->depend,mod);
+					}
+					*r->sym_ptr_ptr = sp;
 				} else {
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
@@ -638,12 +678,13 @@ register CtorSym sb = (CtorSym)b;
  * destructor lists.
  */
 static void
-buildCtorsDtors(LinkData ld, CexpModule mod)
+buildCtorsDtors(LinkData ld)
 {
 asymbol		**asymp;
 CtorSym		ctorsyms = 0;
 CtorSym		dtorsyms = 0;
 int			i,j;
+CexpModule	mod = ld->module;
 
 	if (ld->nCtors) {
 		mod->ctor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->ctor_list) * (ld->nCtors));
@@ -1110,6 +1151,7 @@ struct stat		dummybuf;
 	memset(&ldr,0,sizeof(ldr));
 
 	ldr.depend = mod->needs;
+	ldr.module = mod;
 
 	/* basic check for our bitmaps */
 	assert( (1<<LD_WORDLEN) <= sizeof(BitmapWord)*8 );
@@ -1260,7 +1302,7 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 #endif
 		/* build ctor/dtor lists */
 		if (ldr.nCtors || ldr.nDtors) {
-			buildCtorsDtors(&ldr,mod);
+			buildCtorsDtors(&ldr);
 		}
 	} else {
 		/* initialize the my__[de]register_frame() pointers if possible */
@@ -1268,7 +1310,12 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 			my__register_frame=(void(*)(void*))sane->value.ptv;
 		if ((sane=cexpSymTblLookup("__deregister_frame",ldr.cst)))
 			my__deregister_frame=(void(*)(void*))sane->value.ptv;
+		if ((sane=cexpSymTblLookup("__cxa_finalize",ldr.cst)))
+			my__cxa_finalize=(void(*)(void*))sane->value.ptv;
+		my__dso_handle=cexpSymTblLookup(DSO_HANDLE_NAME,ldr.cst);
 
+		/* we must have either both of them or none */
+		assert( (my__cxa_finalize!=0) == (my__dso_handle!=0) );
 	}
 
 	flushCache(&ldr);
@@ -1347,6 +1394,9 @@ cleanup:
 static void
 bfdCleanupCallback(CexpModule mod)
 {
+	if (my__cxa_finalize) {
+		my__cxa_finalize(mod);
+	}
 	/* release the frame info we had stored in the modPvt field */
 	if (mod->modPvt) {
 		assert(my__deregister_frame);

@@ -67,7 +67,7 @@ distclean: clean
 #       already installed on the HOST, i.e. not the ones probably
 #       in a CEXP subdir.
 xsyms: xsyms.c xsyms-bfd.c
-	$(CC) -o $@ -I/usr/include/libelf xsyms.c -lelf || $(CC) -o $@ xsyms-bfd.c -lbfd -liberty
+	@($(CC) -o $@ -I/usr/include/libelf xsyms.c -lelf && echo $@ built with libelf ) || ( echo 'build using libelf failed; trying libbfd' &&  $(CC) -o $@ xsyms-bfd.c -lbfd -liberty && echo $@ built with libbfd )
 
 install:
 	@echo You must install 'xsyms' manually

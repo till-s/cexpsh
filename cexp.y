@@ -62,8 +62,10 @@ int  yylex();
 %type  <val>	unexp
 %type  <val>	lval
 %type  <val>  	ptr
+%type  <val>  	lvp
 %type  <val>	call
 %type  <val>	funcp
+%type  <val>	fncast
 /*
 %type  <val>    cast
 
@@ -131,7 +133,7 @@ exp:	binexp
 
 ;
 
-binexp:	unexp
+binexp:	fncast
 	|	or  binexp	%prec OR
 					{ $$.tv.l = $1 || cexpTVTrueQ(&$2);
 					  $$.type = TULong;
@@ -189,46 +191,28 @@ unexp:	VAR
 					{ $$=$1.val; }
 	|	NUMBER
 					{ $$=$1; }
-	|	'(' exp ')'
-					{ $$=$2; }
-	|   '!' unexp
+	|   '!' fncast
 					{ $$.tv.l = ! cexpTVTrueQ(&$2); }
-	|   '~' unexp
+	|   '~' fncast
 					{ CHECK(cexpTVUnOp(&$$,&$2,OCpl)); }
-	|   '-' unexp %prec NEG
+	|   '-' fncast %prec NEG
 					{ CHECK(cexpTVUnOp(&$$,&$2,ONeg)); }
-	|	'(' KW_CHAR ')' unexp %prec CAST
+	|	'(' KW_CHAR ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TUChar,CNV_FORCE)); }
-	|	'(' KW_SHORT ')' unexp %prec CAST
+	|	'(' KW_SHORT ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TUShort,CNV_FORCE)); }
-	|	'(' KW_LONG ')' unexp %prec CAST
+	|	'(' KW_LONG ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TULong,CNV_FORCE)); }
-	|	'(' KW_DOUBLE ')' unexp %prec CAST
+	|	'(' KW_DOUBLE ')' fncast %prec CAST
 					{ $$=$4; CHECK(cexpTypeCast(&$$,TDouble,CNV_FORCE)); }
-	|	ptr
-					{ $$=$1; }
 	|	'*' ptr %prec DEREF
 					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
 	|	call
 					{ $$=$1; }
-/*
-	|	sptr
-					{ $$=(unsigned long)$1; }
-	|	lptr
-					{ $$=(unsigned long)$1; }
-	|	'*' cptr %prec DEREF
-					{ $$=*(unsigned char*)$2; }
-	|	'*' sptr %prec DEREF
-					{ $$=*(unsigned short*)$2; }
-	|	'*' lptr %prec DEREF
-					{ $$=*$2; }
-	|	cast
-					{ $$=$1; }
-*/
 ;
 
 lval:	VAR			{ $$=$1->value; }
-	|   '*' ptr %prec DEREF
+	|   '*' lvp %prec DEREF
 					{ $$=$2; }
 	|	'(' KW_CHAR ')' VAR %prec CAST
 					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
@@ -240,7 +224,7 @@ lval:	VAR			{ $$=$1->value; }
 					{ $$=$4->value; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
 ;
 
-ptr:	'&' VAR %prec ADDR
+lvp:	'&' VAR %prec ADDR
 					{ $$=$2->value; }
 	|	'(' KW_CHAR '*' ')' unexp %prec CAST
 					{ $$=$5; CHECK(cexpTypeCast(&$$,TUCharP,CNV_FORCE)); }
@@ -250,9 +234,10 @@ ptr:	'&' VAR %prec ADDR
 					{ $$=$5; CHECK(cexpTypeCast(&$$,TULongP,CNV_FORCE)); }
 	|	'(' KW_DOUBLE '*' ')' unexp %prec CAST
 					{ $$=$5; CHECK(cexpTypeCast(&$$,TDoubleP,CNV_FORCE)); }
+;
+
+ptr: lvp
 	|	STR_CONST
-					{ $$=$1; }
-	|	funcp
 					{ $$=$1; }
 ;
 
@@ -318,32 +303,47 @@ lptr:	'&' VAR	 %prec ADDR
 */
 
 funcp:	FUNC	
-					{ assert($1->value.type==TFuncP);
-					  $$=$1->value; }
+					{ $$=$1->value; }
+	|	'&' FUNC %prec ADDR
+					{ $$=$2->value; }
+;
+
+fncast: unexp
+					{ $$=$1; }
+	|	ptr
+					{ $$=$1; }
+	|	'(' KW_LONG '(' '*' ')' '(' ')' ')' fncast %prec CAST
+					{ $$=$9; CHECK(cexpTypeCast(&$$,TFuncP,CNV_FORCE)); }
+	|	'(' KW_DOUBLE '(' '*' ')' '(' ')' ')' fncast %prec CAST
+					{ $$=$9; CHECK(cexpTypeCast(&$$,TDFuncP,CNV_FORCE)); }
 ;	
 
 
-call:	funcp '(' ')'
+call:	'(' exp ')'
+					{ $$=$2; }
+	|	funcp
+					{ $$=$1; }
+	|	call '(' ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
-	|	funcp '(' exp ')'
+	|	call '(' exp ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,0))); }
-	|	funcp '(' exp ',' exp ')'
+	| 	call '(' exp ',' exp ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,0))); }
-	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
+	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,0))); }
 ;
 
@@ -501,7 +501,7 @@ char *chpt;
 		else if (!strcmp(sbuf,"double"))
 			return KW_DOUBLE;
 		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
-			return CEXP_TYPE_OBJQ(rval->sym->value.type) ? VAR : FUNC;
+			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
 		else if (cexpVarLookup(sbuf, &rval->uvar.val)) {
 			return (rval->uvar.name=lstAddString(pa,sbuf)) ? UVAR : LEXERR;
 		}

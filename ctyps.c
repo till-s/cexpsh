@@ -24,9 +24,10 @@ static char *desc[]={
 
 
 const char *
-cexpTypeInfoString(CexpType t)
+cexpTypeInfoString(CexpType to)
 {
-	t=CEXP_TYPE_MASK_SIZE(t);
+int t;
+	t=CEXP_TYPE_FUNQ(to) ? 0 : CEXP_TYPE_MASK_SIZE(to);
 	assert(t>=0 && t<sizeof(desc)/sizeof(desc[0]));
 	return desc[t];
 }
@@ -417,6 +418,7 @@ cexpTVTrueQ(CexpTypedVal v)
 #define MAXARGS 10
 
 typedef UL (*L10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
+typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 
 #include "jumptab.c"
 
@@ -430,7 +432,7 @@ CexpTypedValRec zero;
 const char		*err=0;
 
 		/* sanity check */
-		if (TFuncP != fn->type)
+		if (!CEXP_TYPE_FUNQ(fn->type))
 				return "need a function pointer";
 
 		zero.type=TULong;
@@ -460,11 +462,28 @@ const char		*err=0;
 				args[i]=&zero;
 
 		/* call it */
-		rval->type=TULong;
+		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
 		if (fpargs) {
-				rval->tv.l=jumptab[fpargs](fn,args[0],args[1],args[2],args[3],args[4]);
+				if (TDFuncP==fn->type)
+					rval->tv.d=((double(*)())(jumptab[fpargs]))(fn,args[0],args[1],args[2],args[3],args[4]);
+				else
+					rval->tv.l=jumptab[fpargs](fn,args[0],args[1],args[2],args[3],args[4]);
 		} else {
-				rval->tv.l=((L10)(fn->tv.p))(
+				if (TDFuncP==fn->type)
+					rval->tv.d=((D10)(fn->tv.p))(
+										args[0]->tv.l,
+										args[1]->tv.l,
+										args[2]->tv.l,
+										args[3]->tv.l,
+										args[4]->tv.l,
+										args[5]->tv.l,
+										args[6]->tv.l,
+										args[7]->tv.l,
+										args[8]->tv.l,
+										args[9]->tv.l);
+
+				else
+					rval->tv.l=((L10)(fn->tv.p))(
 										args[0]->tv.l,
 										args[1]->tv.l,
 										args[2]->tv.l,

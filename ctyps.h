@@ -13,28 +13,35 @@ typedef unsigned long (*CexpFuncPtr)();
  * requirements. Note that the LSB is the
  * pointer flag.
  */
+
+/* this choice leaves the lower bits in a natural order */
+#define CEXP_PTR_BIT		(1<<0)
+
+#define CEXP_FUNC_BIT		(1<<6)
+#define CEXP_ORDER_MASK		(0x1f)
 typedef enum {
-    TFuncP      =0,
-    TVoidP      =1  | (sizeof(unsigned char)<<8), /* treat void* like char* */
+    TVoidP      =0  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT, /* treat void* like char* */
     TUChar      =2  | (sizeof(unsigned char)<<8),
-    TUCharP     =3  | (sizeof(unsigned char)<<8),
+    TUCharP     =2  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT,
     TUShort     =4  | (sizeof(unsigned short)<<8),
-    TUShortP    =5  | (sizeof(unsigned short)<<8),
+    TUShortP    =4  | (sizeof(unsigned short)<<8) | CEXP_PTR_BIT,
     TULong      =6  | (sizeof(unsigned long)<<8),
-    TULongP     =7  | (sizeof(unsigned long)<<8),
+    TULongP     =6  | (sizeof(unsigned long)<<8) | CEXP_PTR_BIT,
     TFloat      =8  | (sizeof(float)<<8),
-    TFloatP     =9  | (sizeof(float)<<8),
+    TFloatP     =8  | (sizeof(float)<<8) | CEXP_PTR_BIT,
     TDouble     =10 | (sizeof(double)<<8),
-    TDoubleP    =11 | (sizeof(double)<<8),
+    TDoubleP    =10 | (sizeof(double)<<8) | CEXP_PTR_BIT,
+    TFuncP      =6  | CEXP_FUNC_BIT | CEXP_PTR_BIT,
+    TDFuncP     =10 | CEXP_FUNC_BIT | CEXP_PTR_BIT,
 } CexpType;
 
 /* Utility macros operating on CexpType */
-#define CEXP_TYPE_PTRQ(type_enum) ((type_enum)&1)
-#define CEXP_TYPE_INDX(type_enum) (((type_enum)&0xff)>>1)
-#define CEXP_TYPE_MASK_SIZE(type_enum) ((type_enum)&0xff)
+#define CEXP_TYPE_PTRQ(type_enum) ((type_enum)&CEXP_PTR_BIT)
+#define CEXP_TYPE_MASK_SIZE(type_enum) ((type_enum)&CEXP_ORDER_MASK)
+#define CEXP_TYPE_INDX(type_enum) (CEXP_TYPE_MASK_SIZE((type_enum))>>1)
 
 /* object, not a function pointer: */
-#define CEXP_TYPE_OBJQ(type_enum) (type_enum)
+#define CEXP_TYPE_FUNQ(type_enum) ((type_enum) & CEXP_FUNC_BIT)
 
 #define CEXP_TYPE_SCALARQ(type_enum) (\
 				!CEXP_TYPE_PTRQ(type_enum) && \
@@ -53,9 +60,9 @@ typedef enum {
 				   	CEXP_BASE_TYPE_SIZE(type_enum))
 
 #define CEXP_TYPE_PTR2BASE(type_enum) \
-				((type_enum) & ~CEXP_TYPE_PTRQ(0xffffffff))
+				((type_enum) & ~(CEXP_PTR_BIT|CEXP_FUNC_BIT))
 #define CEXP_TYPE_BASE2PTR(type_enum) \
-				((type_enum) | CEXP_TYPE_PTRQ(0xffffffff))
+				((type_enum) | CEXP_PTR_BIT)
 
 
 typedef struct CexpTypedValRec_{

@@ -150,7 +150,8 @@ CexpSym rval;
 %token			KW_CHAR		/* keyword 'char' */
 %token			KW_SHORT	/* keyword 'short' */
 %token			KW_LONG		/* keyword 'long' */
-%token			KW_DOUBLE	/* keyword 'long' */
+%token			KW_FLOAT	/* keyword 'float' */
+%token			KW_DOUBLE	/* keyword 'double' */
 %token <binop>	MODOP		/* +=, -= & friends */
 
 %type  <varp>	anyvar
@@ -455,6 +456,8 @@ typeid:	KW_CHAR
 					{ $$=TUShort; }
 	|	KW_LONG
 					{ $$=TULong; }
+	|	KW_FLOAT
+					{ $$=TFloat; }
 	|	KW_DOUBLE
 					{ $$=TDouble; }
 ;
@@ -763,6 +766,8 @@ char *chpt;
 			return KW_SHORT;
 		else if (!strcmp(sbuf,"long"))
 			return KW_LONG;
+		else if (!strcmp(sbuf,"float"))
+			return KW_FLOAT;
 		else if (!strcmp(sbuf,"double"))
 			return KW_DOUBLE;
 		else if ((rval->sym=cexpSymLookup(sbuf, 0)))

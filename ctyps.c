@@ -156,11 +156,22 @@ static int
 fits(CexpTypedVal v, CexpType t)
 {
 unsigned long n;
+
+	if (CEXP_TYPE_FPQ(t) && ! CEXP_TYPE_FPQ(v->type)) {
+		/* IEEE FP number has 24bit mantissa */
+		if (TFloat == t && TULong == v->type && v->tv.l >= (1<<24))
+			return 0;
+	} else if (!CEXP_TYPE_FPQ(t) && CEXP_TYPE_FPQ(v->type)) {
+		return 0;
+	}
 	if (CEXP_TYPE_SIZE(t) < CEXP_TYPE_SIZE(v->type)) {
 		switch(v->type) {
 			case TUChar: 	n=v->tv.c; break;
 			case TUShort:	n=v->tv.s; break;
 			case TULong:	n=v->tv.l; break;
+
+			case TFloat:
+			case TDouble: 	return 0;
 
 			default:
 				assert(!"Invalid Type - you found a BUG");
@@ -206,7 +217,7 @@ int			from,to;
 	c=ctab[from][to];
 	if (c) {
 		if ( ! (flags&CNV_FORCE) && ! fits(v,t))
-				return "cannot cast; would truncate source value";
+				return "cannot perform implicite cast; would truncate source value - use explicit cast to override";
 		c(v);
 		v->type=t;
 	} else

@@ -476,6 +476,7 @@ const char *
 cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 {
 	switch ((v->type=a->type)) {
+			case TVoid:		return "cannot get 'void' value";
 			case TUChar:	v->tv.c=a->ptv->c; break;
 			case TUShort:	v->tv.s=a->ptv->s; break;
 			case TULong:	v->tv.l=a->ptv->l; break;
@@ -485,7 +486,7 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 				if (CEXP_TYPE_PTRQ(a->type)) {
 					v->tv.p=a->ptv->p;
 				} else {
-					return "unknown type type in cexpTA2TV";
+					return "unknown type in cexpTA2TV";
 				}
 			break;
 	}
@@ -496,7 +497,7 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 #define DB double
 #define AA CexpTypedVal
 
-#if defined(__PPC__) && defined(_CALL_SYSV) && 0
+#if defined(__PPC__) && defined(_CALL_SYSV)
 
 /* an PPC / SVR4 ABI specific implementation of the function call
  * interface.

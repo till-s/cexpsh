@@ -38,14 +38,16 @@ int  l = strlen(str);
 char *rval,*chpt;
 
 	if (suff)
-		l+=strlen(suff);
+		l+=strlen(suff)+1; /* if we have to insert a '.' */
 	if ( (rval=malloc(l+1)) ) {
 		strcpy(rval,str);
 		if ( suff ) {
 			if ( (chpt=strrchr(rval,'.')) )
 				chpt++;
-			else
+			else {
 				chpt = rval + strlen(rval);
+				*chpt++='.';
+			}
 			strcpy(chpt,suff);
 		}
 	}
@@ -97,7 +99,7 @@ char						*ifilen,*ofilen = 0;
 
 	i++;
 	if (i>=argc) {
-		ofilen = my_strdup_suff(ifilen,".sym");
+		ofilen = my_strdup_suff(ifilen,"sym");
 		if (!strcmp(ofilen,ifilen)) {
 			fprintf(stderr,"default suffix substitution yields identical in/out filenames\n");
 			goto cleanup;

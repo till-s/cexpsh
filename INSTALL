@@ -97,6 +97,9 @@ The configure script recognizes several options:
 
 Building Cexp :
 - - - - - - - -
+Recomendation: start with a native build (e.g. on linux or solaris) and
+play around with the demo.
+
 
 In the directory where you configured 'cexp', issue
 
@@ -107,21 +110,35 @@ of libelf), the tecla library, the regexp library, the cexp library and (on a
 host only) the 'cexp' demo program and the 'xsyms' utility.
 
 
-NOTE: 'xsyms' is a 'cross-tool', i.e. it runs on a host working on target object
+Building xsyms:
+- - - - - - - -
+'xsyms' is a 'cross-tool', i.e. it runs on a host working on target object
 files. Hence, if you want 'libcexp' for a target and the 'xsyms' tool for
-generating symbol tables you must build the package twice: a cross-build will
-generate 'libcexp' for running 'cexp' on the target, a native-build generates
-'xsyms' which can be used for extracting symbol tables on target-objects
-as well as host-objects. The native build also generates 'libcexp' and the 'cexp'
-demo program for execution on the host...
+generating symbol tables you must build the package twice:
+ - a cross-configuration ('configure CC=<cross>-gcc --host=<cross>') will
+   generate 'libcexp' for running 'cexp' on the target.
+ - a cross-tool-configuration ('configure CC=gcc --target=<cross>') will
+   generate 'xsyms' which can be used for extracting symbol tables on
+   target-objects.
+[
+ - a native configuration ('configure CC=gcc') builds 'libcexp' as well
+   as the 'cexp' demo and 'xsyms'. The demo can be run on the host and
+   'xsyms' can extract its symbol table ('xsyms cexp cexp.sym').
+]
 
-Recomendation: start with a host build (e.g. on linux or solaris) and
-play around with the demo.
+NOTE: If target and host are both ELF systems, it makes sense to
+      configure 'xsyms' to use 'libelf'. One single version is then
+      capable of extracting symbol tables of any ELF object:
 
-XSYMS Alternative. The CEXP source directory contains a Makefile with
+		configure --disable-bfd --disable-cexp
+
+XSYMS build alternative:
+
+The CEXP source directory contains a Makefile with
 a very primitive rule to create 'xsyms'. Running 'gmake xsyms' in the CEXP
 source top directory on a host machine tries to build 'xsyms' using
-an already installed 'libbfd' or 'libelf'. CAVEAT: the mentioned Makefile
+an already installed 'libelf' or 'libbfd'.
+CAVEATS: This works only for ELF targets. Also, the mentioned Makefile
 contains other rules for maintenance. In particular, DONT use the 'prep'
 or 'distclean' targets unless you know what you are doing.
 

@@ -64,7 +64,7 @@ AUTOMAKE   = $(AUTOPATH)automake
 
 bootstrap-xsyms bootstrap-cexp:
 	$(ACLOCAL) && $(AUTOCONF) && $(AUTOHEADER) && $(AUTOMAKE) -ac
-
+#	ln -s binutils binutils-x
 bootstrap: bootstrap-cexp
 	(cd libtecla; $(AUTOCONF))
 

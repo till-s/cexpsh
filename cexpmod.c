@@ -373,6 +373,8 @@ CexpModule	m,found=0;
 
 	if (!f)
 		f=stdout;
+	else if (CEXP_FILE_QUIET == f)
+		f=0;
 
 	if (!(rc=cexp_regcomp(needle))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n", needle);
@@ -386,7 +388,10 @@ CexpModule	m,found=0;
 			/* record first item found */
 			if (!found)
 				found=m;
-			fprintf(f,"0x%08x: %s\n",(unsigned)m, m->name);
+			if (f)
+				fprintf(f,"0x%08x: %s\n",(unsigned)m, m->name);
+			else
+				break;
 		}
 	}
 

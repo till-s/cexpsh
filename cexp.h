@@ -107,8 +107,10 @@ cexpModuleUnload(CexpModule moduleHandle);
 char *
 cexpModuleName(CexpModule mod);
 
+#define CEXP_FILE_QUIET ((FILE*) -1 )
+
 /* list the IDs of modules whose name matches a pattern
- * to file 'f' (stdout if NULL).
+ * to file 'f' (stdout if NULL, quiet if FILE_QUIET).
  *
  * RETURNS: First module ID found, NULL on no match.
  */

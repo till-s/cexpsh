@@ -47,8 +47,10 @@
 
 /* magic symbol names for C++ support; probably gcc specific */
 #define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
+#ifdef OBSOLETE_EH_STUFF	/* old suselinux-ppc modified gcc needed that */
 #define EH_FRAME_BEGIN_PATTERN	"__FRAME_BEGIN__"
 #define EH_FRAME_END_PATTERN	"__FRAME_END__"
+#endif
 #define EH_SECTION_NAME			".eh_frame"
 #define TEXT_SECTION_NAME		".text"
 
@@ -100,8 +102,12 @@ typedef struct LinkDataRec_ {
 	BitmapWord		*depend;
 	int				nCtors;
 	int				nDtors;
+#ifdef OBSOLETE_EH_STUFF
 	asymbol			*eh_frame_b_sym;
 	asymbol			*eh_frame_e_sym;
+#else
+	asection		*eh_section;
+#endif
 	unsigned long	text_vma;
 	asection		*text;
 	void			*iniCallback;
@@ -356,6 +362,7 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 		 * we must reserve a little extra space.
 		 */
 		if ( !strcmp(secn, EH_SECTION_NAME) ) {
+#ifdef OBSOLETE_EH_STUFF
 			asymbol *asym;
 			/* allocate space for a terminating 0 */
 			seg->size+=sizeof(long);
@@ -364,6 +371,9 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 			bfd_asymbol_name(asym) = EH_FRAME_END_PATTERN;
 			asym->value=(symvalue)bfd_section_size(abfd,sect);
 			asym->section=sect;
+#else
+			((LinkData)arg)->eh_section = sect;
+#endif
 		}
 	}
 }
@@ -385,10 +395,12 @@ LinkData	ld=(LinkData)arg;
 #endif
 		bfd_set_section_vma(abfd,sect,seg->vmacalc);
 		seg->vmacalc+=bfd_section_size(abfd,sect);
+#ifdef OBSOLETE_EH_STUFF
 		if ( ld->eh_frame_e_sym && bfd_get_section(ld->eh_frame_e_sym) == sect ) {
 			/* allocate space for a terminating 0 */
 			seg->vmacalc+=sizeof(long);
 		}
+#endif
 		sect->output_section = sect;
 		if (ld->text && sect == ld->text) {
 			ld->text_vma=bfd_get_section_vma(abfd,sect);
@@ -625,6 +637,7 @@ int			i,num_new_commons=0,errs=0;
 				ld->nDtors++;
 		}
 
+#ifdef OBSOLETE_EH_STUFF
 		/* mark end with 32-bit 0 if this symbol is contained
  		 * in a ".eh_frame" section
 		 */
@@ -632,7 +645,9 @@ int			i,num_new_commons=0,errs=0;
 			ld->eh_frame_b_sym=sp;
 
 		/* check for magic initializer/finalizer symbols */
-		} else if (!strcmp(CEXPMOD_INITIALIZER_SYM, bfd_asymbol_name(sp))) {
+		} else
+#endif
+		if (!strcmp(CEXPMOD_INITIALIZER_SYM, bfd_asymbol_name(sp))) {
 
 			/* set the local flag; we dont want these in our symbol table */
 			sp->flags |= BSF_LOCAL;
@@ -1064,6 +1079,7 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 		 * have to register it with libgcc. If it was
 		 * in its own section, we also must write a terminating 0
 		 */
+#ifdef OBSOLETE_EH_STUFF
 		if (ldr.eh_frame_b_sym) {
 printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b_sym));
 			if ( ldr.eh_frame_e_sym ) {
@@ -1075,7 +1091,13 @@ printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b
 			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
 			my__register_frame(ehFrame);
 		}
-
+#else
+		if (ldr.eh_section) {
+			assert(my__register_frame);
+			ehFrame=(void*)bfd_get_section_vma(abfd,ldr.eh_section);
+			my__register_frame(ehFrame);
+		}
+#endif
 		/* build ctor/dtor lists */
 		if (ldr.nCtors || ldr.nDtors) {
 			buildCtorsDtors(&ldr,mod);

@@ -803,8 +803,6 @@ releaseStrings(CexpParserCtx ctx)
 {
 int			i;
 char		**chppt;
-	/* make sure the variable facility is initialized */
-	cexpVarInit();
 
 	/* release the line string table */
 	for (i=0,chppt=ctx->lineStrTbl;
@@ -821,9 +819,6 @@ CexpParserCtx
 cexpCreateParserCtx()
 {
 CexpParserCtx	ctx=0;
-
-	/* make sure the variable facility is initialized */
-	cexpVarInit();
 
 	assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
 	memset(ctx,0,sizeof(*ctx));

@@ -55,6 +55,7 @@ long rtems_semaphore_destroy();
 #endif
 
 typedef rtems_id CexpLock;
+typedef rtems_id CexpEvent;
 
 #define cexpLock(l) 		rtems_semaphore_obtain((l), RTEMS_WAIT, RTEMS_NO_TIMEOUT)
 #define cexpEventWait(l) 	rtems_semaphore_obtain((l), RTEMS_WAIT, RTEMS_NO_TIMEOUT)

@@ -34,4 +34,8 @@ cexpModuleFindByName(char *pattern, FILE *f);
 int
 cexpModuleInfo(CexpModule mod, FILE *f);
 
+/* initialize vital stuff; must be called at program startup */
+void
+cexpModuleInit(void);
+
 #endif

@@ -7,6 +7,7 @@
 
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
+#include "cexplock.h"
 
 CexpModule cexpSystemModule=0;
 
@@ -15,7 +16,23 @@ CexpModule cexpSystemModule=0;
 #define __RUNLOCK() do {} while(0)
 #define __WLOCK() do {} while(0)
 #define __WUNLOCK() do {} while(0)
+#else
+static CexpRWLockRec	_rwlock={0};
+#define __RLOCK()	do { cexpReadLock(&_rwlock); } while (0)
+#define __RUNLOCK()	do { cexpReadUnlock(&_rwlock); } while (0)
+#define __WLOCK()	do { cexpWriteLock(&_rwlock); } while (0)
+#define __WUNLOCK()	do { cexpWriteUnlock(&_rwlock); } while (0)
 #endif
+
+void
+cexpModuleInit(void)
+{
+#ifndef NO_THREAD_PROTECTION
+	if (!_rwlock.mutex) {
+		cexpRWLockInit(&_rwlock);
+	}
+#endif
+}
 
 /* Search predecessor of a module in the list.
  * This should be called with the lock held!

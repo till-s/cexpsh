@@ -1181,5 +1181,7 @@ cleanup:
  */
 void (*__nullfn_hack)(void*)=0;
 
+#ifndef __sparc__
 void __register_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
 void __deregister_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
+#endif

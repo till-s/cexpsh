@@ -345,6 +345,10 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 if (argc>oc.optind)
 	script=argv[oc.optind];
 
+/* make sure vital code is initialized */
+cexpModuleInit();
+cexpVarInit();
+
 if (!cexpSystemModule) {
 	if (!symfile)
 		fprintf(stderr,"Need a symbol file argument\n");

@@ -133,37 +133,29 @@ int		missed;
 }
 
 
-void *
-cexpVarLookup(char *name, CexpTypedVal prval)
-{
-CexpVar v;
-	if ((v=findN_LOCK(name,0))) *prval=v->value;
-	__UNLOCK;
-	return v;
-}
-
-
-/* lookup a variable and set to 'val'.
+/* lookup a variable 
  * If the 'creat' flag is passed, a new variable
- * is created and 'val' assigned to its value.
+ * is created.
  * RETURNS nonzero value if set/create succeeds.
+ *         *creat is set to a nonzero value if
+ *         the variable was created as a result
+ *         of this call;
  */
-void *
-cexpVarSet(char *name, CexpTypedVal val, int creat)
+
+CexpTypedVal
+cexpVarLookup(char *name, int creat)
 {
 CexpVar v,where;
 CexpVar n=(CexpVar)malloc(sizeof(*n) + strlen(name)+1);
 		/* (avoid calling malloc from locked section) */
 	n->head.p=n->head.n=0;
 
-	if ((v=findN_LOCK(name,(lh*)&where))) {
-		/* variable found, write its value */
-		v->value=*val;
-	} else if (creat && n) {
+	if (!(v=findN_LOCK(name,(lh*)&where)) && creat && n) {
 		/* create variable / add to list */
 		lhrAdd(n,(lh)where);
 		strcpy(n->name, name);
-		n->value=*val;
+		n->value.type=TVoid;
+		n->value.tv.p=0;
 		v=n; n=0;
 	}
 	__UNLOCK;

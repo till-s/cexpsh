@@ -39,7 +39,7 @@ int  yylex();
 	CexpSym				sym;	/* a symbol table entry */
 	CexpType			typ;
 	struct			{
-		CexpTypedValRec	val;
+		CexpTypedVal	val;
 		char	        *name;
 	}					uvar;	/* copy of a UVAR */
 	unsigned long		ul;
@@ -110,10 +110,11 @@ exp:	binexp
 	|	lval '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
 	|   lvar '=' exp
-					{ $$=$3; EVAL(if (!cexpVarSet($1.name,&$3,1/*allow creation*/)) {	\
-								yyerror("unable to add new user variable");	\
-								YYERROR; 								\
-							});
+					{ $$=$3; EVAL(if (!($1.val=cexpVarLookup($1.name,1)/*allow creation*/)) {	\
+									yyerror("unable to add new user variable");	\
+									YYERROR; 								\
+								}\
+								*$1.val=$3;);
 					}
 ;
 
@@ -185,14 +186,14 @@ unexp:	VAR
 	|	'&' VAR %prec ADDR
 					{ $$=$2->value; }
 	|	'&' UVAR %prec ADDR
-					{ CHECK(cexpTVPtr(&$$, &$2.val)); }
+					{ CHECK(cexpTVPtr(&$$, $2.val)); }
 ;
 
 lval:	VAR			{ $$=$1->value; }
 	|   '*' lvp %prec DEREF
 					{ $$=$2; }
 	|   '*' UVAR %prec DEREF
-					{ $$=$2.val; }
+					{ $$=*$2.val; }
 	|	cast VAR %prec CAST
 					{ $$=$2->value; CHECK(cexpTypeCast(&$$,$1,0)); }
 ;
@@ -251,7 +252,7 @@ lvp:	'&' VAR %prec ADDR
 funcp:	FUNC	
 					{ $$=$1->value; }
 	|	UVAR 		
-					{$$=$1.val;}
+					{$$=*$1.val;}
 	|	'&' FUNC %prec ADDR
 					{ $$=$2->value; }
 ;
@@ -448,12 +449,12 @@ char *chpt;
 			return KW_DOUBLE;
 		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
-		else if (cexpVarLookup(sbuf, &rval->uvar.val)) {
+		else if ((rval->uvar.val=cexpVarLookup(sbuf,0))) {
 			return (rval->uvar.name=lstAddString(pa,sbuf)) ? UVAR : LEXERR;
 		}
 
 		/* it's a currently undefined symbol */
-		rval->uvar.val.type=TVoid;
+		rval->uvar.val=0;
 		return (rval->uvar.name=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */

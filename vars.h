@@ -16,18 +16,19 @@ cexpVarsFlush(void);
 
 /* lookup a variable
  * If the variable is not found, the return value
- * is 0 and the returned value is invalid.
+ * is 0. If it is found, a pointer to its
+ * data area is returned.
+ * It is the users responsability to protect the
+ * data area from concurrent access by multiple
+ * threads. The internal locking only protects
+ * the variable management.
+ * If the 'creat' is nonzero the
+ * variable will be created if it doesn't exist
+ * already.
  */
-void *
-cexpVarLookup(char *name, CexpTypedVal prval);
 
-/* lookup a variable and set to 'val'.
- * If the 'creat' flag is passed, a new variable
- * is created and 'val' assigned to its value.
- * RETURNS nonzero value if set/create succeeds.
- */
-void *
-cexpVarSet(char *name, CexpTypedVal val, int creat);
+CexpTypedVal
+cexpVarLookup(char *name, int creat);
 
 /* remove a variable
  * RETURNS: nonzero if the variable was found & deleted

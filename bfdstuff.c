@@ -6,7 +6,6 @@
 
 /* Author: Till Straumann, 8/2002 */
 
-#include <bfd.h>
 /*#include <libiberty.h>*/
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,6 +19,14 @@
 #include "cexp.h"
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
+
+/* Oh well; rtems/score/ppctypes.h defines boolean and bfd
+ * defines boolean as well :-( Can't you people use names
+ * less prone to clashes???
+ * We redefine bfd's boolean here
+ */
+#define  boolean bfdddd_bbboolean
+#include <bfd.h>
 
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"

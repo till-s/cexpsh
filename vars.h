@@ -56,7 +56,7 @@ cexpVarDelete(char *name);
  *       2) The walker  MUST NOT add/delete variables.
  */
 
-typedef void* (*CexpVarWalker)(char *name, CexpTypedAddr v, void *usrArg);
+typedef void* (*CexpVarWalker)(char *name, CexpTypedAddr a, void *usrArg);
 
 void *
 cexpVarWalk(CexpVarWalker walker, void *usrArg);

@@ -71,7 +71,7 @@ Elf32_Shdr  *nshdr, *shdr=elf32_getshdr(from);
 	nshdr->sh_addralign = shdr->sh_addralign;
 	nshdr->sh_entsize = shdr->sh_entsize;
 
-	for (s=0; s=elf_getdata(from,s); ) {
+	for (s=0; (s=elf_getdata(from,s)); ) {
 		d=elf_newdata(to);
 		*d=*s;
 		elf_flagdata(d,ELF_C_SET,ELF_F_DIRTY);
@@ -84,9 +84,9 @@ xsyms_main(int argc, char ** argv)
 {
 Elf32_Shdr     *shdr, *nshdr=0;
 Elf32_Ehdr     *ehdr, *nehdr=0;
-Elf	       *elf, *eout=0;
-Elf_Scn        *scn, *nscn=0, *strtab=0, *symtab=0;
-Elf_Data       *data, *s, *d=0;
+Elf            *elf, *eout=0;
+Elf_Scn        *scn=0, *nscn=0, *strtab=0, *symtab=0;
+Elf_Data       *data=0;
 int            fd, ofd=-1, ch;
 unsigned int   cnt;
 char           *optstr="ph";
@@ -128,7 +128,7 @@ int            purge=0;
 			myfailure();
 	}
 	/* Obtain the .shstrtab data buffer */
-	 if (((ehdr = elf32_getehdr(elf)) == NULL) ||
+	if (((ehdr = elf32_getehdr(elf)) == NULL) ||
 		((scn = elf_getscn(elf, ehdr->e_shstrndx)) == NULL) ||
 		((data = elf_getdata(scn, NULL)) == NULL))
 			myfailure();
@@ -144,7 +144,7 @@ int            purge=0;
 	}
 
 	/* Traverse input filename, printing each section */
-	for (cnt = 1, scn = NULL; scn = elf_nextscn(elf, scn); cnt++) {
+	for (cnt = 1, scn = NULL; (scn = elf_nextscn(elf, scn)); cnt++) {
 		if ((shdr = elf32_getshdr(scn)) == NULL)
                     myfailure();
 		(void) fprintf(stderr,"[%d] %s (size: %i)\n", cnt,
@@ -189,6 +189,7 @@ int            purge=0;
 	elf_update(eout,ELF_C_WRITE);
 	elf_end(eout);
 	elf_end(elf);
+	return 0;
 }         /* end main */
 
 static void

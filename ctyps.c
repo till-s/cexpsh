@@ -445,38 +445,58 @@ cexpTVTrueQ(CexpTypedVal v)
 }
 
 void
-cexpTVPrintInfo(CexpTypedVal v, FILE *f)
+cexpTAPrintInfo(CexpTypedAddr a, FILE *f)
 {
 int i;
 
-	if (CEXP_TYPE_PTRQ(v->type)) {
-		i=fprintf(f,"%20p",v->tv.p);
+	if (CEXP_TYPE_PTRQ(a->type)) {
+		i=fprintf(f,"%20p",a->ptv->p);
 	} else {
-		switch (v->type) {
+		switch (a->type) {
 			default:
 				assert(0=="type mismatch");
 			case TUChar:
-				i=fprintf(f,"0x%02x ('%c'==%i)",v->tv.c,v->tv.c,v->tv.c); break;
+				i=fprintf(f,"0x%02x ('%c'==%i)",a->ptv->c,a->ptv->c,a->ptv->c); break;
 			case TUShort:
-				i=fprintf(f,"0x%04x (==%i)",v->tv.s,v->tv.s); break;
+				i=fprintf(f,"0x%04x (==%i)",a->ptv->s,a->ptv->s); break;
 			case TULong:
-				i=fprintf(f,"0x%08lx (==%li)",v->tv.l,v->tv.l); break;
+				i=fprintf(f,"0x%08lx (==%li)",a->ptv->l,a->ptv->l); break;
 			case TFloat:
-				i=fprintf(f,"%g",v->tv.f); break;
+				i=fprintf(f,"%g",a->ptv->f); break;
 			case TDouble:
-				i=fprintf(f,"%g",v->tv.d); break;
+				i=fprintf(f,"%g",a->ptv->d); break;
 		}
 	}
 	for (;i<30;i++)
 		fputc(' ',f);
-	fprintf(f,"%s",cexpTypeInfoString(v->type));
+	fprintf(f,"%s",cexpTypeInfoString(a->type));
+}
+
+const char *
+cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
+{
+	switch ((v->type=a->type)) {
+			case TUChar:	v->tv.c=a->ptv->c; break;
+			case TUShort:	v->tv.s=a->ptv->s; break;
+			case TULong:	v->tv.l=a->ptv->l; break;
+			case TFloat:	v->tv.f=a->ptv->f; break;
+			case TDouble:	v->tv.d=a->ptv->d; break;
+			default:
+				if (CEXP_TYPE_PTRQ(a->type)) {
+					v->tv.p=a->ptv->p;
+				} else {
+					return "unknown type type in cexpTA2TV";
+				}
+			break;
+	}
+	return 0;
 }
 
 #define UL unsigned long
 #define DB double
 #define AA CexpTypedVal
 
-#if defined(__PPC__) && defined(_CALL_SYSV)
+#if defined(__PPC__) && defined(_CALL_SYSV) && 0
 
 /* an PPC / SVR4 ABI specific implementation of the function call
  * interface.
@@ -485,6 +505,10 @@ int i;
  * into gpr3..10 and the first 8 double arguments into f1..f8.
  * This makes calling any function (with integer/double args only)
  * a piece of cake...
+ *
+ * Bit 6 of the CR register must be set/cleared to indicate
+ * whether floating point arguments were passed in FP registers
+ * in case the called routine takes variable arguments.
  * 
  * Note that _ANY_ combination of integer/double (of up to
  * 8 of each) arguments will end up in the same registers.
@@ -555,6 +579,12 @@ DB				dargs[MAXDBLARGS];
 				iargs[i]=0;
 		for (i=fpargs; i<MAXDBLARGS; i++)
 				dargs[i]=0;
+
+		/* set CR[6] */
+		if (fpargs)
+			__asm__ __volatile__("crset 4*cr1+eq");
+		else
+			__asm__ __volatile__("crclr 4*cr1+eq");
 
 		/* call it */
 		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
@@ -628,6 +658,17 @@ typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
  * calling frame. If we have more information about the particular
  * ABI, this can be significantly improved (see PPC/SVR4 implementation
  * above).
+ */
+
+/* ABI NOTES:
+ *    PowerPC: Casting the function pointer to a prototyped function
+ *             fails if jumping to a function which takes variable
+ *             arguments and if there are floating point args passed
+ *             in registers :-(.
+ *             The compiler produces correct code if the target function
+ *             pointer is _not_ prototyped and if compiling with
+ *             -mno-prototype (which seems to be the default, at least
+ *             on linuxppc).
  */
 #include "jumptab.c"
 

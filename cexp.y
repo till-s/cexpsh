@@ -46,8 +46,32 @@ typedef struct CexpParserCtxRec_ {
 	CexpSymTbl		symtbl;
 	unsigned char	*chpt;
 	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
+	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
 } CexpParserCtxRec;
+
+static CexpTypedAddr
+varCreate(char *name, CexpType type)
+{
+CexpTypedAddr rval;
+	if (!(rval=cexpVarLookup(name,1)/*allow creation*/)) {
+		yyerror("unable to add new user variable");
+		return 0;
+	}
+	rval->type = type;
+	if (CEXP_TYPE_PTRQ(type))
+		rval->ptv->p=0;
+	else switch(type) {
+		case TUChar:	rval->ptv->c=0;		break;
+		case TUShort:	rval->ptv->s=0;		break;
+		case TULong:	rval->ptv->l=0;		break;
+		case TFloat:	rval->ptv->f=0.0;	break;
+		case TDouble:	rval->ptv->d=0.0;	break;
+		default:
+			assert(!"unknown type");
+	}
+	return rval;
+}
 
 %}
 %pure_parser
@@ -77,7 +101,10 @@ typedef struct CexpParserCtxRec_ {
 %token			KW_SHORT	/* keyword 'short' */
 %token			KW_LONG		/* keyword 'long' */
 %token			KW_DOUBLE	/* keyword 'long' */
+%token <typ>	MODOP		/* +=, -= & friends */
 
+%type  <val>	redef line
+%type  <val>	commaexp
 %type  <val>	exp
 %type  <val>	binexp
 %type  <ul>		or
@@ -94,8 +121,9 @@ typedef struct CexpParserCtxRec_ {
 %type  <lval>   clvar lvar
 
 %nonassoc	NONE
+%left		','
 %right		'?' ':'
-%right		'='
+%right		'=' MODOP
 %left		OR
 %left		AND
 %left		'|'
@@ -120,25 +148,44 @@ typedef struct CexpParserCtxRec_ {
 
 %%
 
-input:	line		{ YYACCEPT; }
+input:	line		{ CexpParserCtx pa=parm; pa->rval=$1; YYACCEPT; }
 
 redef:	typeid UVAR
-					{ EVAL($2.plval->type = $1;); }
+					{ EVAL($2.plval->type = $1;); CHECK(cexpTA2TV(&$$,$2.plval)); }
 	| 	typeid '*' UVAR
-					{ EVAL($3.plval->type = CEXP_TYPE_BASE2PTR($1);); }
+					{ EVAL($3.plval->type = CEXP_TYPE_BASE2PTR($1);); CHECK(cexpTA2TV(&$$,$3.plval)); }
 	| 	fptype '(' '*' UVAR ')' '(' ')'
-					{ EVAL($4.plval->type = $1); }
+					{ EVAL($4.plval->type = $1); CHECK(cexpTA2TV(&$$,$4.plval)); }
+	|	typeid IDENT
+					{ EVAL(if (!($2.plval = varCreate($2.name, $1))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,$2.plval));
+					}
+	| 	typeid '*' IDENT
+					{ EVAL(if (!($3.plval = varCreate($3.name, CEXP_TYPE_BASE2PTR($1)))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,$3.plval));
+					}
+	| 	fptype '(' '*' IDENT ')' '(' ')'
+					{ EVAL(if (!($4.plval = varCreate($4.name, $1))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,$4.plval));
+					}
+;
+
+commaexp:	exp
+	|	commaexp ',' exp
+					{ $$=$3; }
 ;
 
 line:	'\n'
+					{	$$.type=TVoid; }
 	|	IDENT '\n'
 					{
+						$$.type=TVoid;
 						yyerror("unknown symbol/variable; '=' expected");
 						YYERROR;
 					}
 	|	redef '\n'
-	|	exp '\n'
-					{
+	|	commaexp '\n'
+					{	$$=$1;
 						if (CEXP_TYPE_FPQ($1.type)) {
 							CHECK(cexpTypeCast(&$1,TDouble,0));
 							printf("%f\n",$1.tv.d);
@@ -172,12 +219,17 @@ line:	'\n'
 exp:	binexp 
 	|   lval  '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
+	|   lval  MODOP exp
+					{ EVAL( \
+						CHECK(cexpTA2TV(&$$,&$1)); \
+						CHECK(cexpTVBinOp(&$$, &$$, &$3, $2)); \
+						CHECK(cexpTVAssign(&$1,&$$)); \
+					  );
+					}
 	|   IDENT '=' exp
-					{ $$=$3; EVAL(if (!($1.plval=cexpVarLookup($1.name,1)/*allow creation*/)) {	\
-									yyerror("unable to add new user variable");	\
+					{ $$=$3; EVAL(if (!($1.plval=varCreate($1.name,$3.type))) {	\
 									YYERROR; 								\
 								}\
-								$1.plval->type = $3.type; \
 								CHECK(cexpTVAssign($1.plval, &$3)); );
 					}
 ;
@@ -352,28 +404,26 @@ funcp:	FUNC
 					{ $$.type=$2->value.type; $$.tv.p=(void*)$2->value.ptv; }
 	|	postfix
 					{ CexpTypedValRec tmp;
-					  EVAL(
-						$$.type=$1.lval.type;
-						$$.tv=*$1.lval.ptv;
-						tmp.type=TUChar;
-						tmp.tv.c=1;
-						if (ONoop != $1.op) {
-							CHECK(cexpTVBinOp(&tmp,&$$,&tmp,$1.op));
-							CHECK(cexpTVAssign(&$1.lval,&tmp));
-						}
+					  EVAL( \
+						CHECK(cexpTA2TV(&$$,&$1.lval)); \
+						tmp.type=TUChar; \
+						tmp.tv.c=1; \
+						if (ONoop != $1.op) { \
+							CHECK(cexpTVBinOp(&tmp,&$$,&tmp,$1.op)); \
+							CHECK(cexpTVAssign(&$1.lval,&tmp)); \
+						} \
 					  );
 					}
 	|	prefix
 					{ CexpTypedValRec tmp;
-					  EVAL(
-						$$.type=$1.lval.type;
-						$$.tv=*$1.lval.ptv;
-						tmp.type=TUChar;
-						tmp.tv.c=1;
-						if (ONoop != $1.op) {
-							CHECK(cexpTVBinOp(&$$,&$$,&tmp,$1.op));
-							CHECK(cexpTVAssign(&$1.lval,&$$));
-						}
+					  EVAL( \
+						CHECK(cexpTA2TV(&$$,&$1.lval)); \
+						tmp.type=TUChar; \
+						tmp.tv.c=1; \
+						if (ONoop != $1.op) { \
+							CHECK(cexpTVBinOp(&$$,&$$,&tmp,$1.op)); \
+							CHECK(cexpTVAssign(&$1.lval,&$$)); \
+						} \
 					  );
 					}
 ;
@@ -388,7 +438,7 @@ castexp: unexp
 ;	
 
 
-call:	'(' exp ')'
+call:	'(' commaexp ')'
 					{ $$=$2; }
 	|	funcp
 	|	call '(' ')'
@@ -693,11 +743,24 @@ char *chpt;
 					case '!': rv=NE;	break;
 					case '<': rv=LE;	break;
 					case '>': rv=GE;	break;
+					case '+': rv=MODOP; rval->typ=OAdd;	break;
+					case '-': rv=MODOP; rval->typ=OSub;	break;
+					case '*': rv=MODOP; rval->typ=OMul;	break;
+					case '/': rv=MODOP; rval->typ=ODiv;	break;
+					case '%': rv=MODOP; rval->typ=OMod;	break;
+					case '&': rv=MODOP; rval->typ=OAnd;	break;
+					case '^': rv=MODOP; rval->typ=OXor;	break;
+					case '|': rv=MODOP; rval->typ=OOr;	break;
 				}
 			break;
 		}
 		if (rv>255) getch(); /* skip second char */
 		/* yyparse cannot deal with '\0' chars, so we translate it back to '\n'...*/
+		if ((SHL==rv || SHR==rv) && '=' == ch) {
+			getch();
+			rval->typ = (SHL==rv ? OShL : OShR);
+			rv=MODOP;
+		}
 		return rv ? rv : '\n';
 	}
 	return 0; /* seems to mean ERROR/EOF */

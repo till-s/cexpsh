@@ -37,9 +37,14 @@ int i;
 static void
 targs(int mask)
 {
+#if 0 /* DONT emit prototype args; PPC/SYSV calling conventions may
+       * produce incorrect calls if calling a vararg function with
+       * double arguments :-(
+       */
 int i;
 	for (i=1<<(MAXBITS-1); i; i>>=1)
 		printf("%s%s",mask&i ? typ[DB] : typ[UL],i==1  ? "" : ",");
+#endif
 }
 
 static void

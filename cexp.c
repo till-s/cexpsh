@@ -14,6 +14,8 @@
 
 #include <readline/readline.h>
 #include <readline/history.h>
+/* avoid reading curses of terminfo headers */
+extern int tgetnum();
 
 #include <regexp.h>
 #include "elfsyms.h"
@@ -34,7 +36,7 @@ usage(char *nm)
 #endif
 	fprintf(stderr," [-s <ELF symbol file>]");
 	fprintf(stderr," [<script file>]\n");
-	fprintf(stderr, "       C expression parser\n");
+	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
@@ -63,12 +65,12 @@ void root(double * res, double n)
 #endif
 
 static void *
-varprint(char *name, CexpTypedVal v, void *arg)
+varprint(char *name, CexpTypedAddr a, void *arg)
 {
 FILE	*f=stdout;
 regexp	*rc=arg;
 	if (regexec(rc,name)) {
-		cexpTVPrintInfo(v,f);
+		cexpTAPrintInfo(a,f);
 		fprintf(f,": %s\n",name);
 	}
 	return 0;
@@ -82,13 +84,17 @@ extern	CexpSym _cexpSymTblLookupRegex();
 regexp	*rc=0;
 CexpSym s;
 int		ch=0;
+int		nl=tgetnum("li");
+
+	if (nl<=0)
+		nl=25;
 
 	if (!(rc=regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return -1;
 	}
 
-	for (s=0; !ch && (s=_cexpSymTblLookupRegex(rc,25,s,0,0));) {
+	for (s=0; !ch && (s=_cexpSymTblLookupRegex(rc,nl,s,0,0));) {
 		char *line;
 		line=readline("More (Y/n)?");
 		ch=line[0];
@@ -107,7 +113,7 @@ whatis(char *name, FILE *f)
 {
 union {
 CexpSym			s;
-CexpTypedVal	tv;
+CexpTypedAddr	ptv;
 } v;
 int rval=-1;
 
@@ -118,9 +124,9 @@ int rval=-1;
 		cexpSymPrintInfo(v.s,f);
 		rval=0;
 	}
-	if ((v.tv=cexpVarLookup(name,0))) {
+	if ((v.ptv=cexpVarLookup(name,0))) {
 		fprintf(f,"User Variable:\n");
-		cexpTVPrintInfo(v.tv,stdout);
+		cexpTAPrintInfo(v.ptv,stdout);
 		fprintf(f,": %s\n",name);
 		rval=0;
 	}
@@ -155,6 +161,7 @@ char	*argv[10]; /* limit to 10 arguments */
 				return -1;
 			}
 		}
+		argc--; /* strip 0 terminator */
 	}
 
 	va_end(ap);

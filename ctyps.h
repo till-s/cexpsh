@@ -184,6 +184,10 @@ const char *
 cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...);
 
 void
-cexpTVPrintInfo(CexpTypedVal v, FILE *f);
+cexpTAPrintInfo(CexpTypedAddr a, FILE *f);
+
+/* convert a typed address to a typed value */
+const char *
+cexpTA2TV(CexpTypedVal v, CexpTypedAddr a);
 
 #endif

@@ -357,7 +357,7 @@ vars_main(int argc, char **argv)
 char *line=0;
 char *name,*v;
 unsigned long value,f;
-CexpTypedVal val;
+CexpTypedAddr val;
 int	ch;
 
   cexpVarInit();
@@ -365,7 +365,7 @@ int	ch;
   {
 	CexpVar vv;
 		  val=cexpVarLookup("hallo",1);
-			vv = (CexpVar)((unsigned long)val - OffsetOf(CexpVar,value));
+					vv = (CexpVar)((unsigned long)val - OffsetOf(CexpVar,pv));
 		  printf("CexpVar size: %i, & 0x%08lx, &name: %08lx\n",
 						  sizeof(*vv), (unsigned long)vv, (unsigned long)&vv->name->str[0]);
   }
@@ -403,7 +403,7 @@ int	ch;
 				val=cexpVarLookup(name,f);
 				if (val) {
 					val->type=TULong;
-					val->tv.l=value;
+					val->ptv->l=value;
 				}
 			  	printf("\n%s %s\n",
 						f?"adding":"setting",
@@ -422,7 +422,7 @@ int	ch;
 				} else {
 					val=cexpVarLookup(name,0);
 					printf("Var %sfound: 0x%lx\n",
-							val ? "" : "not ", val->tv.l);
+							val ? "" : "not ", val->ptv->l);
 				}
 			break;
 	}

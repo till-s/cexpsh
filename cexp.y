@@ -3,13 +3,20 @@
 #include <fcntl.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <assert.h>
 #define _INSIDE_CEXP_Y
 #include "cexp.h"
 #undef  _INSIDE_CEXP_Y
+
 #define BOOLTRUE	1
-#define YYPARSE_PARAM		parm
+#define YYPARSE_PARAM	parm
 #define YYLEX_PARAM		parm
 #define YYERROR_VERBOSE
+
+#define EVAL_INH	 (((CexpParserCtx)YYPARSE_PARAM)->evalInhibit)
+#define PSHEVAL(inh) do { EVAL_INH<<=1; if (inh) EVAL_INH++; } while(0)
+#define POPEVAL(inh) do { EVAL_INH>>=1; } while(0)
+#define EVAL(stuff)  if (! EVAL_INH ) do { stuff; } while (0)
 
 #define LEXERR	-1
 %}
@@ -34,19 +41,23 @@
 %token			SHORT_CAST	/* keyword 'short' */
 %token			LONG_CAST	/* keyword 'long' */
 %type  <num>	exp			/* expression */
-%type  <caddr>	clval
+%type  <caddr>	caddr
 %type  <caddr>  cptr
-%type  <saddr>	slval
+%type  <saddr>	saddr
 %type  <saddr>  sptr
-%type  <laddr>	llval
+%type  <laddr>	llval laddr
 %type  <laddr>  lptr
 %type  <num>	bool
 %type  <func>	funcp
 %type  <num>	call
 %type  <sym>	var
+%type  <num>	or
+%type  <num>	and
 
-%left			NONE
+%right			NONE
 %right			'='
+%left			OR
+%left			AND
 %left			'|'
 %left			'^'
 %left			'&'
@@ -67,6 +78,7 @@ line:	'\n'
 ;
 
 exp:	NUMBER					{ $$=$1; }
+/*
 	|	LABEL					{ $$=(unsigned long)$1->val.addr; }
 	|	cptr					{ $$=(unsigned long)$1; }
 	|	sptr					{ $$=(unsigned long)$1; }
@@ -74,13 +86,18 @@ exp:	NUMBER					{ $$=$1; }
 	|	clval	%prec NONE		{ $$=*$1; }
 	|	slval	%prec NONE		{ $$=*$1; }
 	|	llval	%prec NONE		{ $$=*$1; }
-	|	clval '=' exp			{ $$=$3; *$1=(unsigned char)$3; }
-	|	slval '=' exp			{ $$=$3; *$1=(unsigned short)$3; }
-	|	llval '=' exp			{ $$=$3; *$1=(unsigned long)$3; }
+	|	clval '=' exp			{ $$=$3; EVAL(*$1=(unsigned char)$3); }
+	|	slval '=' exp			{ $$=$3; EVAL(*$1=(unsigned short)$3); }
+	|	llval '=' exp			{ $$=$3; EVAL(*$1=(unsigned long)$3); }
+*/
+	|	VAR '=' exp			{ $$=$3; EVAL(*$1->val.addr=(unsigned long)$3); }
+	|	VAR 	%prec NONE				{ $$=*$1->val.addr; }
+	
 	|	exp '|' exp				{ $$=$1|$3; }
+/*
 	|	exp '^' exp				{ $$=$1^$3; }
 	|	exp '&' exp				{ $$=$1&$3; }
-	|	bool					{ $$=$1; }
+	|	bool			%prec NONE		{ $$=$1; }
 	|   exp '<' '<' exp %prec SHFT { $$=($1<<$4); }
 	|   exp '>' '>' exp %prec SHFT { $$=($1>>$4); }
 	|	exp '+' exp				{ $$=$1+$3; }
@@ -92,42 +109,51 @@ exp:	NUMBER					{ $$=$1; }
 	|	'~' exp 				{ $$=~$2; }
 	|	'(' exp ')'				{ $$=$2; }
 	|	call					{ $$=$1; }
+*/
 ;
 
-funcp:	FUNC			{ $$=$1->val.func; fprintf(stderr,"0x%08x\n",$$); }
+funcp:	FUNC			{ $$=$1->val.func; }
 ;	
 
 call:	funcp '(' ')'
-		%prec CALL	{	$$=$1(); }
+		%prec CALL	{	EVAL($$=$1()); }
 	|	funcp '(' exp ')'
-		%prec CALL	{	$$=$1($3); }
+		%prec CALL	{	EVAL($$=$1($3)); }
 	|	funcp '(' exp ',' exp ')'
-		%prec CALL	{	$$=$1($3,$5); }
+		%prec CALL	{	EVAL($$=$1($3,$5)); }
 	|	funcp '(' exp ',' exp ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11,$13); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11,$13,$15); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11,$13,$15,$17); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	$$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19,$21); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19,$21)); }
 ;
 
-bool: 	'!' exp			{ $$=($2==0 ? BOOLTRUE : 0); }
-	|	exp '<' exp		{ $$=($1<$3 ? BOOLTRUE : 0); }
+or:		exp '|' '|'					{ $$=$1; PSHEVAL($$); }		/* inhibit further '=' and call evaluation */
+;
+
+and:	exp '&' '&'					{ $$=$1; PSHEVAL( ! $$); }	/* inhibit further '=' and call evaluation */
+;
+
+bool: 	'!' exp						{ $$=($2==0 ? BOOLTRUE : 0); }
+	|	or	exp %prec OR			{ $$=($1||$2); POPEVAL(); }
+	|	and	exp %prec AND			{ $$=($1&&$2); POPEVAL(); }
+	|	exp '<' exp					{ $$=($1<$3 ? BOOLTRUE : 0); }
 	|	exp '<' '=' exp	%prec LE	{ $$=($1<=$4 ? BOOLTRUE : 0); }
 	|	exp '=' '=' exp	%prec EQ	{ $$=($1==$4 ? BOOLTRUE : 0); }
 	|	exp '!' '=' exp	%prec NE	{ $$=($1!=$4 ? BOOLTRUE : 0); }
 	|	exp '>' '=' exp	%prec GE	{ $$=($1>=$4 ? BOOLTRUE : 0); }
-	|	exp '>' exp		{ $$=($1>$3 ? BOOLTRUE : 0); }
+	|	exp '>' exp					{ $$=($1>$3 ? BOOLTRUE : 0); }
 ;
 
 var:	CHAR_VAR		{ $$=$1; }
@@ -135,18 +161,22 @@ var:	CHAR_VAR		{ $$=$1; }
 	|	VAR				{ $$=$1; }
 ;
 
-
-clval:	CHAR_VAR								{ $$=(unsigned char*)$1->val.addr; }
-	|	'(' CHAR_CAST ')' var %prec CAST		{ $$=(unsigned char*)$4->val.addr; }
-	|	'*' cptr %prec DEREF					{ $$=$2; }
+llval:	laddr				  %prec '='			{ $$=$1; }
 ;
-slval:	SHORT_VAR								{ $$=(unsigned short*)$1->val.addr; }
+
+caddr:	CHAR_VAR		 	  %prec NONE		{ $$=(unsigned char*)$1->val.addr; }
+	|	'(' CHAR_CAST ')' var %prec CAST		{ $$=(unsigned char*)$4->val.addr; }
+	|	'*' cptr			  %prec DEREF		{ $$=$2; }
+;
+saddr:	SHORT_VAR								{ $$=(unsigned short*)$1->val.addr; }
 	|	'(' SHORT_CAST ')' var %prec CAST		{ $$=(unsigned short*)$4->val.addr; }
 	|	'*' sptr %prec DEREF					{ $$=$2; }
 ;
-llval:	VAR										{ $$=$1->val.addr; }
+laddr:	VAR										{ $$=$1->val.addr; }
+/*
 	|	'(' LONG_CAST ')' var %prec CAST		{ $$=$4->val.addr; }
 	|	'*' lptr %prec DEREF					{ $$=$2; }
+*/
 ;
 
 cptr:	'&' CHAR_VAR %prec ADDR					{ $$=(unsigned char*)$2->val.addr; }
@@ -165,44 +195,13 @@ lptr:	'&' VAR	 %prec ADDR						{ $$=$2->val.addr; }
 
 		
 %%
-#if 0
-static unsigned long tstvar=0xdeadbeef;
-
-static unsigned long
-tstfunc(unsigned long arg)
-{
-	return arg;
-}
-
-static CexpSymRec tstStab[]={
-	{
-		"var", VAR, {addr: &tstvar }
-	},
-	{
-		"func", FUNC, {func: tstfunc}
-	},
-	{
-		0, 0, {0}
-	},
-};
-
-static CexpSym
-lookup(char *name)
-{
-CexpSym rval;
-	for (rval=tstStab; rval->name; rval++)
-		if (!strcmp(rval->name, name))
-			return rval;
-	return 0;
-}
-#endif
 
 
 /* add a string to the line string table returning its index
  * RETURNS a negative number on error
  */
 unsigned char *
-lstAddString(CexpParserArg env, char *string)
+lstAddString(CexpParserCtx env, char *string)
 {
 unsigned char *rval=0;
 	if (env->lstLen<sizeof(env->lineStrTbl)/sizeof(env->lineStrTbl[0])) {
@@ -223,7 +222,7 @@ int
 yylex(YYSTYPE *rval, void *arg)
 {
 unsigned long	num;
-CexpParserArg 	pa=arg;
+CexpParserCtx 	pa=arg;
 char sbuf[80], limit=sizeof(sbuf)-1;
 
 	while (' '==ch || '\t'==ch)
@@ -324,10 +323,63 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 	return 0; /* seems to mean ERROR/EOF */
 }
 
+/* re-initialize a parser context to parse 'buf';
+ * If called with a NULL argument, a new
+ * context is created and initialized.
+ * Note that the ELF symbol file name is only needed
+ * if a new symbol table is created. 
+ * As a side effect, the system table (cexpSysSymTbl)
+ * is initialized if and only if it has not been
+ * created before. OTOH, if the file name is omitted (NULL)
+ * and there is a sysSymTbl, that one is used.
+ * RETURNS: initialized context
+ */
+
+static void
+releaseStrings(CexpParserCtx ctx)
+{
+int			i;
+char		**chppt;
+	/* release the line string table */
+	for (i=0,chppt=ctx->lineStrTbl; i<ctx->lstLen; i++,chppt++) {
+		if (*chppt) {
+			free(*chppt);
+			*chppt=0;
+		}
+	}
+}
+
+CexpParserCtx
+cexpCreateParserCtx(char *symFileName)
+{
+CexpParserCtx	ctx=0;
+CexpSymTbl		t=cexpCreateSymTbl(symFileName);
+
+	if (t) {
+		assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
+		memset(ctx,0,sizeof(*ctx));
+		ctx->symtbl = t;
+	}
+	return ctx;
+}
+
+CexpParserCtx
+cexpResetParserCtx(CexpParserCtx ctx, char *buf)
+{
+	ctx->chpt=buf;
+	ctx->evalInhibit=0;
+	releaseStrings(ctx);
+}
+
+void
+cexpFreeParserCtx(CexpParserCtx ctx)
+{
+	cexpFreeSymTbl(&ctx->symtbl);
+	releaseStrings(ctx);
+}
+
 int
 yyerror(char*msg)
 {
 fprintf(stderr,"Cexp syntax error: %s\n",msg);
 }
-
-

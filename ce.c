@@ -5,8 +5,6 @@
 #include <readline/readline.h>
 #include <readline/history.h>
 
-extern CexpSymTbl cexpSysSymTbl;
-
 #ifdef YYDEBUG
 extern int yydebug;
 #endif
@@ -28,12 +26,14 @@ usage(char *nm)
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 
+int a,b,c,d,e;
+
 int
 main(int argc, char **argv)
 {
 int					fd,opt;
 char				*line;
-CexpParserArgRec	arg={0};
+CexpParserCtx		ctx;
 char				optstr[]={
 						'h',
 
@@ -53,35 +53,21 @@ while ((opt=getopt(argc, argv, optstr))>=0) {
 	}
 }
 
-memset(&arg,0,sizeof(arg));
-
-if (argc-optind<1 || (fd=open(argv[optind],O_RDONLY))<0) {
+if (argc-optind<1 || !(ctx=cexpCreateParserCtx(argv[optind]))) {
 	fprintf(stderr,"Need an elf symbol table file arg\n");
 	return 1;
 }
 
 fprintf(stderr,"main is at 0x%08x\n",(unsigned long)main);
 
-cexpSysSymTbl=arg.symtbl=cexpSlurpElf(fd);
-
-close(fd);
-
-if (!arg.symtbl) {
-	fprintf(stderr,"Error while reading symbol table\n");
-	return 1;
-}
-
 while ((line=readline("Cexpr>"))) {
-	int i;
-	arg.chpt=line;
-	yyparse((void*)&arg);
+	cexpResetParserCtx(ctx,line);
+	yyparse((void*)ctx);
 	add_history(line);
 	free(line);
-	while (arg.lstLen)
-			free(arg.lineStrTbl[--arg.lstLen]);
 }
 
-cexpFreeSymTbl(arg.symtbl);
+cexpFreeParserCtx(ctx);
 
 return 0;
 }

@@ -18,15 +18,44 @@ typedef struct CexpSymTblRec_ {
 	CexpSym			syms;
 } CexpSymTblRec, *CexpSymTbl;
 
-typedef struct CexpParserArgRec {
+typedef struct CexpParserCtxRec {
 	CexpSymTbl		symtbl;
 	unsigned char	*chpt;
 	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	unsigned int	lstLen;
-} CexpParserArgRec, *CexpParserArg;
+	unsigned long	evalInhibit;
+} CexpParserCtxRec, *CexpParserCtx;
 
+/* Symbol table management */
+
+/* the global system image symbol table */
+extern CexpSymTbl cexpSysSymTbl;
+
+/* Read an ELF file's ".symtab" section and create an
+ * internal symbol table representation.
+ * The first call to cexpCreateSymTbl() will also set
+ * the global 'cexpSysSymTbl'.
+ * If the file name argument is NULL, the routine
+ * returns cexpSysSymTbl.
+ */
+CexpSymTbl
+cexpCreateSymTbl(char *symFileName);
+
+/* free a symbol table (*ps).
+ * Note that if *ps is the sysSymTbl,
+ * it will only be released if
+ * ps==sysSymTbl. I.e:
+ *
+ * CexpSymTbl p=cexpSysSymTbl;
+ * cexpFreeSymTbl(&p);
+ * 
+ * will _not_ free up the cexpSysSymTbl
+ * but merely set *p t0 zero. However,
+ * cexpFreeSymTbl(&sysSymTbl) _will_
+ * release the global table.
+ */
 void
-cexpFreeSymTbl(CexpSymTbl arg);
+cexpFreeSymTbl(CexpSymTbl *psymtbl);
 
 CexpSymTbl
 cexpSlurpElf(int fd);

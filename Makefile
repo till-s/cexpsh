@@ -9,12 +9,16 @@ APP=elf
 # APP_BSP = mvme2307
 APP_BSP = svgm5
 
+LIBELF_PATH=/home/till/rtems/libelf-0.8.0/
+LIBREADLINE_PATH=/home/till/rtems/apps/add_ons/readline/
+
+
 RTEMS_MAKEFILE_PATH=$(PROJECT_ROOT)/powerpc-rtems/$(APP_BSP)/
 RTMSLIBDIR=$(RTEMS_MAKEFILE_PATH)/lib
 
 
 # C source names, if any, go here -- minus the .c
-C_PIECES=init exmpl wrap
+C_PIECES=init wrap cexp.tab elfsyms ce
 C_FILES=$(C_PIECES:%=%.c)
 C_O_FILES=$(C_PIECES:%=${ARCH}/%.o)
 
@@ -54,7 +58,8 @@ include $(RTEMS_ROOT)/make/leaf.cfg
 #
 
 DEFINES  +=
-CPPFLAGS += -I../lib -I../build-powerpc-rtems/lib
+CPPFLAGS += -I$(LIBELF_PATH)/lib -I$(LIBELF_PATH)/build-powerpc-rtems/lib
+CPPFLAGS += -I$(LIBREADLINE_PATH)
 CFLAGS   += -O2 -Winline
 
 #

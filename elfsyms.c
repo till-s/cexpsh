@@ -54,7 +54,8 @@ addrcomp(const void *a, const void *b)
 }
 
 typedef struct PrivSymTblRec_ {
-	CexpSymTblRec	stab;		/* symbol table, sorted in ascending order (key=name) */
+	/* NOTE: the stab field MUST be first, so we can cast pointers around */
+	CexpSymTblRec	stab;	/* symbol table, sorted in ascending order (key=name) */
 	char		*strtbl;	/* string table */
 	CexpSym		*aindex;	/* an index sorted to ascending addresses */
 } PrivSymTblRec, *PrivSymTbl;
@@ -223,20 +224,45 @@ PrivSymTbl	rval=0;
 cleanup:
 	fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
 	if (elf) elf_end(elf);
-	if (rval) cexpFreeSymTbl(&rval->stab);
+	if (rval) cexpFreeSymTbl((CexpSymTbl*)&rval);
 	return 0;
 }
 
-void
-cexpFreeSymTbl(CexpSymTbl arg)
+CexpSymTbl
+cexpCreateSymTbl(char *symFileName)
 {
-PrivSymTbl st=(PrivSymTbl)arg;
-	if (st) {
+CexpSymTbl	t=0;
+int			fd;
+	if (symFileName) {
+		if ((fd=open(symFileName,O_RDONLY))>=0) {
+			t=cexpSlurpElf(fd);
+			close(fd);
+		}
+		if (!t) {
+			fprintf(stderr,"Unable to read symbol table file '%s'\n",symFileName);
+			fprintf(stderr,"Trying to use existing sysSymTbl\n");
+		} else if (!cexpSysSymTbl) {
+			cexpSysSymTbl=t;
+		}
+	}
+	if (!t && !(t=cexpSysSymTbl)) {
+			fprintf(stderr,"ERROR: unable to find a valid symbol table\n");
+	}
+	return t;
+}
+
+
+void
+cexpFreeSymTbl(CexpSymTbl *pt)
+{
+PrivSymTbl st=(PrivSymTbl)*pt;
+	if (st && (st!=(void*)cexpSysSymTbl || pt==&cexpSysSymTbl)) {
 		free(st->stab.syms);
 		free(st->strtbl);
 		free(st->aindex);
 		free(st);
 	}
+	*pt=0;
 }
 
 int
@@ -328,7 +354,7 @@ CexpSym		symp;
 			symp->name);	
 		symp++;
 	}
-	cexpFreeSymTbl(t);
+	cexpFreeSymTbl(&t);
 	return 0;
 }
 

@@ -3,7 +3,8 @@ PROG=sym
 CFLAGS=-g -O
 WRAP=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
-REGEXP_PATH=/home/till_tp/till/xfm/regexp
+#REGEXP_PATH=/home/till_tp/till/xfm/regexp
+REGEXP_PATH=/home/till/slac/xfm/regexp
 YACC=bison
 YFLAGS=-d -y -ocexp.tab.c
 

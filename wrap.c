@@ -41,7 +41,7 @@ typedef struct hackbuf_ {
 	unsigned long	flags;
 } HackBuf;
 
-static HackBuf bufs[MAXBUFS]={0};
+static HackBuf bufs[MAXBUFS]={{0},};
 
 off_t
 __wrap_lseek(int fd, off_t off, int whence)

@@ -101,7 +101,7 @@ CexpModule	m,mfound;
 		while (s->name && max) {
       		if (regexec(rc,s->name)) {
 				if (!mfound) {
-					fprintf(f,"=====  In module '%s' (id 0x%08x) =====:\n",m->name, m->id);
+					fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, m);
 					mfound=m; /* print module name only once */
 				}
 				cexpSymPrintInfo(s,f);
@@ -146,7 +146,7 @@ CexpModule m;
 
 	m=mod ? mod : cexpSystemModule;
 	for (m=cexpSystemModule; m; m=m->next) {
-		fprintf(f,"Module '%s':\n",m->name);
+		fprintf(f,"Module '%s' (0x%08x):\n",m->name,m);
 		fprintf(f,"  %i symbol table entries\n",m->symtbl->nentries);
 		fprintf(f,"  %i bytes of memory allocated to binary\n",m->memSize);
 		fprintf(f,"  Needs:"); bitmapInfo(f,m->needs); fputc('\n',f);
@@ -194,6 +194,15 @@ CexpModule	pred,m;
 	/* remove from dependency bitmaps */
 	for (m=cexpSystemModule; m; m=m->next)
 		BITMAP_CLR(m->neededby, mod->id);
+
+	/* call destructors */
+	{
+		int i;
+		for (i=0; i<mod->nDtors; i++) {
+			if (mod->dtor_list[i])
+				mod->dtor_list[i]();
+		}
+	}
 
 	/* remove from list */
 	pred->next=mod->next;
@@ -302,6 +311,21 @@ CexpModule m,tail,nmod,rval=0;
 		goto cleanup;
 	}
 
+	/* call the constructors */
+	{
+		int i;
+		for (i=0; i<nmod->nCtors; i++) {
+			if (nmod->ctor_list[i])
+				nmod->ctor_list[i]();
+		}
+		/* the constructors are not really needed
+		 * anymore...
+		 */
+		free(nmod->ctor_list);
+		nmod->ctor_list=0;
+		nmod->nCtors=0;
+	}
+
 	addDependencies(nmod);
 
 	/* chain to the list of modules */
@@ -331,6 +355,8 @@ CexpModule mod=*mp;
 		assert( ! mod->next);
 		free(mod->name);
 		free(mod->memSeg);
+		free(mod->ctor_list);
+		free(mod->dtor_list);
 		cexpFreeSymTbl(&mod->symtbl);
 		free(mod);
 	}

@@ -1,15 +1,35 @@
 #include <bfd.h>
-#include <libiberty.h>
+/*#include <libiberty.h>*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
 
 #include "cexp.h"
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 
-#ifdef USE_ELF_STUFF
+#ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
+#endif
+
+#include "regexp.h"
+
+#define CTOR_DTOR_PATTERN "^_+GLOBAL_[_.$][ID][_.$]"
+
+/* using one static variable for the pattern matcher is
+ * OK since the entire cexpLoadFile() routine is called
+ * with the WRITE_LOCK held, so mutex is guaranteed for
+ * the ctorCtorRegexp.
+ */
+static  regexp	*ctorDtorRegexp=0;
+
+#ifdef HAVE_BFD_DISASSEMBLER
+#include "dis-asm.h"
+disassembler_ftype cexpBfdDisassembler=0;
 #endif
 
 #define CACHE_LINE_SIZE 32
@@ -28,13 +48,13 @@ typedef struct SegmentRec_ {
 typedef struct LinkDataRec_ {
 	SegmentRec		segs[NUM_SEGS];
 	asymbol			**st;
+	asymbol			***new_commons;
 	CexpSymTbl		cst;
 	int				errors;
 	BitmapWord		*depend;
+	int				nCtors;
+	int				nDtors;
 } LinkDataRec, *LinkData;
-
-static CexpSymTbl
-buildCexpSymtbl(asymbol **asyms, int num_new_commons);
 
 /* how to decide where a particular section should go */
 static Segment
@@ -47,7 +67,7 @@ segOf(LinkData ld, asection *sect)
 /* determine the alignment power of a common symbol
  * (currently only works for ELF)
  */
-#ifdef USE_ELF_STUFF
+#ifdef HAVE_ELF_BFD_H
 static __inline__ int
 get_align_pwr(bfd *abfd, asymbol *sp)
 {
@@ -64,8 +84,8 @@ static int
 align_size_compare(const void *a, const void *b)
 {
 elf_symbol_type *espa, *espb;
-asymbol			*spa=*(asymbol**)a;
-asymbol			*spb=*(asymbol**)b;
+asymbol			*spa=**(asymbol***)a;
+asymbol			*spb=**(asymbol***)b;
 
 	return
 		((espa=elf_symbol_from(bfd_asymbol_bfd(spa),spa)) &&
@@ -78,13 +98,39 @@ asymbol			*spb=*(asymbol**)b;
 #define align_size_compare		0
 #endif
 
+static __inline__ int
+isCtorDtor(asymbol *asym, int quiet)
+{
+	/* From bfd/linker.c: */
+	/* "A constructor or destructor name starts like this:
+	   _+GLOBAL_[_.$][ID][_.$] where the first [_.$] and
+	   the second are the same character (we accept any
+	   character there, in case a new object file format
+	   comes along with even worse naming restrictions)."  */
+
+	if (regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
+		switch (*(ctorDtorRegexp->endp[0]-2)) {
+			case 'I':	return  1; /* constructor */
+			case 'D':	return -1; /* destructor  */
+			default:
+				if (!quiet) {
+					fprintf(stderr,"WARNING: unclassified BSF_CONSTRUCTOR symbol;");
+					fprintf(stderr," ignoring '%s'\n",bfd_asymbol_name(asym));
+				}
+			break;
+		}
+	}
+	return 0;
+}
+
 static const char *
 filter(void *ext_sym, void *closure)
 {
 asymbol *asym=*(asymbol**)ext_sym;
 
 		if ( !(BSF_KEEP & asym->flags) ||
-			 !((BSF_FUNCTION|BSF_OBJECT) & asym->flags) )
+			  (BSF_LOCAL & asym->flags) ||
+			  (BSF_DEBUGGING & asym->flags) )
 			return 0;
 		return bfd_asymbol_name(asym);
 }
@@ -93,10 +139,9 @@ static void
 assign(void *ext_sym, CexpSym cesp, void *closure)
 {
 asymbol		*asym=*(asymbol**)ext_sym;
-int			isnewcommon = ext_sym < closure;
 int			s;
 CexpType	t=TVoid;
-#ifdef USE_ELF_STUFF
+#ifdef HAVE_ELF_BFD_H
 elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 #define ELFSIZE(elfsp)	((elfsp)->internal_elf_sym.st_size)
 #else
@@ -115,7 +160,7 @@ printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
 				s=sizeof(void(*)());
 		} else {
 			/* must be BFS_OBJECT */
-			if (isnewcommon) {
+			if (asym->flags & BSF_OLD_COMMON) {
 				/* value holds the size */
 				s = bfd_asymbol_value(asym);
 			}
@@ -287,6 +332,40 @@ printf("TSILL ASYMS  0x%08x\n", ld->st);
 	}
 }
 
+/* build the module's static constructor and
+ * destructor lists.
+ */
+static void
+buildCtorsDtors(LinkData ld, CexpModule mod)
+{
+VoidFnPtr	*cfnp,*dfnp;
+asymbol		**asymp;
+	if (ld->nCtors) {
+		mod->ctor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->ctor_list) * (ld->nCtors));
+		memset(mod->ctor_list,0,sizeof(*mod->ctor_list) * (ld->nCtors));
+	}
+	if (ld->nDtors) {
+		mod->dtor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->dtor_list) * (ld->nDtors));
+		memset(mod->dtor_list,0,sizeof(*mod->dtor_list) * (ld->nDtors));
+	}
+	for (asymp=ld->st; *asymp; asymp++) {
+		switch (isCtorDtor(*asymp,0/*quiet*/)) {
+			case 1:
+				assert(mod->nCtors<ld->nCtors);
+				mod->ctor_list[mod->nCtors++]=(VoidFnPtr)bfd_asymbol_value(*asymp);
+			break;
+
+			case -1:
+				assert(mod->nDtors<ld->nDtors);
+				mod->dtor_list[mod->nDtors++]=(VoidFnPtr)bfd_asymbol_value(*asymp);
+			break;
+
+			default:
+			break;
+		}
+	}
+}
+
 /* resolve undefined and common symbol references;
  * The routine also rearranges the symbol table for
  * all common symbols that must be created to be located
@@ -304,7 +383,7 @@ printf("TSILL ASYMS  0x%08x\n", ld->st);
  *   - raise a bit for each module referenced by this new one.
  */
 static int
-resolve_syms(bfd *abfd, asymbol **syms, BitmapWord *depend)
+resolve_syms(bfd *abfd, asymbol **syms, LinkData ld)
 {
 asymbol		*sp;
 int			i,num_new_commons=0,errs=0;
@@ -314,8 +393,18 @@ CexpModule	mod;
 	 * find name clashes
 	 */
 	for (i=0; sp=syms[i]; i++) {
-		asection *sect=bfd_get_section(sp);
-		CexpSym	ts;
+		asection	*sect=bfd_get_section(sp);
+		CexpSym		ts;
+		int			res;
+
+printf("TSILL scanning SYM (flags 0x%08x) '%s'\n",sp->flags,bfd_asymbol_name(sp));
+		/* count constructors/destructors */
+		if ((res=isCtorDtor(sp,1/*warn*/))) {
+			if (res>0)
+				ld->nCtors++;
+			else
+				ld->nDtors++;
+		}
 
 		/* we only care about global symbols
 		 * (NOTE: undefined symbols are neither local
@@ -371,20 +460,23 @@ CexpModule	mod;
 				sp->flags=BSF_GLOBAL;
 				/* mark the referenced module in the bitmap */
 				assert(mod->id < MAX_NUM_MODULES);
-				BITMAP_SET(depend,mod->id);
+				BITMAP_SET(ld->depend,mod->id);
 			} else {
 				/* it's the first definition of this common symbol */
-				asymbol *swap;
 
 				/* we'll have to add it to our internal symbol table */
-				sp->flags |= BSF_KEEP;
+				sp->flags |= BSF_KEEP|BSF_OLD_COMMON;
 
-				/* this is a new common symbol; we move all of these
-				 * to the beginning of the 'st' list
+				/* 
+				 * we must not change the order of the symbol list;
+				 * _elf_bfd_canonicalize_reloc() relies on the order being
+				 * preserved.
+				 * Therefore, we create an array of pointers which
+				 * we can sort in any desired way...
 				 */
-				swap=syms[num_new_commons];
-				syms[num_new_commons++]=sp;
-				sp=swap;
+				ld->new_commons=(asymbol***)xrealloc(ld->new_commons,num_new_commons+1);
+				ld->new_commons[num_new_commons] = syms+i;
+				num_new_commons++;
 			}
 			syms[i]=sp; /* use new instance */
 		} else {
@@ -413,7 +505,7 @@ CexpModule	mod;
  * RETURNS: 0 on failure, nonzero on success
  */
 static int
-make_new_commons(bfd *abfd, asymbol **syms, int num_new_commons)
+make_new_commons(bfd *abfd, asymbol ***new_common_ps, int num_new_commons)
 {
 unsigned long	i,val;
 asection	*csect;
@@ -431,7 +523,7 @@ asection	*csect;
 		 * found during the sorting process which is the alignment
 		 * of the first element...
 		 */
-		bfd_section_alignment(abfd,csect) = get_align_pwr(abfd,syms[0]);
+		bfd_section_alignment(abfd,csect) = get_align_pwr(abfd,*new_common_ps[0]);
 
 		/* set new common symbol values */
 		for (val=0,i=0; i<num_new_commons; i++) {
@@ -440,15 +532,15 @@ asection	*csect;
 
 			sp = bfd_make_empty_symbol(abfd);
 
-			val=align_power(val,(tsill=get_align_pwr(abfd,syms[i])));
+			val=align_power(val,(tsill=get_align_pwr(abfd,*new_common_ps[i])));
 printf("TSILL align_pwr %i\n",tsill);
 			/* copy pointer to old name */
-			bfd_asymbol_name(sp) = bfd_asymbol_name(syms[i]);
+			bfd_asymbol_name(sp) = bfd_asymbol_name(*new_common_ps[i]);
 			sp->value=val;
 			sp->section=csect;
-			sp->flags=syms[i]->flags;
-			val+=syms[i]->value;
-			syms[i] = sp;
+			sp->flags=(*new_common_ps[i])->flags;
+			val+=(*new_common_ps[i])->value;
+			*new_common_ps[i] = sp;
 		}
 		
 		bfd_set_section_size(abfd, csect, val);
@@ -486,7 +578,7 @@ long			num_new_commons;
 	/* do a sanity check */
 
 
-	if ((tsill_num_new_commons=num_new_commons=resolve_syms(abfd,asyms,ld->depend))<0) {
+	if ((tsill_num_new_commons=num_new_commons=resolve_syms(abfd,asyms,ld))<0) {
 		goto cleanup;
 	}
 
@@ -495,7 +587,11 @@ TSILL(asyms);
 	 *	sort st[0]..st[num_new_commons-1] by alignment
 	 */
 	if (align_size_compare && num_new_commons)
-		qsort((void*)asyms, num_new_commons, sizeof(*asyms), align_size_compare);
+		qsort(
+			(void*)ld->new_commons,
+			num_new_commons,
+			sizeof(*ld->new_commons),
+			align_size_compare);
 	
 TSILL(asyms);	
 	/* Now, everything is in place to build our internal symbol table
@@ -505,9 +601,9 @@ TSILL(asyms);
 	 * after relocation has been performed.
 	 */
 
-	ld->cst=cexpCreateSymTbl(asyms, sizeof(*asyms), nsyms, filter, assign, asyms+num_new_commons);
+	ld->cst=cexpCreateSymTbl(asyms, sizeof(*asyms), nsyms, filter, assign, 0);
 
-	if (0!=make_new_commons(abfd,asyms,num_new_commons))
+	if (0!=make_new_commons(abfd,ld->new_commons,num_new_commons))
 		goto cleanup;
 
 TSILL(asyms);	
@@ -527,13 +623,21 @@ static int
 flushCache(LinkData ld)
 {
 #if defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
-int i,j;
+int	i;
+char	*start, *end;
 	for (i=0; i<NUM_SEGS; i++) {
-		for (j=0; j<= ld->segs[i].size; j+=CACHE_LINE_SIZE)
-			__asm__ __volatile__(
-				"dcbf %0, %1\n"	/* flush out one data cache line */
-				"icbi %0, %1\n" /* invalidate cached instructions for this line */
-				::"b"(ld->segs[i].chunk),"r"(j));
+		if (ld->segs[i].size) {
+			start=(char*)ld->segs[i].chunk;
+			/* align back to cache line */
+			start-=(unsigned long)start % CACHE_LINE_SIZE;
+			end  =(char*)ld->segs[i].chunk+ld->segs[i].size;
+
+			for (; start<end; start+=CACHE_LINE_SIZE)
+				__asm__ __volatile__(
+					"dcbf 0, %0\n"	/* flush out one data cache line */
+					"icbi 0, %0\n"	/* invalidate cached instructions for this line */
+					::"r"(start));
+		}
 	}
 	/* enforce flush completion and discard preloaded instructions */
 	__asm__ __volatile__("sync; isync");
@@ -563,6 +667,9 @@ CexpSym			sane;
 	}
 
 	bfd_init();
+	/* lazy init of regexp pattern */
+	if (!ctorDtorRegexp)
+		ctorDtorRegexp=regcomp(CTOR_DTOR_PATTERN);
 
 	if ( ! (abfd=bfd_openr(filename,0)) ) {
 		bfd_perror("Opening object file");
@@ -618,6 +725,10 @@ TSILL(ldr.st);
 			 sane->value.ptv==(CexpVal)&_edata ) {
 
         	/* OK, sanity test passed */
+#ifdef HAVE_BFD_DISASSEMBLER
+			if (!(cexpBfdDisassembler = disassembler(abfd)))
+				bfd_perror("Warning: no disassembler found");
+#endif
 
 		} else {
 			fprintf(stderr,"SANITY CHECK FAILED! Stale symbol file?\n");
@@ -628,8 +739,10 @@ TSILL(ldr.st);
 
 	flushCache(&ldr);
 
-	/* TODO: call constructors */
-
+	/* build and call constructors */
+	if (ldr.nCtors || ldr.nDtors) {
+		buildCtorsDtors(&ldr,mod);
+	}
 
 	/* move the relevant data over to the module */
 	mod->memSeg  = ldr.segs[ONLY_SEG].chunk;
@@ -642,7 +755,10 @@ TSILL(ldr.st);
 	rval=0;
 
 cleanup:
-	if (ldr.st) free(ldr.st);
+	if (ldr.st)
+		free(ldr.st);
+	if (ldr.new_commons)
+		free(ldr.new_commons);
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);

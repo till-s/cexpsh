@@ -18,6 +18,8 @@
 typedef	unsigned long	BitmapWord;
 typedef short			ModuleId;	/* Id < 0 means INVALID */
 
+typedef void			(*VoidFnPtr)(void);
+
 typedef struct CexpModuleRec_ {
 	CexpSymTbl			symtbl;
 	char				*name;
@@ -27,6 +29,10 @@ typedef struct CexpModuleRec_ {
 	unsigned long		memSize;	/* size of the loaded stuff */
 	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one */
 	BITMAP_DECLARE(needs);			/* bitmap of module ids this module depends on */
+	VoidFnPtr			*ctor_list;
+	unsigned			nCtors;
+	VoidFnPtr			*dtor_list;
+	unsigned			nDtors;
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

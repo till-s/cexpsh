@@ -20,8 +20,8 @@ AC_ARG_ENABLE(YYDEBUG,
 AC_CHECK_HEADER(readline/readline.h)
 if test "$ac_cv_header_readline_readline_h" = "yes" ; then
 	AC_DEFINE(USE_GNU_READLINE,1,[whether to use the GNU readline library])
-	AC_CHECK_LIB(termcap,tgetnum)
-	AC_CHECK_LIB(readline,readline, LIBS="-ltermcap $LIBS")
+	AC_CHECK_LIB(termcap,tgetnum,,[AC_CHECK_LIB(ncurses,tgetnum)])
+	AC_CHECK_LIB(readline,readline)
 fi
 
 AC_HAVE_FUNCS(rcmd)

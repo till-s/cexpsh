@@ -28,18 +28,23 @@ public:
     virtual ~AClass()
     {
         printf(
-          "%s: Hey I'm in base class destructor number %d for %p.\n",
-          ptr, num_inst, this
+          "%s: Hey I'm in base class destructor number %d for %p (string %p).\n",
+          ptr, num_inst, this, string
         );
 	print();
         num_inst--;
+		delete string;
     };
 
     virtual void print()  { printf("%s\n", string); };
 
+	AClass &operator=(AClass &x) { ptr=x.ptr; strcpy(string,x.string); return *this; };
+
 protected:
     char  *string;
     const char *ptr;
+private:
+	AClass(AClass &);	/* string would need to be copied */
 };
 
 
@@ -57,7 +62,6 @@ public:
 	 * Make sure we use some space
 	 */
 
-        string = new char[50];
 	sprintf(string, "Instantiation order %d", num_inst);
     };
 

@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 extern "C" 
 {
@@ -57,25 +58,31 @@ public:
     virtual ~AClass()
     {
         printf(
-          "%s: Hey I'm in base class destructor number %d for %p.\n",
-          ptr, num_inst, this
+          "%s: Hey I'm in base class destructor number %d for %p (string %p).\n",
+          ptr, num_inst, this, string
         );
 	print();
         num_inst--;
+		delete string;
     };
 
     virtual void print()  { printf("%s\n", string); };
 
+	AClass &operator=(AClass &x) { ptr=x.ptr; strcpy(string,x.string); return *this; };
+
 protected:
     char  *string;
     const char *ptr;
+private:
+	AClass(AClass &);	/* string would need to be copied */
 };
+
 
 class BClass : public AClass {
 public:
   BClass(const char *p = "LOCAL" );
   ~BClass();
-   void print();
+  void print();
 };
 
 class RtemsException 

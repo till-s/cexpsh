@@ -292,7 +292,6 @@ int				rval=-1,max;;
 	assert(rc=spencer_regcomp(CEXP_HELP_TAB_NAME));
 	if ((new_module->symtbl=cexpSlurpElf(filename))) {
 		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,new_module->symtbl); found++,max=1) {
-printf("TSILL found '%s'\n",found->name);
 			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, new_module->symtbl);
 		}
 		rval=0;

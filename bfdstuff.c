@@ -606,9 +606,9 @@ long		err;
 						 */
 						if ( !my__cxa_finalize ) {
 							fprintf(stderr,
-								"Warning: found '"DSO_HANDLE_NAME"' but not '__cxa_finalize'\n");
+								"Error: found '"DSO_HANDLE_NAME"' but not '__cxa_finalize'\n");
 							fprintf(stderr,
-								"         disabling '__cxa_atexit' support!\n");
+								"       No '__cxa_atexit' support!\n");
 							ld->errors++;
 		continue;
 						}

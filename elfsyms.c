@@ -102,19 +102,14 @@ CexpSymRec key;
 }
 
 CexpSym
-cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
+_cexpSymTblLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
-	regexp		*rc=0;
-	CexpSym		found=0;
+CexpSym	found=0;
+
 	if (max<1)	max=25;
 	if (!f)		f=stdout;
 	if (!t)		t=cexpSysSymTbl;
 	if (!s)		s=t->syms;
-
-	if (!(rc=regcomp(re))) {
-		fprintf(stderr,"unable to compile regexp '%s'\n",re);
-		return found;
-	}
 
 	while (s->name && max) {
 		if (regexec(rc,s->name)) {
@@ -125,8 +120,23 @@ cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
 		s++;
 	}
 
-	if (rc) free(rc);
 	return s->name ? found : 0;
+}
+
+CexpSym
+cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
+{
+CexpSym	found;
+regexp	*rc;
+
+	if (!(rc=regcomp(re))) {
+		fprintf(stderr,"unable to compile regexp '%s'\n",re);
+		return 0;
+	}
+	found=_cexpSymTblLookupRegex(rc,max,s,f,t);
+
+	if (rc) free(rc);
+	return found;
 }
 
 CexpSymTbl

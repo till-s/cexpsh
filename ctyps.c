@@ -444,7 +444,8 @@ int i;
 		i=fprintf(f,"%20p",v->tv.p);
 	} else {
 		switch (v->type) {
-			default: assert(0=="type mismatch");
+			default:
+				assert(0=="type mismatch");
 			case TUChar:
 				i=fprintf(f,"0x%02x ('%c'==%i)",v->tv.c,v->tv.c,v->tv.c); break;
 			case TUShort:

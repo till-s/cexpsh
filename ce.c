@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <regexp.h>
 
 #ifdef YYDEBUG
 extern int yydebug;
@@ -29,6 +30,7 @@ usage(char *nm)
 
 #define DEBUG
 #ifdef DEBUG
+#include <math.h>
 double f,g,h;
 char c,d,e;
 int a,b;
@@ -45,19 +47,30 @@ void root(double * res, double n)
 static void *
 varprint(char *name, CexpTypedVal v, void *arg)
 {
-FILE *f=arg;
-	cexpTVPrintInfo(v,f);
-	fprintf(f,": %s\n",name);
+FILE	*f=stdout;
+regexp	*rc=arg;
+	if (regexec(rc,name)) {
+		cexpTVPrintInfo(v,f);
+		fprintf(f,": %s\n",name);
+	}
 	return 0;
 }
 
 /* alternate entries for the lookup functions */
 void
-lkup(char *regexp)
+lkup(char *re)
 {
+extern	CexpSym _cexpSymTblLookupRegex();
+regexp	*rc=0;
 CexpSym s;
 int		ch=0;
-	for (s=0; !ch && (s=cexpSymTblLookupRegex(regexp,25,s,0,0));) {
+
+	if (!(rc=regcomp(re))) {
+		fprintf(stderr,"unable to compile regexp '%s'\n",re);
+		return;
+	}
+
+	for (s=0; !ch && (s=_cexpSymTblLookupRegex(rc,25,s,0,0));) {
 		char *line;
 		line=readline("More (Y/n)?");
 		ch=line[0];
@@ -65,7 +78,9 @@ int		ch=0;
 		if ('Y'==toupper(ch)) ch=0;
 	}
 	printf("\nUSER VARIABLES:\n");
-	cexpVarWalk(varprint,(void*)stdout);
+	cexpVarWalk(varprint,(void*)rc);
+
+	if (rc) free(rc);
 }
 
 void

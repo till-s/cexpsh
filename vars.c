@@ -160,7 +160,7 @@ CexpVar n=(CexpVar)malloc(sizeof(*n) + strlen(name)+1);
 	}
 	__UNLOCK;
 	if (n) free(n);
-	return v;
+	return v ? &v->value : 0;
 }
 
 /* remove a variable

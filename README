@@ -366,6 +366,15 @@ the former. A shared object is shared among several entities
 using disjunct address spaces (e.g. different UNIX processes).
 Supporting shared objects involves PIC and GOTs.
 
+***********************************************************
+
+CEXP does _not_ support shared libraries! An attempt to run
+a loaded module that was compiled with '-fpic', '-fPIC'
+and/or linked with the '-shared' options will crash.
+
+***********************************************************
+
+
 To illustrate the difference, consider a LINUX system
 running two instances of the 'cexp' demo. 'cexp' is linked
 against glibc which is a shared library - both instances

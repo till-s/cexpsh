@@ -5,7 +5,7 @@
 # 	Template leaf node Makefile
 #
 
-APP=elf
+APP=cexp
 # APP_BSP = mvme2307
 APP_BSP = svgm5
 
@@ -89,7 +89,7 @@ LDFLAGS   +=
 #  'make clobber' already includes 'make clean'
 #
 
-#CLEAN_ADDITIONS += xxx-your-debris-goes-here
+CLEAN_ADDITIONS += cexp.tab.c cexp.tab.h
 CLOBBER_ADDITIONS +=
 
 all:	${ARCH} $(SRCS) $(PGMS)
@@ -108,6 +108,8 @@ ${ARCH}/rtems.gz: ${ARCH}/${APP}
 ${ARCH}/${APP}.bootimg: ${ARCH}/${APP} ${ARCH}/rtems.gz
 	(cd ${ARCH} ; $(LD) -o $(APP).bootimg $(RTMSLIBDIR)/bootloader.o --just-symbols=${APP} -bbinary rtems.gz -T$(RTMSLIBDIR)/ppcboot.lds -Map ${APP}.map)
 
+%.tab.c %.tab.h: %.y
+	bison -d $^
 
 # Install the program(s), appending _g or _p as appropriate.
 # for include files, just use $(INSTALL_CHANGE)

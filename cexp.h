@@ -82,6 +82,9 @@ cexpResetParserCtx(CexpParserCtx ctx, char *linebuf);
 void
 cexpFreeParserCtx(CexpParserCtx ctx);
 
+/* parse a line of input; the line buffer is part of
+ * the context that must be passed to this routine
+ */
 int
 yyparse(void*); /* pass a CexpParserCtx pointer */
 

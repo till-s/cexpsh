@@ -19,6 +19,10 @@
 #include <config.h>
 #endif
 
+#ifdef MDBG
+#include <mdbg.h>
+#endif
+
 #ifdef USE_GNU_READLINE /* (recommended) */
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -264,13 +268,17 @@ if (argc>oc.optind)
 if (!cexpSystemModule) {
 	if (!symfile)
 		fprintf(stderr,"Need a symbol file argument\n");
-	else if (cexpModuleLoad(symfile,"SYSTEM"))
+	else if (!cexpModuleLoad(symfile,"SYSTEM"))
 		fprintf(stderr,"Unable to load system symbol table\n");
 	if (!cexpSystemModule) {
 		usage(argv[0]);
 		return CEXP_MAIN_NO_SYMS;
 	}
 }
+
+#ifdef USE_MDBG
+mdbgInit();
+#endif
 
 do {
 	if (!(ctx=cexpCreateParserCtx())) {

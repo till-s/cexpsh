@@ -8,10 +8,6 @@
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 
-#ifdef USE_MDBG
-#include <mdbg.h>
-#endif
-
 #ifdef USE_ELF_STUFF
 #include "elf-bfd.h"
 #endif
@@ -144,7 +140,7 @@ printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
 		/* store a pointer to the external symbol, so we have
 		 * a handle even after the internal symbols are sorted
 		 */
-		cesp->value.ptv  = (CexpVal)asym;
+		cesp->value.ptv  = ext_sym;
 
 		if (asym->flags & BSF_GLOBAL)
 			cesp->flags |= CEXP_SYMFLG_GLBL;
@@ -162,7 +158,7 @@ cexpSymTabSetValues(CexpSymTbl cst)
 {
 CexpSym	cesp;
 	for (cesp=cst->syms; cesp->name; cesp++) {
-		asymbol *sp=(asymbol*)cesp->value.ptv;
+		asymbol *sp=*(asymbol**)cesp->value.ptv;
 		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
 	}
 }
@@ -223,6 +219,7 @@ char		buf[1000];
 		bfd_section_size(abfd,sect)
 	);
 
+printf("TSILL ASYMS  0x%08x\n", ld->st);
 	/* if there are relocations, resolve them */
 	if ((SEC_RELOC & sect->flags)) {
 		arelent **cr=0,r;
@@ -241,15 +238,12 @@ char		buf[1000];
 			free(cr);
 			return;
 		}
-		for (i=0; i<sect->reloc_count; i++) {
+		for (i=0; i<sz; i++) {
 			arelent *r=cr[i];
-			printf("relocating (%s=",
-					bfd_asymbol_name(*(r->sym_ptr_ptr))
-					);
 			if (bfd_is_und_section(bfd_get_section(*r->sym_ptr_ptr))) {
-				CexpModule mod;
-				CexpSym ts=cexpSymLookup(bfd_asymbol_name(*(r->sym_ptr_ptr)),&mod);
-				asymbol *sp;
+				CexpModule	mod;
+				asymbol		*sp;
+				CexpSym		ts=cexpSymLookup(bfd_asymbol_name((sp=*(r->sym_ptr_ptr))),&mod);
 				if (ts) {
 				/* Resolved reference; replace the symbol pointer
 				 * in this slot with a new asymbol holding the
@@ -270,9 +264,13 @@ char		buf[1000];
 		continue;
 				}
 			}
-			printf("0x%08x)->0x%08x\n",
+			printf("relocating (%s=",
+					bfd_asymbol_name(*(r->sym_ptr_ptr))
+					);
+			printf("0x%08x)->0x%08x [sym_ptr_ptr = 0x%08x]\n",
 			bfd_asymbol_value(*(r->sym_ptr_ptr)),
-			r->address);
+			r->address,
+			r->sym_ptr_ptr);
 
 			if ((err=bfd_perform_relocation(
 				abfd,
@@ -458,6 +456,9 @@ printf("TSILL align_pwr %i\n",tsill);
 	return 0;
 }
 
+#define TSILL(asyms) {int tsill; for (tsill=0; tsill<tsill_num_new_commons; tsill++) printf("TSILL %s, 0x%08x\n",bfd_asymbol_name(asyms[tsill]),bfd_asymbol_value(asyms[tsill])); } while (0)
+int tsill_num_new_commons;
+
 static int
 slurp_symtab(bfd *abfd, LinkData ld)
 {
@@ -485,16 +486,18 @@ long			num_new_commons;
 	/* do a sanity check */
 
 
-	if ((num_new_commons=resolve_syms(abfd,asyms,ld->depend))<0) {
+	if ((tsill_num_new_commons=num_new_commons=resolve_syms(abfd,asyms,ld->depend))<0) {
 		goto cleanup;
 	}
-		
+
+TSILL(asyms);	
 	/*
 	 *	sort st[0]..st[num_new_commons-1] by alignment
 	 */
 	if (align_size_compare && num_new_commons)
 		qsort((void*)asyms, num_new_commons, sizeof(*asyms), align_size_compare);
-
+	
+TSILL(asyms);	
 	/* Now, everything is in place to build our internal symbol table
 	 * representation.
 	 * We cannot do this later, because the size information will be lost.
@@ -507,6 +510,7 @@ long			num_new_commons;
 	if (0!=make_new_commons(abfd,asyms,num_new_commons))
 		goto cleanup;
 
+TSILL(asyms);	
 	ld->st=asyms;
 	asyms=0;
 
@@ -559,9 +563,6 @@ CexpSym			sane;
 	}
 
 	bfd_init();
-#ifdef USE_MDBG
-	mdbgInit();
-#endif
 
 	if ( ! (abfd=bfd_openr(filename,0)) ) {
 		bfd_perror("Opening object file");
@@ -594,7 +595,9 @@ CexpSym			sane;
 
 	ldr.errors=0;
 memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
+TSILL(ldr.st);	
 	bfd_map_over_sections(abfd, s_reloc, &ldr);
+TSILL(ldr.st);	
 	if (ldr.errors)
 		goto cleanup;
 
@@ -647,8 +650,5 @@ cleanup:
 	for (i=0; i<NUM_SEGS; i++)
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
 
-#ifdef USE_MDBG
-	printf("Memory leaks found: %i\n",mdbgPrint(0,0));
-#endif
 	return rval;
 }

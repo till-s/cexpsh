@@ -4,6 +4,11 @@ lib_LIBRARIES=libcexp.a
 ##BUILT_SOURCES = builddate.h
 SRCS = cexp.c ctyps.c bfdstuff.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h
 
+MDBG=/home/till/slac/xfm/src/mdbg/mdbg.o
+MDBGCFLAGS=-DUSE_MDBG -I$(dir $(MDBG))
+MDBGLDFLAGS= $(MDBG) -Wl,--wrap,malloc -Wl,--wrap,realloc -Wl,--wrap,calloc -Wl,--wrap,free
+
+
 include_HEADERS = cexp.h
 
 
@@ -12,11 +17,11 @@ xsyms_LDADD=-Llibelf-0.8.0/lib -lelf
 if !ISRTEMS
 CEXPPROG=cexp
 cexp_SOURCES=$(SRCS)
-cexp_CFLAGS=-DNO_THREAD_PROTECTION -Dcexp_main=main
-libcexp_a_CFLAGS=-DNO_THREAD_PROTECTION
+cexp_CFLAGS=-DNO_THREAD_PROTECTION -Dcexp_main=main $(MDBGCFLAGS)
+libcexp_a_CFLAGS=-DNO_THREAD_PROTECTION $(MDBGCFLAGS)
 #cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lregexp
 cexp_LDADD=-lbfd -liberty -Lregexp -lregexp
-cexp_LDFLAGS=-Wl,-Bstatic
+cexp_LDFLAGS=-Wl,-Bstatic $(MDBGLDFLAGS)
 endif
 
 bin_PROGRAMS=xsyms $(CEXPPROG)

@@ -6,6 +6,7 @@
 
 #include "cexp.h"
 #include "cexpmodP.h"
+#include "cexpsymsP.h"
 
 #ifdef USE_MDBG
 #include <mdbg.h>
@@ -21,8 +22,10 @@
 #define LD_WORDLEN		5
 #define BITMAP_DEPTH	((MAX_NUM_MODULES)>>(LD_WORDLEN))
 #define BITMAP_SET(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) |= (1<<((bitno)&((1<<LD_WORDLEN)-1))))
+#define BITMAP_CLR(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) &= ~(1<<((bitno)&((1<<LD_WORDLEN)-1))))
 #define BITMAP_TST(bm,bitno) (((bm)[(bitno)>>LD_WORDLEN]) &  (1<<((bitno)&((1<<LD_WORDLEN)-1))))
-typedef	unsigned		BitmapWord;
+#define BITMAP_DECLARE(bm)	BitmapWord bm[BITMAP_DEPTH]
+typedef	unsigned long	BitmapWord;
 
 /* an output segment description */
 typedef struct SegmentRec_ {
@@ -38,9 +41,13 @@ typedef struct SegmentRec_ {
 typedef struct LinkDataRec_ {
 	SegmentRec		segs[NUM_SEGS];
 	asymbol			**st;
+	CexpSymTbl		cst;
 	int				errors;
-	BitmapWord		depend[BITMAP_DEPTH];
+	BITMAP_DECLARE(depend);
 } LinkDataRec, *LinkData;
+
+static CexpSymTbl
+buildCexpSymtbl(asymbol **asyms, int num_new_commons);
 
 /* how to decide where a particular section should go */
 static Segment
@@ -83,6 +90,91 @@ asymbol			*spb=*(asymbol**)b;
 #define get_align_pwr(abfd,sp)	0
 #define align_size_compare		0
 #endif
+
+static const char *
+filter(void *ext_sym, void *closure)
+{
+asymbol *asym=*(asymbol**)ext_sym;
+
+		if ( !(BSF_KEEP & asym->flags) ||
+			 !((BSF_FUNCTION|BSF_OBJECT) & asym->flags) )
+			return 0;
+		return bfd_asymbol_name(asym);
+}
+
+static void
+assign(void *ext_sym, CexpSym cesp, void *closure)
+{
+asymbol		*asym=*(asymbol**)ext_sym;
+int			isnewcommon = ext_sym < closure;
+int			s;
+CexpType	t=TVoid;
+#ifdef USE_ELF_STUFF
+elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
+#define ELFSIZE(elfsp)	((elfsp)->internal_elf_sym.st_size)
+#else
+#define		elfsp 0
+#define	ELFSIZE(elfsp)	(0)
+#endif
+
+printf("TSILL, adding %s\n",bfd_asymbol_name(asym));
+
+
+		s = elfsp ? ELFSIZE(elfsp) : 0;
+
+		if (BSF_FUNCTION & asym->flags) {
+			t=TFuncP;
+			if (0==s)
+				s=sizeof(void(*)());
+		} else {
+			/* must be BFS_OBJECT */
+			if (isnewcommon) {
+				/* value holds the size */
+				s = bfd_asymbol_value(asym);
+			}
+			if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
+				t=TUChar;
+			} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
+				t=TUShort;
+			} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
+				t=TULong;
+			} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
+				t=TDouble;
+			} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
+				/* if sizeof(float) == sizeof(long), long has preference */
+				t=TFloat;
+			} else {
+				/* if it's bigger than double, leave it (void*) */
+			}
+		}
+
+		cesp->size = s;
+		cesp->value.type = t;
+		/* store a pointer to the external symbol, so we have
+		 * a handle even after the internal symbols are sorted
+		 */
+		cesp->value.ptv  = (CexpVal)asym;
+
+		if (asym->flags & BSF_GLOBAL)
+			cesp->flags |= CEXP_SYMFLG_GLBL;
+		if (asym->flags & BSF_WEAK)
+			cesp->flags |= CEXP_SYMFLG_WEAK;
+
+		/* can only set the value after relocation */
+}
+
+/* call this after relocation to assign the internal
+ * symbol representation their values
+ */
+void
+cexpSymTabSetValues(CexpSymTbl cst)
+{
+CexpSym	cesp;
+	for (cesp=cst->syms; cesp->name; cesp++) {
+		asymbol *sp=(asymbol*)cesp->value.ptv;
+		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
+	}
+}
 
 static void
 s_count(bfd *abfd, asection *sect, PTR arg)
@@ -184,22 +276,22 @@ char		buf[1000];
 				} else {
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
+		continue;
 				}
-			} else {
-				printf("0x%08x)->0x%08x\n",
-				bfd_asymbol_value(*(r->sym_ptr_ptr)),
-				r->address);
+			}
+			printf("0x%08x)->0x%08x\n",
+			bfd_asymbol_value(*(r->sym_ptr_ptr)),
+			r->address);
 
-				if ((err=bfd_perform_relocation(
-					abfd,
-					r,
-					(PTR)bfd_get_section_vma(abfd,sect),
-					sect,
-					0 /* output bfd */,
-					0))) {
-					bfd_perror("Relocation failed");
-					ld->errors++;
-				}
+			if ((err=bfd_perform_relocation(
+				abfd,
+				r,
+				(PTR)bfd_get_section_vma(abfd,sect),
+				sect,
+				0 /* output bfd */,
+				0))) {
+				bfd_perror("Relocation failed");
+				ld->errors++;
 			}
 		}
 		free(cr);
@@ -246,6 +338,14 @@ CexpModule	mod;
 		ts=cexpSymLookup(bfd_asymbol_name(sp), &mod);
 
 		if (bfd_is_und_section(sect)) {
+			/* do some magic on symbols which _do_ have a
+			 * type. These are probably sitting in a shared
+			 * library but _do_ have a valid value.
+			 */
+			if (!ts && bfd_asymbol_value(sp) && (BSF_FUNCTION & sp->flags)) {
+					sp->flags |= BSF_KEEP;
+			}
+			/* resolve references at relocation time */
 #if 0
 			if (ts) {
 				/* Resolved reference; replace the symbol pointer
@@ -366,41 +466,40 @@ printf("TSILL align_pwr %i\n",tsill);
 	return 0;
 }
 
-static asymbol **
-slurp_symtab(bfd *abfd, BitmapWord *depend)
+static int
+slurp_symtab(bfd *abfd, LinkData ld)
 {
-asymbol 		**rval=0;
-long			i;
+asymbol 		**asyms=0;
+long			i,nsyms;
 long			num_new_commons;
 
 	if (!(HAS_SYMS & bfd_get_file_flags(abfd))) {
 		fprintf(stderr,"No symbols found\n");
-		return 0;
+		return -1;
 	}
 	if ((i=bfd_get_symtab_upper_bound(abfd))<0) {
 		fprintf(stderr,"Fatal error: illegal symtab size\n");
-		return 0;
+		return -1;
 	}
 	if (i) {
-		rval=(asymbol**)xmalloc(i);
+		asyms=(asymbol**)xmalloc(i);
 	}
-	if (bfd_canonicalize_symtab(abfd,rval) <= 0) {
+	nsyms= i/sizeof(asymbol*) - 1;
+	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {
 		bfd_perror("Canonicalizing symtab");
-		free(rval);
-		return 0;
+		goto cleanup;
 	}
 
 
-	if ((num_new_commons=resolve_syms(abfd,rval,depend))<0) {
-		free(rval);
-		return 0;
+	if ((num_new_commons=resolve_syms(abfd,asyms,ld->depend))<0) {
+		goto cleanup;
 	}
 		
 	/*
 	 *	sort st[0]..st[num_new_commons-1] by alignment
 	 */
 	if (align_size_compare && num_new_commons)
-		qsort((void*)rval, num_new_commons, sizeof(*rval), align_size_compare);
+		qsort((void*)asyms, num_new_commons, sizeof(*asyms), align_size_compare);
 
 	/* Now, everything is in place to build our internal symbol table
 	 * representation.
@@ -409,15 +508,21 @@ long			num_new_commons;
 	 * after relocation has been performed.
 	 */
 
-	/* TODO buildCexpSymtab(); */
+	ld->cst=cexpCreateSymTbl(asyms, sizeof(*asyms), nsyms, filter, assign, asyms+num_new_commons);
 
-	if (0!=make_new_commons(abfd,rval,num_new_commons)) {
-		free(rval);
-		/* TODO destroyCexpSymtab(); */
-		return 0;
+	if (0!=make_new_commons(abfd,asyms,num_new_commons))
+		goto cleanup;
+
+	ld->st=asyms;
+	asyms=0;
+
+cleanup:
+	if (asyms) {
+		free(asyms);
+		return -1;
 	}
 
-	return rval;
+	return 0;
 }
 
 static int
@@ -459,7 +564,7 @@ typedef struct CexpModuleRec_ {
 static long
 module_id_alloc(void)
 {
-BitmapWord	used[BITMAP_DEPTH];
+BITMAP_DECL(used);
 BitmapWord  freebits;
 CexpModule	m;
 long		rval,i;
@@ -524,7 +629,7 @@ int				rval=1,i,j;
 		goto cleanup;
 	}
 
-	if (!(ldr.st=slurp_symtab(abfd,ldr.depend))) {
+	if (slurp_symtab(abfd,&ldr)) {
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
 	}
@@ -545,7 +650,7 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 	if (ldr.errors)
 		goto cleanup;
 
-	/* TODO: setCexpSymtabValues() */
+	cexpSymTabSetValues(ldr.cst);
 
 	flushCache(&ldr);
 
@@ -560,15 +665,22 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 
 	*/
 
-	rval=0;
 
+	/* move the relevant data over to the module */
 	mod->memSeg  = ldr.segs[ONLY_SEG].chunk;
 	mod->memSize = ldr.segs[ONLY_SEG].size;
 	ldr.segs[ONLY_SEG].chunk=0;
 
+	mod->symtbl  = ldr.cst;
+	ldr.cst=0;
+
+	rval=0;
 
 cleanup:
 	if (ldr.st) free(ldr.st);
+
+	if (ldr.cst)
+		cexpFreeSymTbl(&ldr.cst);
 	if (abfd) bfd_close_all_done(abfd);
 	for (i=0; i<NUM_SEGS; i++)
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);

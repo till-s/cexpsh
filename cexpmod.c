@@ -80,7 +80,6 @@ CexpSym
 _cexpSymLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpModule *pmod)
 {
 CexpModule	m,mfound;
-CexpSymTbl	t;
 
     if (max<1)  max=25;
     if (!f)     f=stdout;

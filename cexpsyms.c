@@ -55,32 +55,6 @@ CexpSymRec key;
 				_cexp_namecomp);
 }
 
-/* a semi-public routine which takes a precompiled regexp.
- * The reason this is not public is that we try to keep
- * the public from having to deal with/know about the regexp
- * implementation, i.e. which variant, which headers etc.
- */
-CexpSym
-_cexpSymTblLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
-{
-CexpSym	found=0;
-
-	if (max<1)	max=25;
-	if (!f)		f=stdout;
-	if (!s)		s=t->syms;
-
-	while (s->name && max) {
-		if (regexec(rc,s->name)) {
-			cexpSymPrintInfo(s,f);
-			max--;
-			found=s;
-		}
-		s++;
-	}
-
-	return s->name ? found : 0;
-}
-
 #define USE_ELF_MEMORY
 
 #ifdef HAVE_RCMD
@@ -212,6 +186,32 @@ cleanup:
 }
 #endif
 
+/* a semi-public routine which takes a precompiled regexp.
+ * The reason this is not public is that we try to keep
+ * the public from having to deal with/know about the regexp
+ * implementation, i.e. which variant, which headers etc.
+ */
+CexpSym
+_cexpSymTblLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
+{
+CexpSym	found=0;
+
+	if (max<1)	max=25;
+	if (!f)		f=stdout;
+	if (!s)		s=t->syms;
+
+	while (s->name && max) {
+		if (regexec(rc,s->name)) {
+			cexpSymPrintInfo(s,f);
+			max--;
+			found=s;
+		}
+		s++;
+	}
+
+	return s->name ? found : 0;
+}
+
 CexpSym
 cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
@@ -227,6 +227,84 @@ regexp	*rc;
 	if (rc) free(rc);
 	return found;
 }
+
+CexpSymTbl
+cexpCreateSymTbl(void *syms, int symSize, int nsyms, CexpSymFilterProc filter, CexpSymAssignProc assign, void *closure)
+{
+char		*sp,*dst;
+const char	*symname;
+CexpSymTbl	rval;
+CexpSym		cesp;
+int			n,nDstSyms,nDstChars;
+
+	if (!(rval=(CexpSymTbl)malloc(sizeof(*rval))))
+			return 0;
+
+	memset(rval,0,sizeof(*rval));
+	
+	/* count the number of valid symbols */
+	for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp+=symSize,n++) {
+			if ((symname=filter(sp,closure))) {
+				nDstChars+=strlen(symname)+1;
+				nDstSyms++;
+			}
+	}
+
+	rval->nentries=nDstSyms;
+
+	/* create our copy of the symbol table - the object format contains
+	 * many things we're not interested in and also, it's not
+	 * sorted...
+	 */
+		
+	/* allocate all the table space */
+	if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
+		goto cleanup;
+
+	if (!(rval->strtbl=(char*)malloc(nDstChars)) ||
+        !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
+		goto cleanup;
+
+	/* now copy the relevant stuff */
+	for (sp=syms,n=0,cesp=rval->syms,dst=rval->strtbl; n<nsyms; sp+=symSize,n++) {
+		CexpType t;
+		if ((symname=filter(sp,closure))) {
+				memset(cesp,0,sizeof(*cesp));
+				/* copy the name to the string table and put a pointer
+				 * into the symbol table.
+				 */
+				cesp->name=dst;
+				while ((*(dst++)=*(symname++)))
+						/* do nothing else */;
+				cesp->flags = 0;
+				rval->aindex[cesp-rval->syms]=cesp;
+
+				assign(sp,cesp,closure);
+
+				
+				cesp++;
+		}
+	}
+
+	/* mark the last table entry */
+	cesp->name=0;
+	/* sort the tables */
+	qsort((void*)rval->syms,
+		rval->nentries,
+		sizeof(*rval->syms),
+		_cexp_namecomp);
+	qsort((void*)rval->aindex,
+		rval->nentries,
+		sizeof(*rval->aindex),
+		_cexp_addrcomp);
+
+	return rval;
+
+cleanup:
+	cexpFreeSymTbl(&rval);
+	return 0;
+}
+
 
 
 void

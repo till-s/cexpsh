@@ -14,7 +14,7 @@ CEXPPROG=cexp
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS=-DNO_THREAD_PROTECTION -Dcexp_main=main
 libcexp_a_CFLAGS=-DNO_THREAD_PROTECTION
-##cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lregexp
+#cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lregexp
 cexp_LDADD=-lbfd -liberty -Lregexp -lregexp
 cexp_LDFLAGS=-Wl,-Bstatic
 endif

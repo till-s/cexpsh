@@ -31,8 +31,6 @@
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
 
-#define  SYSTAB_NAME "SYSTEM"
-
 /* filter the symbol table entries we're interested in */
 
 /* NOTE: this routine defines the CexpType which is assigned
@@ -42,49 +40,82 @@
  *       All of this knowledge / heuristics is concentrated
  *       in one place, namely HERE.
  */
-static int
-filter(Elf32_Sym *sp,CexpType *pt)
+static const char *
+filter(void *ext_sym, void *closure)
 {
+Elf32_Sym	*sp=ext_sym;
+char		*strtab=closure;
+
 	switch (ELF32_ST_TYPE(sp->st_info)) {
 	case STT_OBJECT:
-		if (pt) {
-			CexpType t;
-			int s=sp->st_size;
-			/* determine the type of variable */
+	case STT_FUNC:
+	case STT_NOTYPE:
+	return strtab + sp->st_name;
 
-			if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
-				t=TUChar;
-			} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
-				t=TUShort;
-			} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
-				t=TULong;
-			} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
-				t=TDouble;
-			} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
-				/* if sizeof(float) == sizeof(long), long has preference */
-				t=TFloat;
-			} else {
-				/* if it's bigger than double, leave it (void*) */
-				t=TVoid;
-			}
-			*pt=t;
+	default:
+	break;
+	}
+
+	return 0;
+
+}
+
+static void
+assign(void *symp, CexpSym cesp, void *closure)
+{
+Elf32_Sym	*sp=symp;
+CexpType	t;
+int 		s=sp->st_size;
+
+	cesp->size = s;
+
+	t=TVoid;
+
+	switch (ELF32_ST_TYPE(sp->st_info)) {
+	case STT_OBJECT:
+		/* determine the type of variable */
+
+		if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
+			t=TUChar;
+		} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
+			t=TUShort;
+		} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
+			t=TULong;
+		} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
+			t=TDouble;
+		} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
+			/* if sizeof(float) == sizeof(long), long has preference */
+			t=TFloat;
+		} else {
+			/* if it's bigger than double, leave it (void*) */
 		}
 	break;
 
 	case STT_FUNC:
-		if (pt) *pt=TFuncP;
+		t=TFuncP;
 	break;
 
 	case STT_NOTYPE:
-		if (pt) *pt=TVoidP;
+		t=TVoidP;
 	break;
 
 	default:
-	return 0;
+	break;
+
 	}
 
-	return 1;
+	cesp->value.type = t;
+
+	switch(ELF32_ST_BIND(sp->st_info)) {
+		case STB_GLOBAL: cesp->flags|=CEXP_SYMFLG_GLBL; break;
+		case STB_WEAK  : cesp->flags|=CEXP_SYMFLG_WEAK; break;
+		default:
+			break;
+	}
+
+	cesp->value.ptv  = (CexpVal)sp->st_value;
 }
+
 
 #define USE_ELF_MEMORY
 
@@ -184,96 +215,22 @@ int			fd=-1;
 		goto cleanup;
 
 	/* get the string table */
-	if ((rval=(CexpSymTbl)malloc(sizeof(*rval)))) {
-		long		n,nsyms,nDstSyms,nDstChars;
-		char		*strtab,*src,*dst;
-		Elf32_Sym	*syms, *sp;
+	{
+		long		nsyms;
+		Elf32_Sym	*syms;
 		CexpSym		cesp;
-
-		memset((void*)rval, 0, sizeof(*rval));
+		char		*strtab;
 
 		strtab=(char*)elf_getdata(elf_getscn(elf,shdr->sh_link),0)->d_buf;
 		syms=(Elf32_Sym*)elf_getdata(scn,0)->d_buf;
 
 		nsyms=shdr->sh_size/shdr->sh_entsize;
 
-		/* count the number of valid symbols */
-		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp++,n++) {
-			if (filter(sp,0)) {
-				nDstChars+=(strlen(strtab+sp->st_name) + 1);
-				nDstSyms++;
-			}
-		}
-
-		/* name of this  symbol table */
-		nDstChars+=strlen(SYSTAB_NAME)+1;
-
-		rval->nentries=nDstSyms;
-
-		/* create our copy of the symbol table - ELF contains
-		 * many things we're not interested in and also, it's not
-		 * sorted...
-		 */
-		
-		/* allocate all the table space */
-		if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
+		if (!(rval=cexpCreateSymTbl((void*)syms,sizeof(*syms),nsyms,filter,assign,(void*)strtab)))
 			goto cleanup;
 
-
-		if (!(rval->strtbl=(char*)malloc(nDstChars)) ||
-                    !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
-			goto cleanup;
-
-		/* name of this table */
-		dst=rval->strtbl;
-		src=SYSTAB_NAME;
-		while (*(dst++)=*(src++))
-			/* nothing else to do */;
-		rval->name = rval->strtbl;
-
-		/* now copy the relevant stuff */
-		for (sp=syms,n=0,cesp=rval->syms; n<nsyms; sp++,n++) {
-			CexpType t;
-			if (filter(sp,&t)) {
-				/* copy the name to the string table and put a pointer
-				 * into the symbol table.
-				 */
-				cesp->name=dst;
-				src=strtab+sp->st_name;
-				while ((*(dst++)=*(src++)))
-						/* do nothing else */;
-
-				cesp->size = sp->st_size;
-				cesp->flags = 0;
-				switch(ELF32_ST_BIND(sp->st_info)) {
-					case STB_GLOBAL: cesp->flags|=CEXP_SYMFLG_GLBL; break;
-					case STB_WEAK  : cesp->flags|=CEXP_SYMFLG_WEAK; break;
-					default:
-						break;
-				}
-
-				cesp->value.type = t;
-				cesp->value.ptv  = (CexpVal)sp->st_value;
-				rval->aindex[cesp-rval->syms]=cesp;
-				
-				cesp++;
-			}
-		}
-		/* mark the last table entry */
-		cesp->name=0;
-		/* sort the tables */
-		qsort((void*)rval->syms,
-			rval->nentries,
-			sizeof(*rval->syms),
-			_cexp_namecomp);
-		qsort((void*)rval->aindex,
-			rval->nentries,
-			sizeof(*rval->aindex),
-			_cexp_addrcomp);
-	} else {
-		goto cleanup;
 	}
-	
+
 
 	elf_cntl(elf,ELF_C_FDDONE);
 	elf_end(elf); elf=0;

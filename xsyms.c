@@ -15,7 +15,7 @@
 #include  <fcntl.h>
 #include  <sys/stat.h>
 #include  <stdio.h>
-#include  <elf.h>
+/* #include  <elf.h> */
 #include  <libelf/libelf.h>
 #include  <stdlib.h>
 #include  <string.h>
@@ -79,6 +79,10 @@ Elf32_Shdr  *nshdr, *shdr=elf32_getshdr(from);
 	}
 	return to;
 }
+
+#ifndef xsyms_main
+#define xsyms_main main
+#endif
 
 int
 xsyms_main(int argc, char ** argv)

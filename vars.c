@@ -132,7 +132,7 @@ void
 cexpVarInit(void)
 {
 /* initialize the global lock */
-cexpLockInit(&_varlock);
+cexpLockCreate(&_varlock);
 __LOCK;
 	/* use gblList.name as an indicator for the
 	 * very first call...

@@ -45,7 +45,6 @@ void yyerror();
 int  yylex();
 
 typedef struct CexpParserCtxRec_ {
-	CexpSymTbl		symtbl;
 	char			*chpt;
 	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	CexpTypedValRec	rval;
@@ -670,7 +669,7 @@ char *chpt;
 			return KW_LONG;
 		else if (!strcmp(sbuf,"double"))
 			return KW_DOUBLE;
-		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
+		else if ((rval->sym=cexpSymTblLookup(sbuf, 0)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
 		else if ((rval->uvar.plval=cexpVarLookup(sbuf,0))) {
 #ifdef CONFIG_STRINGS_LIVE_FOREVER
@@ -823,7 +822,6 @@ CexpParserCtx	ctx=0;
 	if (t) {
 		assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
 		memset(ctx,0,sizeof(*ctx));
-		ctx->symtbl = t;
 	}
 	return ctx;
 }
@@ -839,9 +837,6 @@ cexpResetParserCtx(CexpParserCtx ctx, char *buf)
 void
 cexpFreeParserCtx(CexpParserCtx ctx)
 {
-#if 0	/* leave the symbol table alone */
-	cexpFreeSymTbl(&ctx->symtbl);
-#endif
 	releaseStrings(ctx);
 }
 

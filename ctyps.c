@@ -566,12 +566,14 @@ DB				dargs[MAXDBLARGS];
 					err="Too many double arguments";
 					goto cleanup;
 				}
+				err=cexpTypeCast(v,TDouble,0);
 				dargs[fpargs++]=v->tv.d;
 			} else {
 				if (nargs>=MAXINTARGS) {
 					err="Too many integer arguments";
 					goto cleanup;
 				}
+				err=cexpTypeCast(v,TULong,0);
 				iargs[nargs++]=v->tv.l;
 			}
 		}

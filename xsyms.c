@@ -99,6 +99,7 @@ fprintf(stderr,"       -p really 'purge' other sections rather than setting\n");
 fprintf(stderr,"          their size to zero (default)\n");
 fprintf(stderr,"       -z dont 'purge' other sections; just set their size to zero\n");
 fprintf(stderr,"       -C generate a  C-source file for building into the executable\n");
+fprintf(stderr,"       -a (UNSUPPORTED) determine BFD target CPU architecture\n");
 }
 
 static Elf_Scn *
@@ -142,6 +143,7 @@ unsigned int   cnt;
 char           *optstr="phzC";
 int            purge=1;
 int            gensrc = 0;
+int            dumparch=0;
 
 	while ((ch=getopt(argc, argv, optstr))>0) {
 		switch (ch) {
@@ -154,7 +156,14 @@ int            gensrc = 0;
 				purge=0; break;
 			case 'C':
 				gensrc=1; break;
+			case 'a':
+				dumparch=1; break;
 		}
+	}
+
+	if ( dumparch ) {
+		printf("unknown");
+		return 0;
 	}
 
 	if (argc>optind) {

@@ -577,6 +577,27 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 	return 0;
 }
 
+CexpType
+cexpTypeGuessFromSize(int s)
+{
+CexpType t = TVoid;
+	if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
+		t=TUChar;
+	} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
+		t=TUShort;
+	} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
+		t=TULong;
+	} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
+		t=TDouble;
+	} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
+		/* if sizeof(float) == sizeof(long), long has preference */
+		t=TFloat;
+	} else {
+		/* if it's bigger than double, leave it (void*) */
+	}
+	return t;
+}
+
 #define UL unsigned long
 #define DB double
 #define AA CexpTypedVal

@@ -51,7 +51,13 @@
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 #include "cexplock.h"
+#define _INSIDE_CEXP_
 #include "cexpHelp.h"
+
+#ifdef HAVE_BFD_DISASSEMBLER
+#include <bfd.h>
+extern void cexpDisassemblerInstall(bfd *abfd);
+#endif
 
 CexpModule cexpSystemModule=0;
 
@@ -508,6 +514,89 @@ CexpModule	m;
 	return 0;
 }
 
+static CexpSym cexpNoBuiltinSymbols = 0;
+char           *cexpBuiltinCpuArch  = 0;
+
+extern CexpSym cexpSystemSymbols __attribute__((weak, alias("cexpNoBuiltinSymbols")));
+
+static int
+cexpLoadBuiltinSymtab(CexpModule nmod)
+{
+int nsyms, nsect_syms, i;
+CexpSym s;
+	if ( !cexpSystemSymbols ) {
+		fprintf(stderr,"No builtin symbol list found\n");
+		return -1;
+	}
+
+	for ( nsect_syms = nsyms=0; cexpSystemSymbols[nsyms].name; nsyms++ ) {
+		if ( cexpSystemSymbols[nsyms].flags & CEXP_SYMFLG_SECT )
+			nsect_syms++;
+	}
+
+	if ( !(nmod->symtbl = cexpCreateSymTbl(cexpSystemSymbols, sizeof(*cexpSystemSymbols), nsyms, 0, 0, 0)) ) {
+		fprintf(stderr,"Reading builtin system symbol table failed\n");
+		return -1;
+	}
+
+	nmod->text_vma = 0xdeadbeef;
+
+	nmod->section_syms = malloc( (nsect_syms + 1) * sizeof(CexpSym) );
+	for ( i = 0, s = cexpSystemSymbols, nsect_syms = 0; i<nsyms; i++, s++ ) {
+		if ( s->flags & CEXP_SYMFLG_SECT ) {
+			nmod->section_syms[nsect_syms++] = s;
+			if ( !strcmp(".text",s->name) ) {
+				nmod->text_vma = (unsigned long)s->value.ptv;
+			}
+		}
+		/* guess type */
+		if ( TVoid == s->value.type )
+			s->value.type = cexpTypeGuessFromSize(s->size);
+	}
+	nmod->section_syms[nsect_syms] = 0; /* tag end */
+
+#ifdef HAVE_BFD_DISASSEMBLER
+	/* finding our BFD architecture turns out to be non-trivial! */
+	{
+	bfd *abfd;
+	const bfd_arch_info_type *ai = 0;
+	char	      *tn = 0;
+	const char **tgts = 0;
+		/* must open a BFD for the default target */
+		if ( !(tn=malloc(L_tmpnam)) || !tmpnam(tn) || !(abfd=bfd_openw(tn,"default")) ) {
+			fprintf(stderr,"cexpLoadBuiltinSymtab(): unable to open a dummy BFD for determining disassembler arch\n");
+			goto cleanup;
+		}
+		if ( cexpBuiltinCpuArch ) {
+			if ( !(ai=bfd_scan_arch(cexpBuiltinCpuArch)) )
+				fprintf(stderr,"cexpLoadBuiltinSymtab(): User supplied CPU Architecture '%s' invalid; trying default...\n",
+						cexpBuiltinCpuArch);
+		}
+		if ( !ai && (tgts=bfd_target_list()) && *tgts && (cexpBuiltinCpuArch = strrchr(*tgts,'-')) ) {
+			ai = bfd_scan_arch(++cexpBuiltinCpuArch);
+		}
+		if ( !ai ) {
+			cexpBuiltinCpuArch = 0;
+			fprintf(stderr,"Unable to determine target CPU architecture -- skipping disassembler installation");
+			goto cleanup;
+		}
+
+		abfd->arch_info = ai;
+		cexpDisassemblerInstall(abfd);
+
+cleanup:
+		if (abfd)
+			bfd_close_all_done(abfd);
+		if (tn) {
+			unlink(tn);
+			free(tn);
+		}
+		free(tgts);
+	}
+#endif
+	return 0;
+}
+
 
 CexpModule
 cexpModuleLoad(char *filename, char *modulename)
@@ -516,6 +605,9 @@ CexpModule m,tail,nmod,rval=0;
 
 	if (!modulename)
 		modulename=filename;
+
+	if (!modulename)
+		modulename="SYSTEM-BUILTIN";
 
 	if (!(nmod=(CexpModule)malloc(sizeof(*nmod))))
 		return 0;
@@ -546,8 +638,14 @@ CexpModule m,tail,nmod,rval=0;
 	}
 	strcpy(nmod->name,modulename);
 
-	if (cexpLoadFile(filename,nmod)) {
-		goto cleanup;
+	if ( filename ) {
+		if (cexpLoadFile(filename,nmod)) {
+			goto cleanup;
+		}
+	} else {
+		if (cexpLoadBuiltinSymtab(nmod)) {
+			goto cleanup;
+		}
 	}
 
 	/* add help tables */
@@ -556,7 +654,7 @@ CexpModule m,tail,nmod,rval=0;
 	int		max;
 	cexp_regex	*rc;
 		assert(rc=cexp_regcomp("^"CEXP_HELP_TAB_NAME));
-		for (found=0,max=1; found=_cexpSymTblLookupRegex(rc,&max,found,0,nmod->symtbl); found++,max=1) {
+		for (found=0,max=1; (found=_cexpSymTblLookupRegex(rc,&max,found,0,nmod->symtbl)); found++,max=1) {
 			cexpAddHelpToSymTab((CexpHelpTab)found->value.ptv, nmod->symtbl);
 		}
 	}

@@ -170,11 +170,18 @@ usage(char *nm)
 	fprintf(stderr, " [-d]");
 #endif
 	fprintf(stderr," [-s <symbol file>]");
+	fprintf(stderr," [-a <cpu_arch>]");
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
 	fprintf(stderr, "       -v print version information\n");
 	fprintf(stderr, "       -q quiet evaluation of scripts\n");
+#ifdef HAVE_BFD_DISASSEMBLER
+	fprintf(stderr, "       -a set default CPU architecture for disassembler\n");
+	fprintf(stderr, "          (effective with builtin symtable only)\n");
+#else
+	fprintf(stderr, "       -a IGNORED (no BFD disassembler support)\n");
+#endif
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
@@ -429,6 +436,8 @@ cexp_main(int argc, char **argv)
  */
 CexpContextOSD cexpCurrentContext=0;
 
+extern char *cexpBuiltinCpuArch;
+
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
 {
@@ -450,6 +459,7 @@ char				optstr[]={
 						'h',
 						'v',
 						's',':',
+						'a',':',
 #ifdef YYDEBUG
 						'd',
 #endif
@@ -472,6 +482,8 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 			break;
 		case 's': symfile=oc.optarg;
 			break;
+		case 'a': cexpBuiltinCpuArch = oc.optarg;
+			break;
 	}
 }
 
@@ -486,9 +498,11 @@ if (argc>oc.optind)
 }
 
 if (!cexpSystemModule) {
-	if (!symfile)
-		fprintf(stderr,"Need a symbol file argument\n");
-	else if (!cexpModuleLoad(symfile,"SYSTEM"))
+	if (!symfile) {
+		/* try to find a builtin table */
+		if ( !cexpModuleLoad(0,0) )
+			fprintf(stderr,"No builtin symbol table -- need a symbol file argument\n");
+	} else if (!cexpModuleLoad(symfile,"SYSTEM"))
 		fprintf(stderr,"Unable to load system symbol table\n");
 	if (!cexpSystemModule) {
 		usage(argv[0]);

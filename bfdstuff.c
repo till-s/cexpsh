@@ -62,6 +62,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <fcntl.h>
+#include <ctype.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -80,6 +81,7 @@
  */
 #define  boolean bfdddd_bbboolean
 #include <bfd.h>
+#include <libiberty.h>
 
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
@@ -244,6 +246,9 @@ copyFileToTmp(int fd, char *tmpfname);
 static void
 bfdCleanupCallback(CexpModule);
 
+static void
+bfdstuff_complete_init(CexpSymTbl);
+
 /* how to decide where a particular section should go */
 static Segment
 segOf(LinkData ld, asection *sect)
@@ -261,7 +266,7 @@ get_align_pwr(bfd *abfd, asymbol *sp)
 {
 register unsigned long rval=0,tst;
 elf_symbol_type *esp;
-	if (esp=elf_symbol_from(abfd, sp))
+	if ( (esp=elf_symbol_from(abfd, sp)) )
 		for (tst=1; tst<esp->internal_elf_sym.st_size; rval++)
 			tst<<=1;
 	return rval;
@@ -380,20 +385,7 @@ elf_symbol_type *elfsp=elf_symbol_from(ld->abfd, asym);
 				/* value holds the size */
 				s = bfd_asymbol_value(asym);
 			}
-			if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
-				t=TUChar;
-			} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
-				t=TUShort;
-			} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
-				t=TULong;
-			} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
-				t=TDouble;
-			} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
-				/* if sizeof(float) == sizeof(long), long has preference */
-				t=TFloat;
-			} else {
-				/* if it's bigger than double, leave it (void*) */
-			}
+			t = cexpTypeGuessFromSize(s);
 		}
 		/* last attempt: if there is no size info and no flag set,
 		 * at least look at the section; functions are in the text
@@ -1091,9 +1083,8 @@ asection	*csect;
 			 * in decreasing order according to their alignment requirements
 			 * (probably not supported on formats other than ELF)
 			 */
-			val=align_power(val,(
-							apwr=
-							get_align_pwr(abfd, *ld->new_commons[i])));
+			apwr = get_align_pwr(abfd, *ld->new_commons[i]);
+			val=align_power(val,apwr);
 #if DEBUG & DEBUG_COMMON
 			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(sp),apwr);
 #endif
@@ -1239,16 +1230,13 @@ void							*ehFrame=0;
 char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
-int								is_on_tftp, tftp_fd;
+int								is_on_tftp;
 struct stat						dummybuf;
 #endif
 
 enum bfd_architecture			arch;
 unsigned long					mach;
 char							*targ;
-static enum bfd_architecture	sysArch;
-static char						*sysTarg;
-static unsigned long			sysMach;
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -1267,6 +1255,12 @@ static unsigned long			sysMach;
 	}
 
 	bfd_init();
+	/* make sure initialization is complete in case the system symtab was
+	 * read using another method
+	 */
+	if (cexpSystemModule) 
+		bfdstuff_complete_init(cexpSystemModule->symtbl);
+
 	/* lazy init of regexp pattern */
 	if (!ctorDtorRegexp)
 		ctorDtorRegexp=cexp_regcomp(CTOR_DTOR_PATTERN);
@@ -1313,19 +1307,11 @@ static unsigned long			sysMach;
 	mach = bfd_get_mach(ldr.abfd);
 	targ = bfd_get_target(ldr.abfd);
 
-	if ( cexpSystemModule ) {
-		if ( sysArch != arch || sysMach != mach ) {
-			fprintf(stderr,"Architecture mismatch: this is a '%s/%s' system; refuse to load a '%s/%s' module\n",
-							sysTarg,
-							bfd_printable_arch_mach(sysArch,sysMach),
+	if ( !bfd_scan_arch(bfd_printable_name(ldr.abfd)) ) {
+		fprintf(stderr,"Architecture mismatch: refuse to load a '%s/%s' module\n",
 							targ,
 							bfd_printable_arch_mach(arch,mach));
-			goto cleanup;
-		}
-	} else {
-		sysArch = arch;
-		sysTarg = strdup(targ);
-		sysMach = mach;
+		goto cleanup;
 	}
 
 	/* get number of all ALLOC sections to compute the
@@ -1395,7 +1381,7 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		/* If no section name is found in this module's symtab
 		 * then it must be a previously loaded linkonce...
 		 */
-		if ( s = cexpSymTblLookup( (char*)*psym, ldr.cst ) )
+		if ( (s = cexpSymTblLookup( (char*)*psym, ldr.cst )) )
 			*psym = s;
 		else  {
 			s = cexpSymLookup( (char*)*psym, 0 );
@@ -1474,19 +1460,7 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 			buildCtorsDtors(&ldr);
 		}
 	} else {
-		/* initialize the my__[de]register_frame() pointers if possible */
-		if ((sane=cexpSymTblLookup("__register_frame",ldr.cst)))
-			my__register_frame=(void(*)(void*))sane->value.ptv;
-		if ((sane=cexpSymTblLookup("__deregister_frame",ldr.cst)))
-			my__deregister_frame=(void(*)(void*))sane->value.ptv;
-		if ((sane=cexpSymTblLookup("__cxa_finalize",ldr.cst)))
-			my__cxa_finalize=(void(*)(void*))sane->value.ptv;
-		my__dso_handle=cexpSymTblLookup(DSO_HANDLE_NAME,ldr.cst);
-
-		/* Handle special cases */
-		if ( my__cxa_finalize && !my__dso_handle ) {
-			assert(!"TODO: should create dummy '"DSO_HANDLE_NAME"' in system symbol table");
-		}
+		bfdstuff_complete_init(ldr.cst);
 	}
 
 	flushCache(&ldr);
@@ -1548,6 +1522,29 @@ cleanup:
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
 
 	return rval;
+}
+
+static void
+bfdstuff_complete_init(CexpSymTbl cst)
+{
+static int done = 0;
+CexpSym s;
+	if ( done )
+		return;
+	/* initialize the my__[de]register_frame() pointers if possible */
+	if ((s=cexpSymTblLookup("__register_frame",cst)))
+		my__register_frame=(void(*)(void*))s->value.ptv;
+	if ((s=cexpSymTblLookup("__deregister_frame",cst)))
+		my__deregister_frame=(void(*)(void*))s->value.ptv;
+	if ((s=cexpSymTblLookup("__cxa_finalize",cst)))
+		my__cxa_finalize=(void(*)(void*))s->value.ptv;
+	my__dso_handle=cexpSymTblLookup(DSO_HANDLE_NAME,cst);
+
+	/* Handle special cases */
+	if ( my__cxa_finalize && !my__dso_handle ) {
+		assert(!"TODO: should create dummy '"DSO_HANDLE_NAME"' in system symbol table");
+	}
+	done = 1;
 }
 
 static void

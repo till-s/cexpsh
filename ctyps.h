@@ -166,6 +166,9 @@ typedef enum {
 const char *
 cexpTypeInfoString(CexpType t);
 
+/* guess type based on size info (bytes) */
+CexpType cexpTypeGuessFromSize(int size);
+
 /* operations on typed values */
 
 /* NOTE: all of these routines return 0 on success and

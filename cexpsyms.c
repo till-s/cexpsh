@@ -427,7 +427,9 @@ CexpType	t=s->value.type;
 	return i;
 }
 
-/* do a binary search for an address returning its aindex number */
+/* do a binary search for an address returning its aindex number;
+ * if multiple entries exist, return the highest index.
+ */
 int
 cexpSymTblLkAddrIdx(void *addr, int margin, FILE *f, CexpSymTbl t)
 {

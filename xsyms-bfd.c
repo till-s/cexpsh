@@ -32,7 +32,7 @@ usage(char *nm)
 char *chpt=strrchr(nm,'/');
 if (chpt)
 	nm=chpt+1;
-fprintf(stderr,"usage: %s [-p] [-z] [-h] <infile> <outfile>\n", nm);
+fprintf(stderr,"usage: %s [-p] [-z] [-h] [-a] <infile> <outfile>\n", nm);
 fprintf(stderr,"       %s implementation using BFD\n",nm);
 fprintf(stderr,"	   $Id$\n\n");
 fprintf(stderr,"       strip an object file leaving only the symbol table\n");
@@ -40,6 +40,7 @@ fprintf(stderr,"       -h this info\n");
 fprintf(stderr,"       -p ignored (compatibility)\n");
 fprintf(stderr,"       -z ignored (compatibility)\n");
 fprintf(stderr,"       -C generate C-source file for building symtab into executable\n");
+fprintf(stderr,"       -a just print target machine description\n");
 }
 
 /* duplicate a string and replace/append a suffix */
@@ -74,7 +75,6 @@ asection *sect = bfd_get_section(s);
 	if ( BSF_LOCAL & s->flags ) {
 		/* keep local symbols only if they are section symbols of allocated sections */
 		if ((BSF_SECTION_SYM & s->flags) && (SEC_ALLOC & bfd_get_section_flags(abfd,sect))) {
-			printf("TSILL section sym %s\n", bfd_get_section_name(abfd, bfd_get_section(s)));
 			return 1;
 		} else {
 			return 0;
@@ -102,7 +102,7 @@ const char *sname = ( BSF_SECTION_SYM & ps->flags ) ?
 
 	*pstripped = strdup(sname);
 #ifdef LINKER_VERSION_SEPARATOR
-	if ( chpt = strchr(*pstripped, '@') ) {
+	if ( chpt = strchr(*pstripped, LINKER_VERSION_SEPARATOR) ) {
 		*chpt = 0;
 	}
 #endif
@@ -120,17 +120,20 @@ asymbol						**isyms=0, **osyms=0;
 int							rval=1;
 char						*ifilen,*ofilen = 0;
 int							gensrc=0;
+int							dumparch=0;
 
 	/* scan options */
-	while ( (i=getopt(argc, argv, "hpzC")) > 0 ) {
+	while ( (i=getopt(argc, argv, "ahpzC")) > 0 ) {
 		switch (i) {
 			case 'h': usage(argv[0]); exit(0);
 
 			default:
 					  fprintf(stderr,"Unknown option %c\n",i);
 			case 'p':
-			case 'z': break;
-			case 'C': gensrc=1; break;
+			case 'z':               break;
+
+			case 'C': gensrc   = 1; break;
+			case 'a': dumparch = 1; break;
 		}
 	}
 
@@ -151,6 +154,12 @@ int							gensrc=0;
 
 	if (!arch) {
 		fprintf(stderr,"Unable to determine architecture\n");
+		goto cleanup;
+	}
+
+	if (dumparch) {
+		printf("%s\n",bfd_printable_name(ibfd));
+		rval = 0;
 		goto cleanup;
 	}
 
@@ -216,11 +225,15 @@ int							gensrc=0;
 				continue;
 			getsname(ibfd, isyms[i], &stripped);
 
+
 			fprintf(ofeil,"extern int "DUMMY_ALIAS_PREFIX"%i;\n",i);
-			fprintf(ofeil,"asm(\".set "DUMMY_ALIAS_PREFIX"%i,%s\\n\");\n",i,stripped);
+			if ( isyms[i]->flags & BSF_SECTION_SYM )
+				printf("%s%i = ADDR( %s ) ;\n", DUMMY_ALIAS_PREFIX, i, stripped);
+			else
+				fprintf(ofeil,"asm(\".set "DUMMY_ALIAS_PREFIX"%i,%s\\n\");\n",i,stripped);
 			free(stripped);
 		}
-		fprintf(ofeil,"\n\nCexpSymRec cexpSystemSymbols[] = {\n");
+		fprintf(ofeil,"\n\nstatic CexpSymRec systemSymbols[] = {\n");
 		for ( i=0; i<nsyms; i++ ) {
 			const char *sname, *t = "TVoid";
 			char sbuf[100];
@@ -257,8 +270,12 @@ int							gensrc=0;
 			fprintf(ofeil,"\t\t.value.type =%s,\n",    t);
 			fprintf(ofeil,"\t\t.size       =%s,\n",    sbuf);
 			fprintf(ofeil,"\t\t.flags      =0");
-				if ( BSF_GLOBAL & f ) fprintf(ofeil,"|CEXP_SYMFLG_GLBL");
-				if ( BSF_WEAK   & f ) fprintf(ofeil,"|CEXP_SYMFLG_WEAK");
+				if ( BSF_GLOBAL & f )
+					fprintf(ofeil,"|CEXP_SYMFLG_GLBL");
+				if ( (BSF_WEAK  & f) &&
+				     /* weak in CEXP gets overridden by this table */
+				     strcmp("cexpSystemSymbols",sname) )
+					fprintf(ofeil,"|CEXP_SYMFLG_WEAK");
 				if ( BSF_SECTION_SYM & f ) fprintf(ofeil,"|CEXP_SYMFLG_SECT");
 			fprintf(ofeil,",\n");
 			fprintf(ofeil,"\t},\n");
@@ -268,6 +285,7 @@ int							gensrc=0;
 		fprintf(ofeil,"\t0, /* terminating record */\n");
 		fprintf(ofeil,"\t},\n");
 		fprintf(ofeil,"};\n");
+		fprintf(ofeil,"CexpSym cexpSystemSymbols = systemSymbols;\n");
 	} else {
 	for (i=0; i<nsyms; i++) {
 		osyms[i]          = bfd_make_empty_symbol(obfd);

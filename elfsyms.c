@@ -115,21 +115,7 @@ int 		s=sp->st_size;
 	switch (ELF32_ST_TYPE(sp->st_info)) {
 	case STT_OBJECT:
 		/* determine the type of variable */
-
-		if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
-			t=TUChar;
-		} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
-			t=TUShort;
-		} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
-			t=TULong;
-		} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
-			t=TDouble;
-		} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
-			/* if sizeof(float) == sizeof(long), long has preference */
-			t=TFloat;
-		} else {
-			/* if it's bigger than double, leave it (void*) */
-		}
+		t = cexpTypeGuessFromSize(s);
 	break;
 
 	case STT_FUNC:

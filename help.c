@@ -46,7 +46,7 @@
  */
 
 #include "cexpmod.h"
-#include "cexpsyms.h"
+#include "cexpsymsP.h"
 #include "cexp.h"
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
@@ -170,11 +170,16 @@ void
 cexpAddHelpToSymTab(CexpHelpTab h, CexpSymTbl t)
 {
 CexpSym found;
+int		i;
 	for (; h->addr; h++) {
-		if ((found=cexpSymTblLkAddr(h->addr,0,0,t))) {
-			if (found->value.ptv == h->addr) {
+		/* scan identical addresses skipping section symbols */
+		for ( i=cexpSymTblLkAddrIdx(h->addr,0,0,t);
+			  i>=0 && (found = t->aindex[i])->value.ptv == h->addr;
+		      i-- ) {
+			if (CEXP_SYMFLG_GLBL == found->flags & (CEXP_SYMFLG_GLBL|CEXP_SYMFLG_SECT)) {
 				found->help=h->info.text;
+				break;
 			}
-		}	
+		}
 	}
 }

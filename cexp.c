@@ -452,7 +452,7 @@ static char *getp(register char *p)
 char *e;
 char term;
 	p = skipsp(p);
-	if ( (term='\'') ==  *p || (term='"' == *p) ) {
+	if ( (term='\'') ==  *p || (term='"') == *p ) {
 		p++;
 		if ( (e = strchr(p,term)) ) {
 			/* '..' or ".." commented string -- no escapes supported */

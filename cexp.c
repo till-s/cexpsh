@@ -103,6 +103,31 @@ int		ch=0;
 }
 
 int
+whatis(char *name, FILE *f)
+{
+union {
+CexpSym			s;
+CexpTypedVal	tv;
+} v;
+int rval=-1;
+
+	if (!f) f=stdout;
+
+	if ((v.s=cexpSymTblLookup(name,0))) {
+		fprintf(f,"System Symbol Table:\n");
+		cexpSymPrintInfo(v.s,f);
+		rval=0;
+	}
+	if ((v.tv=cexpVarLookup(name,0))) {
+		fprintf(f,"User Variable:\n");
+		cexpTVPrintInfo(v.tv,stdout);
+		fprintf(f,": %s\n",name);
+		rval=0;
+	}
+	return rval;
+}
+
+int
 lkaddr(void *addr)
 {
 	cexpSymTblLkAddr(addr, 8, 0, 0);

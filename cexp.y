@@ -112,8 +112,28 @@ line:	'\n'
 							CHECK(cexpTypeCast(&$1,TDouble,0));
 							printf("%f\n",$1.tv.d);
 						}else {
-							CHECK(cexpTypeCast(&$1,TULong,0));
-							printf("0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
+							if (TUChar==$1.type) {
+								unsigned char c=$1.tv.c,e=0;
+								printf("0x%02x (%d)",c,c);
+								switch (c) {
+									case 0:	    e=1; c='0'; break;
+									case '\t':	e=1; c='t'; break;
+									case '\r':	e=1; c='r'; break;
+									case '\n':	e=1; c='n'; break;
+									case '\f':	e=1; c='f'; break;
+									default: 	break;
+								}
+								if (isprint(c)) {
+									fputc('\'',stdout);
+									if (e) fputc('\\',stdout);
+									fputc(c,stdout);
+									fputc('\'',stdout);
+								}
+								fputc('\n',stdout);
+							} else {
+								CHECK(cexpTypeCast(&$1,TULong,0));
+								printf("0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
+							}
 						}
 					}
 ;
@@ -387,9 +407,40 @@ char *chpt;
 	while (' '==ch || '\t'==ch)
 		getch();
 
-	if (isdigit(ch)) {
+	if (isdigit(ch) || '\''==ch) {
 		/* a number */
 		num=0;
+
+		if ('\''==ch) {
+			/* char constant */
+			getch();
+			num=ch;
+			if ('\\'==ch) {
+				getch();
+				/* escape sequence */
+				switch (ch) {
+					case 't': num='\t'; break;
+					case 'n': num='\n'; break;
+					case 'r': num='\r'; break;
+					case '0': num=0;	break;
+					case 'f': num='\f';	break;
+					case '\\': num='\\';break;
+					case '\'': num='\'';break;
+					default:
+						yyerror("Warning: unknown escape sequence, using unescaped char");
+						num=ch;
+					break;
+				}
+			}
+			getch();
+			if ('\''!=ch)
+				yyerror("Warning: missing closing '");
+			else
+				getch();
+			rval->val.tv.l=(unsigned char)num;
+			rval->val.type=TUChar;
+			return NUMBER;
+		}
 		chpt=sbuf;
 		if ('0'==ch) {
 			
@@ -511,6 +562,15 @@ char *chpt;
 		long rv=ch;
 		if (rv) getch();
 
+		/* comments? skip the rest of the line */
+		if ('#'==rv || ('/'==ch && '/'==rv)) {
+			while (ch && '\n'!=rv) {
+				rv=ch;
+				getch();
+			}
+			return '\n';
+		}
+
 		/* it's any kind of 'special' character such as
 		 * an operator etc.
 		 */
@@ -524,6 +584,7 @@ char *chpt;
 
 			case '<': if ('<'==rv) rv=SHL; break;
 			case '>': if ('>'==rv) rv=SHR; break;
+
 
 			case '=':
 				switch (rv) {

@@ -353,12 +353,19 @@ PrivSymTbl st=(PrivSymTbl)*pt;
 int
 cexpSymPrintInfo(CexpSym s, FILE *f)
 {
+CexpType t=s->value.type;
 	if (!f) f=stdout;
+
+	/* convert variables (which are internally treated as pointers)
+	 * to their base type for display
+	 */
+	if (!CEXP_TYPE_FUNQ(t))
+		t=CEXP_TYPE_PTR2BASE(t);	
 	return
-		fprintf(f,"0x%08lx[%4d] %s: %s\n",
+		fprintf(f,"0x%08lx[%4d]: %s %s\n",
 			(unsigned long)s->value.tv.p,
 			s->size,
-			cexpTypeInfoString(s->value.type),
+			cexpTypeInfoString(t),
 			s->name);
 }
 

@@ -4,16 +4,12 @@
 
 #include <stdio.h>
 
-typedef unsigned long (*CexpFuncPtr)();
+#include "ctyps.h"
 
 typedef struct CexpSymRec_ {
 	char			*name;
-	int				type;
+	CexpTypedValRec	value;
 	int				size;
-	union	{
-		CexpFuncPtr		func;
-		unsigned long	*addr;
-	}				val;
 } CexpSymRec, *CexpSym;
 
 typedef struct CexpSymTblRec_ {
@@ -67,7 +63,7 @@ cexpSymTblLookup(char *name, CexpSymTbl t);
 
 /* do a binary search for an address */
 CexpSym
-cexpSymTblLkAddr(unsigned long *addr, int margin, FILE *f, CexpSymTbl t);
+cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t);
 
 /* lookup a regular expression */
 CexpSym

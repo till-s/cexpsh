@@ -27,13 +27,38 @@
 
 /* filter the symbol table entries we're interested in */
 static int
-filter(Elf32_Sym *sp)
+filter(Elf32_Sym *sp,CexpType *pt)
 {
 
-	if ( STT_OBJECT  == ELF32_ST_TYPE(sp->st_info))
-		return VAR;
-	if ( STT_FUNC    == ELF32_ST_TYPE(sp->st_info))
-		return FUNC;
+	if (STT_OBJECT  == ELF32_ST_TYPE(sp->st_info)) {
+		if (pt) {
+			CexpType t;
+			int s=sp->st_size;
+			/* determine the type of variable */
+
+			if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
+				t=TUCharP;
+			} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
+				t=TUShortP;
+			} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
+				t=TULongP;
+			} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
+				t=TDoubleP;
+			} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
+				/* if sizeof(float) == sizeof(long), long has preference */
+				t=TFloatP;
+			} else {
+				/* if it's bigger than double, leave it (void*) */
+				t=TVoidP;
+			}
+			*pt=t;
+		}
+		return 1;
+	}
+	if ( STT_FUNC    == ELF32_ST_TYPE(sp->st_info)) {
+		if (pt) *pt=TFuncP;
+		return 1;
+	}
 	return 0;
 }
 
@@ -51,7 +76,7 @@ addrcomp(const void *a, const void *b)
 {
 	CexpSym *sa=(CexpSym*)a;
 	CexpSym *sb=(CexpSym*)b;
-	return (*sa)->val.addr-(*sb)->val.addr;
+	return (*sa)->value.tv.p-(*sb)->value.tv.p;
 }
 
 typedef struct PrivSymTblRec_ {
@@ -147,7 +172,7 @@ PrivSymTbl	rval=0;
 
 		/* count the number of valid symbols */
 		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp++,n++)
-			if (filter(sp)) {
+			if (filter(sp,0)) {
 				nDstChars+=(strlen(strtab+sp->st_name) + 1);
 				nDstSyms++;
 			}
@@ -170,8 +195,8 @@ PrivSymTbl	rval=0;
 
 		/* now copy the relevant stuff */
 		for (sp=syms,n=0,cesp=rval->stab.syms,dst=rval->strtbl; n<nsyms; sp++,n++) {
-			int t;
-			if ((t=filter(sp))) {
+			CexpType t;
+			if (filter(sp,&t)) {
 				/* copy the name to the string table and put a pointer
 				 * into the symbol table.
 				 */
@@ -182,21 +207,8 @@ PrivSymTbl	rval=0;
 
 				cesp->size = sp->st_size;
 
-				/* determine the type of variable */
-				if (VAR==(cesp->type=t)) {
-					cesp->val.addr=(unsigned long *)sp->st_value;
-					if (cesp->size<=2) {
-						cesp->type=SHORT_VAR;
-						if (cesp->size<=1) {
-							cesp->type=CHAR_VAR;
-							if (0==cesp->size)
-								cesp->type=LABEL;
-						}
-					}
-				} else {
-					/* FUNC */
-					cesp->val.func=(CexpFuncPtr)sp->st_value;
-				}
+				cesp->value.type = t;
+				cesp->value.tv.p = (void*)sp->st_value;
 				rval->aindex[cesp-rval->stab.syms]=cesp;
 				
 				cesp++;
@@ -270,31 +282,19 @@ PrivSymTbl st=(PrivSymTbl)*pt;
 int
 cexpSymPrintInfo(CexpSym s, FILE *f)
 {
-int	i;
-static char *types[]={
-		"FUNC ",
-		"ADDR ",
-		"char ",
-		"short",
-		"long ",
-	};
-	/* NOTE: we rely on the order of the token definitions
-     *       FUNC..LABEL in cexp.y
-	 */
-	assert((i=s->type-FUNC) >=0 && i<sizeof(types)/sizeof(types[0]));
 	if (!f) f=stdout;
 	return
 		fprintf(f,"0x%08lx[%4d] %s: %s\n",
-			(unsigned long)s->val.addr,
+			(unsigned long)s->value.tv.p,
 			s->size,
-			types[i],
+			cexpTypeInfoString(s->value.type),
 			s->name);
 }
 
 
 /* do a binary search for an address */
 CexpSym
-cexpSymTblLkAddr(unsigned long *addr, int margin, FILE *f, CexpSymTbl t)
+cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
 {
 PrivSymTbl	pt;
 int			lo,hi,mid;
@@ -305,7 +305,7 @@ int			lo,hi,mid;
 	lo=0; hi=t->nentries-1;
 	while (lo < hi) {
 		mid=(lo+hi)>>1;
-		if (addr > pt->aindex[mid]->val.addr)
+		if (addr > pt->aindex[mid]->value.tv.p)
 			lo=mid+1;
 		else
 			hi=mid;
@@ -350,8 +350,8 @@ CexpSym		symp;
 		symp=((PrivSymTbl)t)->aindex[nsyms];
 		fprintf(stderr,
 			"%02i 0x%08xx (%2i) %s\n",
-			symp->type,
-			symp->val.addr,
+			symp->value.type,
+			symp->value.tv.p,
 			symp->size,
 			symp->name);	
 		symp++;

@@ -73,7 +73,7 @@ lh el=a;
 
 typedef struct CexpVarRec_ {
 	lhR				head;
-	unsigned long	value;
+	CexpTypedValRec	value;
 	char			name[0];	/* name space is allocated contiguous */
 } CexpVarRec , *CexpVar;
 
@@ -125,7 +125,7 @@ CexpVar v;
 
 
 void *
-cexpVarLookup(char *name, unsigned long *prval)
+cexpVarLookup(char *name, CexpTypedVal prval)
 {
 CexpVar v;
 	if ((v=findN_LOCK(name))) *prval=v->value;
@@ -140,7 +140,7 @@ CexpVar v;
  * RETURNS nonzero value if set/create succeeds.
  */
 void *
-cexpVarSet(char *name, unsigned long val, int creat)
+cexpVarSet(char *name, CexpTypedVal val, int creat)
 {
 CexpVar v;
 CexpVar n=(CexpVar)malloc(sizeof(*n) + strlen(name)+1);
@@ -149,12 +149,12 @@ CexpVar n=(CexpVar)malloc(sizeof(*n) + strlen(name)+1);
 
 	if ((v=findN_LOCK(name))) {
 		/* variable found, write its value */
-		v->value=val;
+		v->value=*val;
 	} else if (creat && n) {
 		/* create variable / add to list */
 		lhrAdd(n,&gblList.head);
 		strcpy(n->name, name);
-		n->value=val;
+		n->value=*val;
 		v=n; n=0;
 	}
 	__UNLOCK;
@@ -187,11 +187,11 @@ varPrintList(void)
 CexpVar v,n=(CexpVar)gblList.head.n;
 	printf("\nreverse: \n");
 	for (v=(CexpVar)gblList.head.p; v; n=v, v=(CexpVar)v->head.p) {
-			printf("%10s 0x%8x ",v->name, v->value);
+			printf("%10s 0x%8x ",v->name, v->value.tv.l);
 	}
 	printf("\n\nforward: \n");
 	for (; n && n->head.n; n=(CexpVar)n->head.n) {
-			printf("%10s 0x%8x ",n->name, n->value);
+			printf("%10s 0x%8x ",n->name, n->value.tv.l);
 	}
 	printf("\n");
 }
@@ -203,6 +203,7 @@ char *line=0;
 char *name,*v;
 unsigned long value,f;
 void *i;
+CexpTypedValRec v;
 
   cexpVarInit();
 
@@ -239,7 +240,9 @@ void *i;
 					fprintf(stderr,"missing name and/or value\n");
 					break;
 				}
-				i=cexpVarSet(name,value,f);
+				v.type=TULong;
+				v.tv.l=value;
+				i=cexpVarSet(name,&v,f);
 			  	printf("\n%s %s\n",
 						f?"adding":"setting",
 						i?"success":"failure");
@@ -255,10 +258,10 @@ void *i;
 					printf("Deleting %s\n",
 							cexpVarDelete(name) ? "success" : "failure");
 				} else {
-					value=0xdeadbeef;
-					i=cexpVarLookup(name,&value);
+					v.tv.l=0xdeadbeef;
+					i=cexpVarLookup(name,&v);
 					printf("Var %sfound: 0x%x\n",
-							i ? "" : "not ", value);
+							i ? "" : "not ", v.tv.l);
 				}
 			break;
 	}

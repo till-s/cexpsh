@@ -27,7 +27,15 @@ usage(char *nm)
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 
-int a,b,c,d,e;
+#define DEBUG
+#ifdef DEBUG
+double f,g,h;
+char c,d,e;
+int a,b;
+
+void root(double * res, double n)
+{*res= sqrt(n);}
+#endif
 
 #ifdef __rtems
 #define main cexp_main
@@ -50,7 +58,7 @@ int		ch=0;
 }
 
 void
-lkaddr(unsigned long *addr)
+lkaddr(void *addr)
 {
 	cexpSymTblLkAddr(addr, 8, 0, 0);
 }

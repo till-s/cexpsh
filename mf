@@ -1,5 +1,5 @@
 ARCH=linux-x86
-PROG=sym
+PROG=ce
 CFLAGS=-g -O
 WRAP=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
@@ -10,10 +10,11 @@ YFLAGS=-d -y -ocexp.tab.c
 
 sym_OBJS=
 exmpl_OBJS=
-ce_OBJS=elfsyms.o cexp.tab.o vars.o
+ce_OBJS=elfsyms.o cexp.tab.o vars.o ctyps.o
 ce_CFLAGS=-DNO_THREAD_PROTECTION
-ce_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp
+ce_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp -lm
 elfsyms_CFLAGS=-DCEXP_TEST_MAIN
+elfsyms_OBJS=ctyps.o
 
 WRAP_OBJS_YES=wrap.o
 WRAP_OBJS_NO=

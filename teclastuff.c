@@ -54,6 +54,7 @@
 #include "cexpmod.h"
 #include "ctyps.h"
 #include "context.h"
+#include "teclastuff.h"
 
 #define	 MATCH_MAX	100
 

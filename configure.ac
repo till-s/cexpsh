@@ -40,6 +40,12 @@ AC_ARG_ENABLE(readline,
 		[disable using the readline library (used only if tecla is disabled)])
 )
 
+AC_ARG_WITH(rtems-notepad,
+	AC_HELP_STRING([--with-rtems-notepad=<notepad_number>],
+		[use an RTEMS notepad (0..14) to store context info instead of a task variable; NOTE: EPICS uses 11]),
+		AC_DEFINE_UNQUOTED(CEXP_RTEMS_NOTEPAD, $withval,  [use RTEMS notepad $withval for storing context info])
+)
+
 if test "$enable_YYDEBUG" != "no" ; then
 	AC_DEFINE(YYDEBUG,1,[  --enable-YYDEBUG whether to enable YYDEBUG])
 fi
@@ -47,7 +53,7 @@ fi
 if test "$enable_tecla" != "no" ; then
 	AC_CONFIG_SUBDIRS(libtecla-1.4.1)
 	AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
-	AC_CHECK_LIB(termcap,tgetnum,[LIBS="$LIBS -ltermcap"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
+	AC_CHECK_LIB(curses,tgetnum,[LIBS="$LIBS -lcurses"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
 else if test "$enable_readline" != "no" ; then
 	AC_CHECK_HEADER(readline/readline.h)
 	if test "$ac_cv_header_readline_readline_h" = "yes" ; then

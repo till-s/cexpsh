@@ -719,7 +719,7 @@ int			i,num_new_commons=0,errs=0;
 			if (ld->iniCallback) {
 				fprintf(stderr,
 						"Only one '%s' may be present in a loaded object\n",
-						CEXPMOD_INITINALIZER_SYM);
+						CEXPMOD_INITIALIZER_SYM);
 				errs++;
 			} else {
 				ld->iniCallback=syms+i;

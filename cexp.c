@@ -184,7 +184,7 @@ usage(char *nm)
 static void
 version(char *nm)
 {
-	fprintf(stderr,"This is %s release $Name$, build date %s\n",nm,cexp_build_date);
+	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
 }
 
 #ifdef DEBUG
@@ -243,7 +243,11 @@ struct winsize	win;
 
 #ifdef HAVE_TECLA
 		{
-		GlTerminalSize ts=gl_terminal_size(cexpContextGetCurrent()->gl, 80, 24);
+		CexpContext		context;
+		GlTerminalSize	ts;
+
+		cexpContextGetCurrent(&context);
+		ts = gl_terminal_size(context->gl, 80, 24);
 		nl = ts.nline;
 		}
 #else
@@ -385,7 +389,9 @@ CexpSigHandlerInstallProc cexpSigHandlerInstaller=0;
 void
 cexp_kill(int doWhat)
 {
-	longjmp(cexpContextGetCurrent()->jbuf,doWhat);
+CexpContext context;
+	cexpContextGetCurrent(&context);
+	longjmp(context->jbuf,doWhat);
 }
 
 static void
@@ -417,10 +423,12 @@ cexp_main(int argc, char **argv)
  */
 CexpContextOSD cexpCurrentContext=0;
 
+
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
 {
 CexpContextRec		context;	/* the public parts of this instance's context */
+CexpContext			myContext;
 FILE				*scr=0;
 char				*line=0,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
@@ -496,7 +504,9 @@ context.next=0;
 }
 #endif
 
-if (!cexpContextGetCurrent()) {
+cexpContextGetCurrent(&myContext);
+
+if (!myContext) {
 	/* topmost frame */
 #ifdef HAVE_TECLA
 	context.gl = new_GetLine(200,2000);
@@ -514,12 +524,13 @@ if (!cexpContextGetCurrent()) {
 } else {
 #ifdef HAVE_TECLA
 	/* re-use caller's line editor */
-	context.gl = cexpContextGetCurrent()->gl;
+	context.gl = myContext->gl;
 #endif
 }
 /* push our frame to the top */
-context.next=cexpContextGetCurrent();
-cexpContextSetCurrent(&context);
+context.next = myContext;
+myContext	 = &context;
+cexpContextSetCurrent(myContext);
 
 
 do {
@@ -598,8 +609,12 @@ cleanup:
 	
 } while (-1==rval);
 
-/* cexpContextSetCurrent() returns its argument for convenience */
-if ( ! cexpContextSetCurrent(cexpContextGetCurrent()->next) ) {
+/* pop our stack context from the chained list anchored 
+ * at the running thread
+ */
+myContext = myContext->next;
+cexpContextSetCurrent(myContext);
+if ( ! myContext ) {
 	/* we'll exit the topmost instance */
 #ifdef HAVE_TECLA
 	del_GetLine(context.gl);

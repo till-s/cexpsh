@@ -219,7 +219,8 @@ int				found;
 	}
 
 	if (!di) {
-		CexpContext currentContext = cexpContextGetCurrent();
+		CexpContext currentContext = 0;
+	    cexpContextGetCurrent(&currentContext);
 		assert(currentContext);
 		di = &currentContext->dinfo;
 	}

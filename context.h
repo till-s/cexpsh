@@ -59,11 +59,12 @@
  * current task's stack.
  *
  */
-#include "cexp.h"
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
+
+#include "cexp.h"
 
 #ifdef USE_EPICS_OSI
 /* BFD redefines INLINE if we don't include epicsThread.h first; sigh... */
@@ -95,8 +96,8 @@ typedef struct CexpContextRec_ {
 void				cexpContextRegister(void);
 void				cexpContextUnregister(void);
 /* retrieve/set the current task's context */
-CexpContext			cexpContextGetCurrent(void);
-CexpContext			cexpContextSetCurrent(CexpContext);
+void				cexpContextGetCurrent(CexpContext *);
+void				cexpContextSetCurrent(CexpContext);
 
 /* Note that the Register/Unregister and the Set/Get
  * semantics are actually two different approaches to
@@ -117,29 +118,34 @@ typedef CexpContext CexpContextOSD;
 #define cexpContextInitOnce()		do {} while (0)
 #define cexpContextRegister()		do {} while (0)
 #define cexpContextUnregister()		do {} while(0)
-#define cexpContextGetCurrent()		cexpCurrentContext
-#define cexpContextSetCurrent(c)	(cexpCurrentContext=(c))
+#define cexpContextGetCurrent(pc)	do { *(pc) = cexpCurrentContext;	} while (0)
+#define cexpContextSetCurrent(c)	do { cexpCurrentContext=(c);		} while (0)
 
-#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) { (*(pdone))++; fn(0); } } while (0)
+#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) {							\
+												(*(pdone))++; fn(0);					\
+											 }											\
+									} while (0)
 
 #elif defined(USE_EPICS_OSI)
 
 typedef epicsThreadPrivateId	CexpContextOSD;
 
-#define cexpContextInitOnce()	do { if (!cexpCurrentContext) cexpCurrentContext = epicsThreadPrivateCreate(); } while (0)
+#define cexpContextInitOnce()		do { if (!cexpCurrentContext)								\
+											cexpCurrentContext = epicsThreadPrivateCreate();	\
+									} while (0)
 
-#define cexpContextRegister()	do {  } while (0)
-#define cexpContextUnregister()	do {  } while (0)
+#define cexpContextRegister()		do {  } while (0)
+#define cexpContextUnregister()		do {  } while (0)
 
-#define cexpContextGetCurrent()		((CexpContext)epicsThreadPrivateGet(cexpCurrentContext))
-/* cexpContextSetCurrent() returns its argument for convenience */
-INLINE CexpContext
-cexpContextSetCurrent(CexpContext c)
-{
-extern CexpContextOSD	cexpCurrentContext;
-	epicsThreadPrivateSet(cexpCurrentContext,c);
-	return c;
-}
+#define cexpContextGetCurrent(pc)	do { *(pc) = (CexpContext)epicsThreadPrivateGet(	\
+																	cexpCurrentContext	\
+																);						\
+									} while (0))
+
+#define cexpContextSetCurrent(c)	do { 												\
+										extern CexpContextOSD	cexpCurrentContext;		\
+										epicsThreadPrivateSet(cexpCurrentContext,(c));	\
+									} while (0)
 
 #define cexpContextRunOnce(pdone, fn)	epicsThreadOnce(pdone,(void (*)(void*))fn,0)
 
@@ -149,13 +155,57 @@ extern CexpContextOSD	cexpCurrentContext;
 #include <rtems.h>
 #else
 #define RTEMS_SELF	0
+
+#ifdef CEXP_RTEMS_NOTEPAD
+#error Using a notepad is currently unsupported - it must be initialized to 0 at task creation and I dont know how to do that
+#endif
+
+#ifdef CEXP_RTEMS_NOTEPAD
+long rtems_task_get_note();
+long rtems_task_set_note();
+#else
+/* use task vars - discouraged */
 long rtems_task_variable_add();
 long rtems_task_variable_delete();
+#endif
 #endif
 
 typedef CexpContext CexpContextOSD;
 
+
+/* We assume the first instance of 'cexp' will be executed by
+ * an initialization task or a an initialization task will
+ * explicitely call cexpInit(), hence we don't bother
+ * about race conditions in cexpInit().
+ */
 #define cexpContextInitOnce()		do {} while (0)
+#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) {							\
+												(*(pdone))++; fn(0);					\
+											 }											\
+									} while (0)
+
+
+#ifdef CEXP_RTEMS_NOTEPAD
+
+#define cexpContextRegister()		do {} while (0)
+#define cexpContextUnregister()		do {} while (0)
+
+#define cexpContextGetCurrent(pc)	do {												\
+										rtems_task_get_note(							\
+												RTEMS_SELF,								\
+												CEXP_RTEMS_NOTEPAD,						\
+												(pc)									\
+											);											\
+									} while (0)
+
+#define cexpContextSetCurrent(c)	do {												\
+										rtems_task_set_note(							\
+												RTEMS_SELF,								\
+												CEXP_RTEMS_NOTEPAD,						\
+												(c)										\
+											);											\
+									} while (0)
+#else /* task var variant (discouraged - increases context switch latency) */
 #define cexpContextRegister()		do { \
 										rtems_task_variable_add(\
 										RTEMS_SELF,\
@@ -169,16 +219,9 @@ typedef CexpContext CexpContextOSD;
 										RTEMS_SELF,\
 										&cexpCurrentContext); \
 									} while (0)
-#define cexpContextGetCurrent()		cexpCurrentContext
-#define cexpContextSetCurrent(c)	(cexpCurrentContext=(c))
-
-/* We assume the first instance of 'cexp' will be executed by
- * an initialization task or a an initialization task will
- * explicitely call cexpInit(), hence we don't bother
- * about race conditions in cexpInit().
- */
-
-#define cexpContextRunOnce(pdone, fn)	do { if (!(*(pdone))) { (*(pdone))++; fn(0); } } while (0)
+#define cexpContextGetCurrent(pc)	do { *(pc) = cexpCurrentContext;	} while (0)
+#define cexpContextSetCurrent(c)	do { cexpCurrentContext=(c);		} while (0)
+#endif
 
 #else
 #error "You need to implement cexpContextRegister & friends for this OS"

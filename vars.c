@@ -120,16 +120,11 @@ typedef struct CexpStrRec_ {
 /* Cexp variables */
 typedef struct CexpVarRec_ {
 	lhR					head;
-	CexpTypedAddrRec	pv;
+	CexpSymRec			sym;
 	CexpValU			val;
-	CexpStr				name;
 } CexpVarRec , *CexpVar;
 
-/* initialize the list anchor's 'n' field to 1 
- * to indicate that the 'library' has not been
- * initialized...
- */
-static CexpVarRec gblList={{(void*)0},{0},{0},(CexpStr)1};
+static CexpVarRec gblList={{(void*)0},{0},{0}};
 static CexpStrRec strTab ={{0}};
 
 void
@@ -138,13 +133,6 @@ cexpVarInitOnce(void)
 /* initialize the global lock */
 if (!_varlock)
 	cexpLockCreate(&_varlock);
-__LOCK;
-	/* use gblList.name as an indicator for the
-	 * very first call...
-	 */
-	if (gblList.name)
-		memset(&gblList,0,sizeof(gblList));
-__UNLOCK;
 }
 
 /* destroy all variables */
@@ -179,7 +167,7 @@ static int
 varcomp(lh el, void *what)
 {
 char *name=what;
-	return strcmp(&(((CexpVar)el)->name->str[0]),name);
+	return strcmp( ((CexpVar)el)->sym.name, name );
 }
 
 /* find a variable, return with a held lock */
@@ -196,7 +184,7 @@ findN_LOCK(char *name, lh *succ)
  * RETURNS nonzero value if set/create succeeds.
  */
 
-CexpTypedAddr
+CexpSym
 cexpVarLookup(char *name, int creat)
 {
 CexpVar v,where;
@@ -205,10 +193,8 @@ CexpStr s;
 
 	if (creat) {
 		/* (avoid calling malloc from locked section) */
-		n=(CexpVar)malloc(sizeof(*n));
-		s=(CexpStr)malloc(sizeof(*s) + strlen(name)+1);
-		memset(&n->head,0,sizeof(n->head));
-		memset(&s->head,0,sizeof(s->head));
+		n=(CexpVar)calloc(1,sizeof(*n));
+		s=(CexpStr)calloc(1,sizeof(*s) + strlen(name)+1);
 	} else {
 		n=0;
 		s=0;
@@ -225,15 +211,17 @@ CexpStr s;
 		__UNLOCK;
 		/* create variable / add to list */
 		lhrAdd(n,(lh)where);
-		n->name=t;
-		n->pv.type=TVoid;
-		n->pv.ptv=&n->val;
+		n->sym.value.type=TVoid;
+		n->sym.value.ptv=&n->val;
+		n->sym.name=&t->str[0];
+		n->sym.size=sizeof(n->val);
+		n->sym.flags=0;
 		v=n; n=0;
 	}
 	__UNLOCK;
 	if (n) free(n);
 	if (s) free(s);
-	return v ? &v->pv : 0;
+	return v ? &v->sym : 0;
 }
 
 /* lookup / create a string */
@@ -299,7 +287,7 @@ void	*rval=0;
 	__LOCK;
 	walking++;
 	for (v=(CexpVar)gblList.head.p; v; v=(CexpVar)v->head.p) {
-		if ((rval=walker(&v->name->str[0], &v->pv, usrArg)))
+		if ((rval=walker(v->sym.name, &v->sym, usrArg)))
 			break;
 	}
 	walking--;
@@ -314,13 +302,13 @@ varPrintList(void)
 CexpVar v,n=0;
 	printf("\nreverse: \n");
 	for (v=(CexpVar)gblList.head.p; v; n=v, v=(CexpVar)v->head.p) {
-			printf("%10s 0x%8lx ",&v->name->str[0], v->pv.ptv->l);
+			printf("%10s 0x%8lx ",v->sym.name, v->sym.value.ptv->l);
 	}
 
 #ifdef DOUBLE_LINKED
 	printf("\n\nforward: \n");
 	for (; n && n->head.n; n=(CexpVar)n->head.n) {
-			printf("%10s 0x%8lx ",&n->name->str[0], n->pv.ptv->l);
+			printf("%10s 0x%8lx ",&n->sym.name, n->pv.ptv->l);
 	}
 #endif
 	printf("\n");
@@ -344,7 +332,7 @@ vars_main(int argc, char **argv)
 char *line=0;
 char *name,*v;
 unsigned long value,f;
-CexpTypedAddr val;
+CexpSym val;
 int	ch;
 
   cexpVarInitOnce();
@@ -352,9 +340,9 @@ int	ch;
   {
 	CexpVar vv;
 		  val=cexpVarLookup("hallo",1);
-					vv = (CexpVar)((unsigned long)val - OffsetOf(CexpVar,pv));
+					vv = (CexpVar)((unsigned long)val - OffsetOf(CexpVar,sym));
 		  printf("CexpVar size: %i, & 0x%08lx, &name: %08lx\n",
-						  sizeof(*vv), (unsigned long)vv, (unsigned long)&vv->name->str[0]);
+						  sizeof(*vv), (unsigned long)vv, (unsigned long)&vv->sym.name);
   }
 
   while (free(line),line=readline("Vars Tst>")) {
@@ -389,8 +377,8 @@ int	ch;
 				}
 				val=cexpVarLookup(name,f);
 				if (val) {
-					val->type=TULong;
-					val->ptv->l=value;
+					val->value.type=TULong;
+					val->value.ptv->l=value;
 				}
 			  	printf("\n%s %s\n",
 						f?"adding":"setting",
@@ -409,7 +397,7 @@ int	ch;
 				} else {
 					val=cexpVarLookup(name,0);
 					printf("Var %sfound: 0x%lx\n",
-							val ? "" : "not ", val->ptv->l);
+							val ? "" : "not ", val->value.ptv->l);
 				}
 			break;
 	}

@@ -1,3 +1,7 @@
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <assert.h>
@@ -27,7 +31,11 @@ va_list ap;
 int		written;
 	va_start(ap, fmt);
 
+#ifdef HAVE_VSNPRINTF
 	written=vsnprintf(s->buf+s->p, BUFMAX - s->p, fmt, ap);
+#else
+	written=vsprintf(s->buf+s->p, fmt, ap);
+#endif
 
 	assert(written >= 0  && (s->p+=written) < BUFMAX);
 

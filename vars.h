@@ -2,7 +2,7 @@
 #define CEXP_VARS_H
 /* $Id$ */
 
-#include "ctyps.h"
+#include "cexpsyms.h"
 
 /* Interface to CEXP variables */
 
@@ -29,7 +29,7 @@ cexpVarsFlush(void);
  * already.
  */
 
-CexpTypedAddr
+CexpSym
 cexpVarLookup(char *name, int creat);
 
 /* remove a variable
@@ -56,7 +56,7 @@ cexpVarDelete(char *name);
  *       2) The walker  MUST NOT add/delete variables.
  */
 
-typedef void* (*CexpVarWalker)(char *name, CexpTypedAddr a, void *usrArg);
+typedef void* (*CexpVarWalker)(const char *name, CexpSym a, void *usrArg);
 
 void *
 cexpVarWalk(CexpVarWalker walker, void *usrArg);

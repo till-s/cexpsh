@@ -52,23 +52,23 @@ typedef struct CexpParserCtxRec_ {
 	unsigned long	evalInhibit;
 } CexpParserCtxRec;
 
-static CexpTypedAddr
+static CexpSym
 varCreate(char *name, CexpType type)
 {
-CexpTypedAddr rval;
+CexpSym rval;
 	if (!(rval=cexpVarLookup(name,1)/*allow creation*/)) {
 		yyerror("unable to add new user variable");
 		return 0;
 	}
-	rval->type = type;
+	rval->value.type = type;
 	if (CEXP_TYPE_PTRQ(type))
-		rval->ptv->p=0;
+		rval->value.ptv->p=0;
 	else switch(type) {
-		case TUChar:	rval->ptv->c=0;		break;
-		case TUShort:	rval->ptv->s=0;		break;
-		case TULong:	rval->ptv->l=0;		break;
-		case TFloat:	rval->ptv->f=0.0;	break;
-		case TDouble:	rval->ptv->d=0.0;	break;
+		case TUChar:	rval->value.ptv->c=0;		break;
+		case TUShort:	rval->value.ptv->s=0;		break;
+		case TULong:	rval->value.ptv->l=0;		break;
+		case TFloat:	rval->value.ptv->f=0.0;	break;
+		case TDouble:	rval->value.ptv->d=0.0;	break;
 		default:
 			assert(!"unknown type");
 	}
@@ -85,10 +85,7 @@ CexpTypedAddr rval;
 	CexpSym						sym;	/* a symbol table entry */
 	CexpType					typ;
 	CexpBinOp					binop;
-	struct			{
-		CexpTypedAddr		plval;
-		char	        	*name;
-	}							uvar;	/* copy of a UVAR */
+	char						*lstr;	/* string in the line string table */
 	struct			{
 		CexpTypedAddrRec	lval;
 		CexpBinOp			op;
@@ -98,9 +95,8 @@ CexpTypedAddr rval;
 
 %token <val>	NUMBER
 %token <val>    STR_CONST
-%token <sym>	FUNC VAR
-%token <uvar>	IDENT		/* an undefined identifier */
-%token <uvar>  	UVAR		/* user variable */
+%token <sym>	FUNC VAR UVAR
+%token <lstr>	IDENT		/* an undefined identifier */
 %token			KW_CHAR		/* keyword 'char' */
 %token			KW_SHORT	/* keyword 'short' */
 %token			KW_LONG		/* keyword 'long' */
@@ -154,6 +150,7 @@ CexpTypedAddr rval;
 %%
 
 input:	line		{ CexpParserCtx pa=parm; pa->rval=$1; YYACCEPT; }
+;
 
 redef:	typeid anyvar
 					{ EVAL($2->type = $1;); CHECK(cexpTA2TV(&$$,$2)); }
@@ -162,16 +159,19 @@ redef:	typeid anyvar
 	| 	fptype '(' '*' anyvar ')' '(' ')'
 					{ EVAL($4->type = $1); CHECK(cexpTA2TV(&$$,$4)); }
 	|	typeid IDENT
-					{ EVAL(if (!($2.plval = varCreate($2.name, $1))) YYERROR; );
-					  CHECK(cexpTA2TV(&$$,$2.plval));
+					{ CexpSym found;
+					  EVAL(if (!(found = varCreate($2, $1))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
 	| 	typeid '*' IDENT
-					{ EVAL(if (!($3.plval = varCreate($3.name, CEXP_TYPE_BASE2PTR($1)))) YYERROR; );
-					  CHECK(cexpTA2TV(&$$,$3.plval));
+					{ CexpSym found;
+					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
 	| 	fptype '(' '*' IDENT ')' '(' ')'
-					{ EVAL(if (!($4.plval = varCreate($4.name, $1))) YYERROR; );
-					  CHECK(cexpTA2TV(&$$,$4.plval));
+					{ CexpSym found;
+					  EVAL(if (!(found = varCreate($4, $1))) YYERROR; );
+					  CHECK(cexpTA2TV(&$$,&found->value));
 					}
 ;
 
@@ -232,10 +232,11 @@ exp:	binexp
 					  );
 					}
 	|   IDENT '=' exp
-					{ $$=$3; EVAL(if (!($1.plval=varCreate($1.name,$3.type))) {	\
+					{ CexpSym found;
+					  $$=$3; EVAL(if (!(found=varCreate($1, $3.type))) {	\
 									YYERROR; 								\
 								}\
-								CHECK(cexpTVAssign($1.plval, &$3)); );
+								CHECK(cexpTVAssign(&found->value, &$3)); );
 					}
 ;
 
@@ -328,23 +329,23 @@ unexp:
 	|	'&' VAR %prec ADDR
 					{ CHECK(cexpTVPtr(&$$, &$2->value)); }
 	|	'&' UVAR %prec ADDR
-					{ CHECK(cexpTVPtr(&$$, $2.plval)); }
+					{ CHECK(cexpTVPtr(&$$, &$2->value)); }
 ;
 
 lvar:	 VAR				
 					{ $$=$1->value; }
 	|	UVAR		
-					{ $$=*$1.plval; }
+					{ $$=$1->value; }
 	|	'(' lval ')'
 					{ $$=$2; }
 ;
 
 anyvar:	VAR
 					{ $$=&$1->value; }
+	|	UVAR
+					{ $$=&$1->value; }
 	|	FUNC
 					{ $$=&$1->value; }
-	|	UVAR
-					{ $$=$1.plval; }
 ;
 
 clvar:	lvar			%prec NONE
@@ -463,9 +464,18 @@ castexp: unexp
 ;	
 
 
+
 call:
 		'(' commaexp ')' %prec CALL{ $$=$2; } |
 		funcp
+/*
+	|	symmethod '(' ')'
+		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, 0))); }
+	|	symmethod '(' exp ')'
+		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, &$3, 0))); }
+	|	symmethod '(' exp ',' exp ')'
+		%prec CALL	{	EVAL(CHECK(cexpSymMethod(&$$, &1, &$3, &$5, 0))); }
+*/
 	|	call '(' ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
 	|	call '(' exp ')'
@@ -682,18 +692,12 @@ char *chpt;
 			return KW_DOUBLE;
 		else if ((rval->sym=cexpSymLookup(sbuf, 0)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
-		else if ((rval->uvar.plval=cexpVarLookup(sbuf,0))) {
-#ifdef CONFIG_STRINGS_LIVE_FOREVER
-			/* if uvars use the string table, it might be there anyway */
-			if (!(rval->uvar.name=cexpStrLookup(sbuf,0)))
-#endif
-				rval->uvar.name=lstAddString(pa,sbuf);
-			return rval->uvar.name ? UVAR : LEXERR;
+		else if ((rval->sym=cexpVarLookup(sbuf,0))) {
+			return UVAR;
 		}
 
 		/* it's a currently undefined symbol */
-		rval->uvar.plval=0;
-		return (rval->uvar.name=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
+		return (rval->lstr=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */
 		char *dst;

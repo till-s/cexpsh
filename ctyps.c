@@ -180,6 +180,9 @@ int			from,to;
 const char *
 cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from)
 {
+		if (!from->tv.p)
+				return "reject dereferencing NULL pointer";
+
 		switch (from->type) {
 				default:
 				return "dereferencing invalid type";
@@ -496,6 +499,9 @@ int i;
 const char *
 cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 {
+	if (!a->ptv)
+			return "reject dereferencing NULL pointer";
+
 	switch ((v->type=a->type)) {
 			case TVoid:		return "cannot get 'void' value";
 			case TUChar:	v->tv.c=a->ptv->c; break;
@@ -578,6 +584,9 @@ DB				dargs[MAXDBLARGS];
 		/* sanity check */
 		if (!CEXP_TYPE_FUNQ(fn->type))
 				return "need a function pointer";
+
+		if (!fn->tv.p)
+				return "reject dereferencing NULL function pointer";
 
 		nargs=0; fpargs=0;
 
@@ -714,6 +723,9 @@ const char		*err=0;
 		/* sanity check */
 		if (!CEXP_TYPE_FUNQ(fn->type))
 				return "need a function pointer";
+
+		if (!fn->tv.p)
+				return "reject dereferencing NULL function pointer";
 
 		zero.type=TULong;
 		zero.tv.l=0;

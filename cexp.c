@@ -26,6 +26,10 @@
 #include <config.h>
 #endif
 
+#ifdef HAVE_SIGNALS
+#include <signal.h>
+#endif
+
 #ifdef MDBG
 #include <mdbg.h>
 #endif
@@ -162,12 +166,12 @@ void root(double * res, double n)
 #endif
 
 static void *
-varprint(char *name, CexpTypedAddr a, void *arg)
+varprint(const char *name, CexpSym s, void *arg)
 {
 FILE	*f=stdout;
 spencer_regexp	*rc=arg;
 	if (spencer_regexec(rc,name)) {
-		cexpTAPrintInfo(a,f);
+		cexpTAPrintInfo(&s->value,f);
 		fprintf(f,": %s\n",name);
 	}
 	return 0;
@@ -238,23 +242,20 @@ struct winsize	win;
 int
 whatis(char *name, FILE *f)
 {
-union {
 CexpSym			s;
-CexpTypedAddr	ptv;
-} v;
 int				rval=-1;
 CexpModule		mod;
 
 	if (!f) f=stdout;
 
-	if ((v.s=cexpSymLookup(name,&mod))) {
+	if ((s=cexpSymLookup(name,&mod))) {
 		fprintf(f,"Module '%s' Symbol Table:\n", cexpModuleName(mod));
-		cexpSymPrintInfo(v.s,f);
+		cexpSymPrintInfo(s,f);
 		rval=0;
 	}
-	if ((v.ptv=cexpVarLookup(name,0))) {
+	if ((s=cexpVarLookup(name,0))) {
 		fprintf(f,"User Variable:\n");
-		cexpTAPrintInfo(v.ptv,stdout);
+		cexpTAPrintInfo(&s->value,stdout);
 		fprintf(f,": %s\n",name);
 		rval=0;
 	}
@@ -322,6 +323,14 @@ cexp_kill(int doWhat)
 {
 	longjmp(cexpContextGetCurrent()->jbuf,doWhat);
 }
+
+#ifdef HAVE_SIGNALS
+static void
+handler(int signum)
+{
+	cexp_kill(0);
+}
+#endif
 
 int
 cexp_main(int argc, char **argv)
@@ -443,6 +452,7 @@ if (!cexpContextGetCurrent()) {
 context.next=cexpContextGetCurrent();
 cexpContextSetCurrent(&context);
 
+
 do {
 	if (!(ctx=cexpCreateParserCtx())) {
 		fprintf(stderr,"Unable to create parser context\n");
@@ -450,6 +460,11 @@ do {
 		rval = CEXP_MAIN_NO_MEM;
 		goto cleanup;
 	}
+
+#ifdef HAVE_SIGNALS
+	signal(SIGSEGV, handler);
+	signal(SIGBUS,  handler);
+#endif
 
 	if (!(rval=setjmp(context.jbuf))) {
 		/* call them back to pass the jmpbuf */
@@ -486,6 +501,7 @@ do {
 		}
 		
 	} else {
+			fprintf(stderr,"\nOops, exception caught\n");
 			/* setjmp passes 0: first time
 			 *               1: longjmp(buf,0) or longjmp(buf,1)
 			 *           other: longjmp(buf,other)

@@ -93,6 +93,7 @@ typedef struct LinkDataRec_ {
 	asymbol			*eh_frame_b_sym;
 	asymbol			*eh_frame_e_sym;
 	unsigned long	text_vma;
+	asection		*text;
 	void			*iniCallback;
 	void			*finiCallback;
 } LinkDataRec, *LinkData;
@@ -208,6 +209,7 @@ asymbol *asym=*(asymbol**)ext_sym;
 static void
 assign(void *ext_sym, CexpSym cesp, void *closure)
 {
+LinkData	ld=(LinkData)closure;
 asymbol		*asym=*(asymbol**)ext_sym;
 int			s;
 CexpType	t=TVoid;
@@ -253,6 +255,14 @@ elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 				/* if it's bigger than double, leave it (void*) */
 			}
 		}
+		/* last attempt: if there is no size info and no flag set,
+		 * at least look at the section; functions are in the text
+		 * section...
+		 */
+		if (TVoid == t && ! (asym->flags & (BSF_FUNCTION | BSF_OBJECT)) && 0 == s) {
+			if (ld->text && ld->text == bfd_get_section(asym))
+				t=TFuncP;
+		} 
 
 		cesp->size = s;
 		cesp->value.type = t;
@@ -401,11 +411,21 @@ LinkData	ld=(LinkData)arg;
 			seg->vmacalc+=sizeof(long);
 		}
 		sect->output_section = sect;
-		if (!strcmp(TEXT_SECTION_NAME,bfd_get_section_name(abfd,sect)))
+		if (ld->text && sect == ld->text) {
 			ld->text_vma=bfd_get_section_vma(abfd,sect);
+		}
 	}
 }
 
+/* find basic sections */
+static void
+s_basic(bfd *abfd, asection *sect, PTR arg)
+{
+LinkData	ld=(LinkData)arg;
+	if (!strcmp(TEXT_SECTION_NAME,bfd_get_section_name(abfd,sect))) {
+		ld->text = sect;
+	}
+}
 
 /* read the section contents and process the relocations.
  */
@@ -848,7 +868,7 @@ FilterLinkonceRec	flr;
 	ld->cst=cexpCreateSymTbl(asyms,
 							 sizeof(*asyms),
 							 nsyms + (flr.endp-flr.startp),
-							 filter, assign, 0);
+							 filter, assign, ld);
 
 	if (0!=make_new_commons(abfd,ld->new_commons,num_new_commons))
 		goto cleanup;
@@ -956,6 +976,9 @@ void			*ehFrame=0;
 		goto cleanup;
 	}
 
+	/* find basic sections (such as text...) */
+	bfd_map_over_sections(abfd, s_basic, &ldr);
+
 	if (slurp_symtab(abfd,&ldr)) {
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
@@ -988,7 +1011,9 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 
 	} else {
 		/* it's the system symtab */
+/* TSILL
 		assert( 0==ldr.new_commons );
+*/
 	}
 
 	cexpSymTabSetValues(ldr.cst);

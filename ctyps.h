@@ -27,7 +27,7 @@ typedef unsigned long (*CexpFuncPtr)();
 #define CEXP_FUN_BIT		(1<<6)
 #define CEXP_ORDER_MASK		(0x1f)
 typedef enum {
-    TVoid	=0,
+    TVoid		=0,
     TVoidP      =0  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT, /* treat void* like char* */
     TUChar      =2  | (sizeof(unsigned char)<<8),
     TUCharP     =2  | (sizeof(unsigned char)<<8) | CEXP_PTR_BIT,

@@ -1,4 +1,13 @@
 Changes since CEXP-1.4.beta ("Helvetia")
+ 2004/5/20:
+ - New syntax: '< scriptfile' implemented
+ - Implemented 'builtin' symbol tables. 'xsyms' can help generating
+   a symbol table in C source form. (Similar support was added to
+   the 'ldep' tool as well.
+ - NOTE: THE INTERFACE DEFINED IN cexpHelp.h HAS SLIGHTLY CHANGED
+   (help tables now need a 'module-specific' name qualifier). Thus,
+   more than one table can be defined in a single file. It makes
+   future 'directory' support easier.
  2004/3/5:
  - NOTE: THE INTERFACE TO cexpModuleInfo() (order of parameters)
          HAS CHANGED, SORRY.

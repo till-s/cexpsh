@@ -71,11 +71,42 @@ and interprets C-style expressions, e.g.
 
 Symbol Table
 ------------
-On startup, Cexp reads the 'system' symbol table (either from 
+A) Using a Symbol Table File
+- - - - - - - - - - - - - - -
+On startup, Cexp reads the 'system' symbol table either from 
 the executable itself, or from a stripped-down '.sym'
 file - such a stripped-down symbol file can be created using
-the 'xsyms' utility) and guesses the variable types from their sizes.
-(Guess is only supported on ELF targets.)
+the 'xsyms' utility.
+
+B) Builtin Symbol Table File
+- - - - - - - - - - - - - - -
+The 'xsyms' tool (BFD version only) can now be used to generate
+a symbol table in C-source form for subsequent compilation and
+linkage into the final executable. This usually involves linking
+the executable twice:
+  1) compile and link all sources, libraries etc.; build an executable
+  2) xsyms -C executable  mysymtab.c
+  3) compile mysymtab.c (set -I to Cexp source directory, since
+     cexpsyms.h is included)
+  4) link application again, but this time add 'mysymtab.c' to the
+     list of sources.
+  NOTE: Step 1) linking succeeds without a symtab.o because there's
+        a weak NULL-ptr alias for the builtin symtab.
+A similar source file can also be generated using the 'ldep' utility
+(discussed elsewhere, it is part of RTEMS-GeSys).
+
+Without access to a symbol table file which also provides Cexp
+with information about the architecture it is executing on, Cexp
+might fail to detect the correct BFD CPU architecture which is
+needed for the disassembler. In such cases, the '-a' command
+line option can be used to specify the architecture (arch string
+can be obtained by running 'objdump -f' on the ELF executable).
+
+Symbol Type
+- - - - - -
+
+Once the symbol table is read, Cexp guesses the symbol/variable
+types from the symbol sizes. (Guess is only supported on ELF targets.)
 
 In some cases, this guess is obviously wrong, but you can 
 always cast the symbol to the correct type.

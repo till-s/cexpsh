@@ -90,7 +90,10 @@
 #define DEBUG_RELOC		(1<<2)
 #define DEBUG_SYM		(1<<3)
 
+/*
 #define	DEBUG			(DEBUG_RELOC|DEBUG_SYM|DEBUG_SECT)
+*/
+#define DEBUG			(0)
 
 #include "spencer_regexp.h"
 

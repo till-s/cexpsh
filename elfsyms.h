@@ -24,16 +24,14 @@ typedef struct CexpSymTblRec_ {
 
 /* Symbol table management */
 
-/* read an ELF file from an open descriptor
+/* read an ELF file from a file
  * and create an internal representation of
  * the symbol table.
  * All libelf resources are released upon
  * return from this routine.
- * It is the user's responsibility, however,
- * to close the file descriptor.
  */
 CexpSymTbl
-cexpSlurpElf(int fd);
+cexpSlurpElf(char *elfSymFileName);
 
 /* lookup a symbol by name */
 CexpSym

@@ -41,7 +41,6 @@
 static int
 filter(Elf32_Sym *sp,CexpType *pt)
 {
-
 	switch (ELF32_ST_TYPE(sp->st_info)) {
 	case STT_OBJECT:
 		if (pt) {
@@ -158,6 +157,137 @@ CexpSym	found=0;
 	return s->name ? found : 0;
 }
 
+#define CHUNK 2000
+#define USE_ELF_MEMORY
+#define RSH_PORT 514
+
+#ifdef USE_ELF_MEMORY
+#include <sys/time.h>
+#include <errno.h>
+/* avoid pulling in networking headers under __rtems
+ * until BSP stuff is separated out from the core
+ */
+#if !defined(RTEMS_TODO_DONE) && defined(__rtems)
+#define	AF_INET	2
+extern char *inet_ntop();
+extern int	socket();
+extern int  select();
+#else
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#endif
+
+static char *
+handleInput(int fd, int errfd, unsigned long *psize)
+{
+long	n=0,size,avail;
+fd_set	r,w,e;
+char	errbuf[1000],*ptr,*buf;
+struct  timeval timeout;
+
+register long ntot=0,got;
+
+	if (n<fd)		n=fd;
+	if (n<errfd)	n=errfd;
+
+	n++;
+
+	buf=ptr=0;
+	size=avail=0;
+
+	while (fd>=0 || errfd>=0) {
+		FD_ZERO(&r);
+		FD_ZERO(&w);
+		FD_ZERO(&e);
+
+		timeout.tv_sec=5;
+		timeout.tv_usec=0;
+		if (fd>=0) 		FD_SET(fd,&r);
+		if (errfd>=0)	FD_SET(errfd,&r);
+		if ((got=select(n,&r,&w,&e,&timeout))<=0) {
+				if (got) {
+					fprintf(stderr,"rsh select() error: %s.\n",
+							strerror(errno));
+				} else {
+					fprintf(stderr,"rsh timeout\n");
+				}
+				goto cleanup;
+		}
+		if (errfd>=0 && FD_ISSET(errfd,&r)) {
+				got=read(errfd,errbuf,sizeof(errbuf));
+				if (got<0) {
+					fprintf(stderr,"rsh error (reading stderr): %s.\n",
+							strerror(errno));
+					goto cleanup;
+				}
+				if (got)
+					write(2,errbuf,got);
+				else {
+					errfd=-1; 
+				}
+		}
+		if (fd>=0 && FD_ISSET(fd,&r)) {
+				if (avail < CHUNK) {
+					size+=CHUNK; avail+=CHUNK;
+					if (!(buf=realloc(buf,size))) {
+						fprintf(stderr,"out of memory\n");
+						goto cleanup;
+					}
+					ptr = buf + (size-avail);
+				}
+				got=read(fd,ptr,avail);
+				if (got<0) {
+					fprintf(stderr,"rsh error (reading stdout): %s.\n",
+							strerror(errno));
+					goto cleanup;
+				}
+				if (got) {
+					ptr+=got;
+					ntot+=got;
+					avail-=got;
+				} else {
+					fd=-1;
+				}
+		}
+	}
+	if (psize) *psize=ntot;
+	return buf;
+cleanup:
+	free(buf);
+	return 0;
+}
+
+char *
+rshLoad(char *host, char *user, char *cmd)
+{
+char	*chpt=host,*buf=0;
+int		fd,errfd;
+long	ntot;
+extern  int rcmd();
+
+	fd=rcmd(&chpt,RSH_PORT,user,user,cmd,&errfd);
+	if (fd<0) {
+		fprintf(stderr,"rcmd: got no remote stdout descriptor\n");
+		goto cleanup;
+	}
+	if (errfd<0) {
+		fprintf(stderr,"rcmd: got no remote stderr descriptor\n");
+		goto cleanup;
+	}
+
+	if (!(buf=handleInput(fd,errfd,&ntot))) {
+		goto cleanup; /* error message has already been printed */
+	}
+
+	fprintf(stderr,"0x%lx (%li) bytes read\n",ntot,ntot);
+
+cleanup:
+	if (fd>=0)		close(fd);
+	if (errfd>=0)	close(errfd);
+	return buf;
+}
+#endif
+
 CexpSym
 cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
@@ -180,7 +310,7 @@ regexp	*rc;
  * routine.
  */
 CexpSymTbl
-cexpSlurpElf(int fd)
+cexpSlurpElf(char *filename)
 {
 Elf			*elf=0;
 Elf32_Ehdr	*ehdr;
@@ -189,10 +319,69 @@ Elf32_Shdr	*shdr=0;
 Elf_Data	*strs;
 PrivSymTbl	rval=0;
 CexpSym		sane;
+#ifdef USE_ELF_MEMORY
+char		*buf=0,*ptr=0;
+long		size=0,avail=0,got;
+#ifdef		__rtems
+extern		struct in_addr rtems_bsdnet_bootp_server_address;
+char		HOST[30];
+#else
+#define		HOST "localhost"
+#endif
+#endif
+int			fd=-1;
 
 	elf_version(EV_CURRENT);
+
+#ifdef USE_ELF_MEMORY
+	if ('~'==filename[0]) {
+		char *cmd=malloc(strlen(filename)+40);
+		strcpy(cmd,filename);
+		ptr=strchr(cmd,'/');
+		if (!ptr) {
+			fprintf(stderr,"Illegal filename for rshLoad %s\n",filename);
+			free(cmd);
+			goto cleanup;
+		}
+		*(ptr++)=0;
+		memmove(ptr+4,ptr,strlen(ptr));
+		memcpy(ptr,"cat ",4);
+#ifdef __rtems
+		inet_ntop(AF_INET, &rtems_bsdnet_bootp_server_address, HOST, sizeof(HOST));
+#endif
+		/* try to load via rsh */
+		if (!(buf=rshLoad(HOST,cmd+1,ptr)))
+			goto cleanup;
+	}
+	else
+	{
+		if ((fd=open(filename,O_RDONLY,0))<0)
+			goto cleanup;
+
+		do {
+			if (avail<CHUNK) {
+				size+=CHUNK; avail+=CHUNK;
+				if (!(buf=realloc(buf,size)))
+					goto cleanup;
+				ptr=buf+(size-avail);
+			}
+			got=read(fd,ptr,avail);
+			if (got<0)
+				goto cleanup;
+			avail-=got;
+			ptr+=got;
+		} while (got);
+			got = ptr-buf;
+	}
+	if (!(elf=elf_memory(buf,got)))
+		goto cleanup;
+#else
+	if ((fd=open(filename,O_RDONLY,0))<0)
+		goto cleanup;
+
 	if (!(elf=elf_begin(fd,ELF_C_READ,0)))
 		goto cleanup;
+#endif
 
 	/* we need the section header string table */
 	if (!(ehdr=elf32_getehdr(elf)) ||
@@ -284,6 +473,12 @@ CexpSym		sane;
 
 	elf_cntl(elf,ELF_C_FDDONE);
 	elf_end(elf); elf=0;
+#ifdef USE_ELF_MEMORY
+	if (buf) {
+		free(buf); buf=0;
+	}
+#endif
+	if (fd>=0) close(fd);
 
 #ifndef ELFSYMS_TEST_MAIN
 	/* do a couple of sanity checks */
@@ -296,10 +491,10 @@ CexpSym		sane;
 			goto bailout;
 		if (!(sane=cexpSymTblLookup("_edata",&rval->stab)) || sane->value.ptv!=(CexpVal)&_edata)
 			goto bailout;
-
 		/* OK, sanity test passed */
 	}
 #endif
+
 
 	return &rval->stab;
 
@@ -307,9 +502,19 @@ bailout:
 	fprintf(stderr,"ELFSYMS SANITY CHECK FAILED: you possibly loaded the wrong symbol table\n");
 
 cleanup:
+	if (elf_errno())
+		fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
+	if (elf)
+		elf_end(elf);
+#ifdef USE_ELF_MEMORY
+	if (buf)
+		free(buf);
+#endif
+	if (rval)
+		cexpFreeSymTbl((CexpSymTbl*)&rval);
+	if (fd>=0)
+		close(fd);
 	if (elf_errno()) fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
-	if (elf) elf_end(elf);
-	if (rval) cexpFreeSymTbl((CexpSymTbl*)&rval);
 	return 0;
 }
 
@@ -317,12 +522,8 @@ CexpSymTbl
 cexpCreateSymTbl(char *symFileName)
 {
 CexpSymTbl	t=0;
-int			fd;
 	if (symFileName) {
-		if ((fd=open(symFileName,O_RDONLY))>=0) {
-			t=cexpSlurpElf(fd);
-			close(fd);
-		}
+		t=cexpSlurpElf(symFileName);
 		if (!t) {
 			fprintf(stderr,"Unable to read symbol table file '%s'\n",symFileName);
 			fprintf(stderr,"Trying to use existing sysSymTbl\n");
@@ -362,7 +563,7 @@ CexpType t=s->value.type;
 	if (!CEXP_TYPE_FUNQ(t))
 		t=CEXP_TYPE_PTR2BASE(t);	
 	return
-		fprintf(f,"0x%p[%4d]: %s %s\n",
+		fprintf(f,"%p[%4d]: %s %s\n",
 			s->value.ptv,
 			s->size,
 			cexpTypeInfoString(t),
@@ -412,12 +613,7 @@ CexpSym		symp;
 		return 1;
 	}
 
-	if ((fd=open(argv[1],O_RDONLY))<0) {
-		return 1;
-	}
-
-	t=cexpSlurpElf(fd);
-	close(fd);
+	t=cexpSlurpElf(argv[1]);
 
 	if (!t) {
 		return 1;

@@ -55,6 +55,10 @@ long rtems_semaphore_destroy();
 #define RTEMS_INHERIT_PRIORITY			0x40
 #endif
 
+#ifndef INLINE
+#define INLINE static __inline__
+#endif
+
 typedef rtems_id CexpLock;
 typedef rtems_id CexpEvent;
 

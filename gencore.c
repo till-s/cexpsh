@@ -13,20 +13,39 @@
  *          For details about the GPL, consult www.gnu.org.
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#else
+#define HAVE_STDINT_H 1
+#define HAVE_SYS_TYPES_H 1
+#endif
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#if HAVE_SYS_TYPES_H
 #include <sys/types.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
+#if HAVE_STDINT_H
 #include <stdint.h>
+#endif
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
 
 #include <bfd.h>
 #include <elf-bfd.h>
+
+#if ! HAVE_TYPE_UINT32_T
+#if SIZEOF_UNSIGNED_INT == 4
+typedef unsigned int uint32_t;
+#else
+#error "Cannot determine an unsigned 32bit type for your host machine, please help"
+#endif
+#endif
 
 typedef uint32_t Reg_t;
 

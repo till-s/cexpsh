@@ -36,6 +36,10 @@ dnl if target==host, we build CEXP; either for the build host
 dnl or for a different one otherwise, we build 'xsyms' only...
 if test "$target-system" != "$host-system" ; then
 enable_cexp=no
+dnl gencore needs stdint.h
+AC_CHECK_HEADER(stdint.h, [AC_DEFINE([HAVE_STDINT_H])])
+AH_TEMPLATE([HAVE_TYPE_UINT32_T])
+AC_CHECK_TYPE(uint32_t,[AC_DEFINE([HAVE_TYPE_UINT32_T])],[AC_CHECK_SIZEOF([unsigned int])])
 fi
 
 dnl is this a 'xsyms' only checkout?
@@ -110,7 +114,7 @@ fi
 
 if test "$enable_bfd" != "no" ; then
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
-	AC_CONFIG_SUBDIRS(binutils)
+    AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
 	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 fi
@@ -128,5 +132,12 @@ AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)
+
+dnl when building these tools we don't want to install the whole crap in the subdirectories
+if test "$target-system" != "$host-system" ; then
+AC_SUBST(THESUBDIRS,['$(patsubst %,'"$subdirs"',$(filter-out install%,$@))'])
+else
+AC_SUBST(THESUBDIRS,["$subdirs"])
+fi
 
 AC_OUTPUT

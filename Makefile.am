@@ -1,7 +1,9 @@
 AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 
 HOSTCC=@HOSTCC@
-SUBDIRS=@subdirs@
+##SUBDIRS =  $(patsubst %,@subdirs@,$(filter-out install%,$@))
+SUBDIRS=@THESUBDIRS@
+
 ##BUILT_SOURCES = builddate.h
 
 if USETECLA

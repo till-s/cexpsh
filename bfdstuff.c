@@ -138,7 +138,33 @@ extern void	cexpDisassemblerInstall(bfd *abfd);
  * value than the actual cache line size is safe and performance
  * is not an issue here
  */
-#define CACHE_LINE_SIZE 16
+#if defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
+#    define CACHE_LINE_SIZE 16
+#    define FLUSHINVAL_LINE(addr) \
+		__asm__ __volatile__( \
+			"dcbf 0, %0\n"	/* flush out one data cache line */ \
+			"icbi 0, %0\n"	/* invalidate cached instructions for this line */ \
+		::"r"(addr))
+/* enforce flush completion and discard preloaded instructions */
+#    define FLUSHFINISH() __asm__ __volatile__("sync; isync")
+#elif defined(__mc68000__) || defined(__mc68000) || defined(mc68000)
+#    define CACHE_LINE_SIZE 16
+#  if defined(__rtems__)
+extern void CPU_cache_flush_1_data_line(void *addr);
+extern void CPU_cache_invalidate_1_instruction_line(void *addr);
+#    define FLUSHINVAL_LINE(addr) \
+		do { \
+			CPU_cache_flush_1_data_line(addr); \
+			CPU_cache_invalidate_1_instruction_line(addr); \
+		} while (0)
+#    define FLUSHFINISH() do {} while (0)
+#  else
+/* m68k cache flush instructions are only available in supervisor mode;
+ * PLUS they operate on physical addresses :-(
+ */
+# error("don't know how to flush/invalidate cache on this system")
+#  endif /* defined __rtems__ */
+#endif
 
 /* an output segment description */
 typedef struct SegmentRec_ {
@@ -1163,7 +1189,7 @@ cleanup:
 static void
 flushCache(LinkData ld)
 {
-#if defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
+#if defined(CACHE_LINE_SIZE)
 int	i;
 char	*start, *end;
 	for (i=0; i<NUM_SEGS; i++) {
@@ -1174,14 +1200,11 @@ char	*start, *end;
 			end  =(char*)ld->segs[i].chunk+ld->segs[i].size;
 
 			for (; start<end; start+=CACHE_LINE_SIZE)
-				__asm__ __volatile__(
-					"dcbf 0, %0\n"	/* flush out one data cache line */
-					"icbi 0, %0\n"	/* invalidate cached instructions for this line */
-					::"r"(start));
+				FLUSHINVAL_LINE(start);
 		}
 	}
 	/* enforce flush completion and discard preloaded instructions */
-	__asm__ __volatile__("sync; isync");
+	FLUSHFINISH();
 #endif
 }
 

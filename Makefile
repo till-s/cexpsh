@@ -108,5 +108,5 @@ tar: regexp prep
 		exit 1;\
     else \
 		echo tarring revision $(REVISION);\
-		tar cfz $(if $(wildcard tarexcl),x tarexcl) $(REVISION).tgz -C .. $(shell basename `pwd`) ;\
+		tar cfz $(REVISION).tgz --exclude $(REVISION).tgz $(if $(wildcard tarexcl),-X tarexcl) -C .. $(shell basename `pwd`) ;\
     fi

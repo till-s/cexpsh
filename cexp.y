@@ -28,7 +28,8 @@
 %token <num>	NUMBER
 %token <caddr>  CHAR_CONST
 %token <caddr>	IDENT
-%token <sym>	VAR FUNC CHAR_VAR SHORT_VAR LABEL
+/* NOTE: elfsym.c relies on the order of FUNC..VAR */
+%token <sym>	FUNC LABEL CHAR_VAR SHORT_VAR VAR
 %token			CHAR_CAST	/* keyword 'char' */
 %token			SHORT_CAST	/* keyword 'short' */
 %token			LONG_CAST	/* keyword 'long' */
@@ -93,7 +94,7 @@ exp:	NUMBER					{ $$=$1; }
 	|	call					{ $$=$1; }
 ;
 
-funcp:	FUNC			{ $$=$1->val.func; }
+funcp:	FUNC			{ $$=$1->val.func; fprintf(stderr,"0x%08x\n",$$); }
 ;	
 
 call:	funcp '(' ')'
@@ -159,7 +160,7 @@ sptr:	'&' SHORT_VAR %prec ADDR				{ $$=(unsigned short*)$2->val.addr; }
 
 lptr:	'&' VAR	 %prec ADDR						{ $$=$2->val.addr; }
 	|	'(' LONG_CAST '*' ')' exp %prec CAST 	{ $$=(unsigned long*)$5; }
-	|	FUNC									{ $$=(unsigned long*)$1; }
+	|	funcp									{ $$=(unsigned long*)$1; }
 ;
 
 		
@@ -276,7 +277,7 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 			return SHORT_CAST;
 		else if (!strcmp(sbuf,"long"))
 			return LONG_CAST;
-		else if (rval->sym=cexpSymTblLookup(pa->symtbl, sbuf))
+		else if (rval->sym=cexpSymTblLookup(sbuf, pa->symtbl))
 			return rval->sym->type;
 
 		/* it's a currently undefined symbol */
@@ -289,7 +290,7 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 		skipit:	
 			dst++; limit--;
 			getch();
-			*dst=ch; fprintf(stderr,"%c\n",ch);
+			*dst=ch;
 			if ('\\'==ch) {
 				getch();
 				switch (ch) {
@@ -306,6 +307,7 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 			}
 			if ('"'==ch) {
 				*dst=0;
+				getch();
 				return (rval->caddr=lstAddString(pa,sbuf)) ? CHAR_CONST : LEXERR;
 			}
 		} while (ch && limit>2);
@@ -327,4 +329,5 @@ yyerror(char*msg)
 {
 fprintf(stderr,"Cexp syntax error: %s\n",msg);
 }
+
 

@@ -1,24 +1,68 @@
 #include "cexp.h"
 #include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
-CexpSymTbl sysSymTbl=0;
+extern CexpSymTbl cexpSysSymTbl;
+
+#ifdef YYDEBUG
+extern int yydebug;
+#endif
+
+static void
+usage(char *nm)
+{
+	fprintf(stderr, "usage: %s [-h]",nm);
+#ifdef YYDEBUG
+	fprintf(stderr, " [-d]");
+#endif
+	fprintf(stderr," <ELF symbol file>\n");
+	fprintf(stderr, "       C expression parser\n");
+	fprintf(stderr, "       -h print this message\n");
+#ifdef YYDEBUG
+	fprintf(stderr, "       -d enable parser debugging messages\n");
+#endif
+	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@TU-Berlin.de>\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+}
 
 int
 main(int argc, char **argv)
 {
-int					fd;
+int					fd,opt;
 char				*line;
 CexpParserArgRec	arg={0};
+char				optstr[]={
+						'h',
+
+#ifdef YYDEBUG
+						'd',
+#endif
+						'\0'
+					};
+
+while ((opt=getopt(argc, argv, optstr))>=0) {
+	switch (opt) {
+		default:  fprintf(stderr,"Unknown Option %c\n",opt);
+		case 'h': usage(argv[0]); return(1);
+#ifdef YYDEBUG
+		case 'd': yydebug=1;
+#endif
+	}
+}
 
 memset(&arg,0,sizeof(arg));
 
-if (argc<2 || (fd=open(argv[1],O_RDONLY))<0) {
+if (argc-optind<1 || (fd=open(argv[optind],O_RDONLY))<0) {
 	fprintf(stderr,"Need an elf symbol table file arg\n");
 	return 1;
 }
 
-sysSymTbl=arg.symtbl=cexpSlurpElf(fd);
+fprintf(stderr,"main is at 0x%08x\n",(unsigned long)main);
+
+cexpSysSymTbl=arg.symtbl=cexpSlurpElf(fd);
 
 close(fd);
 

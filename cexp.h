@@ -32,7 +32,9 @@ CexpSymTbl
 cexpSlurpElf(int fd);
 
 CexpSym
-cexpSymTblLookup(CexpSymTbl t, char *name);
+cexpSymTblLookup(char *name, CexpSymTbl t);
+
+#define YYDEBUG	1
 
 #ifndef _INSIDE_CEXP_Y
 #include "cexp.tab.h"

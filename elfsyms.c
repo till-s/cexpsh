@@ -18,6 +18,8 @@
 #include <fcntl.h>
 #include <elf.h>
 #include <libelf/libelf.h>
+#include <assert.h>
+#include <regexp.h>
 
 #include "cexp.h"
 
@@ -57,16 +59,47 @@ typedef struct PrivSymTblRec_ {
 	CexpSym		*aindex;	/* an index sorted to ascending addresses */
 } PrivSymTblRec, *PrivSymTbl;
 
+CexpSymTbl cexpSysSymTbl=0;
+
 CexpSym
-cexpSymTblLookup(CexpSymTbl t, char *name)
+cexpSymTblLookup(char *name, CexpSymTbl t)
 {
 CexpSymRec key;
+	if (!t) t=cexpSysSymTbl;
 	key.name = name;
 	return (CexpSym)bsearch((void*)&key,
 				t->syms,
 				t->nentries,
 				sizeof(*t->syms),
 				namecomp);
+}
+
+CexpSym
+cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
+{
+	regexp		*rc=0;
+	CexpSym		found=0;
+	if (max<1)	max=25;
+	if (!f)		f=stdout;
+	if (!t)		t=cexpSysSymTbl;
+	if (!s)		s=t->syms;
+
+	if (!(rc=regcomp(re))) {
+		fprintf(stderr,"unable to compile regexp '%s'\n",re);
+		return found;
+	}
+
+	while (s->name && max) {
+		if (regexec(rc,s->name)) {
+			cexpSymPrintInfo(s,f);
+			max--;
+			found=s;
+		}
+		s++;
+	}
+
+	if (rc) free(rc);
+	return s->name ? found : 0;
 }
 
 CexpSymTbl
@@ -125,7 +158,7 @@ PrivSymTbl	rval=0;
 		 */
 		
 		/* allocate all the table space */
-		if (!(rval->stab.syms=(CexpSym)malloc(sizeof(CexpSymRec)*nDstSyms)))
+		if (!(rval->stab.syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
 			goto cleanup;
 
 
@@ -166,6 +199,8 @@ PrivSymTbl	rval=0;
 				cesp++;
 			}
 		}
+		/* mark the last table entry */
+		cesp->name=0;
 		/* sort the tables */
 		qsort((void*)rval->stab.syms,
 			rval->stab.nentries,
@@ -203,6 +238,58 @@ PrivSymTbl st=(PrivSymTbl)arg;
 		free(st);
 	}
 }
+
+int
+cexpSymPrintInfo(CexpSym s, FILE *f)
+{
+int	i;
+static char *types[]={
+		"FUNC ",
+		"ADDR ",
+		"char ",
+		"short",
+		"long ",
+	};
+	/* NOTE: we rely on the order of the token definitions
+     *       FUNC..LABEL in cexp.y
+	 */
+	assert((i=s->type-FUNC) >=0 && i<sizeof(types)/sizeof(types[0]));
+	if (!f) f=stdout;
+	return
+		fprintf(f,"0x%08x[%4i] %s: %s\n",
+			s->val.addr,
+			s->size,
+			types[i],
+			s->name);
+}
+
+
+/* do a binary search for an address */
+CexpSym
+cexpSymTblLkAddr(unsigned long *addr, int margin, FILE *f, CexpSymTbl t)
+{
+PrivSymTbl	pt;
+int			lo,hi,mid;
+	if (!f) f=stdout;
+	if (!t) t=cexpSysSymTbl;
+
+	pt=(PrivSymTbl)t;
+	lo=0; hi=t->nentries-1;
+	while (lo < hi) {
+		mid=(lo+hi)>>1;
+		if (addr > pt->aindex[mid]->val.addr)
+			lo=mid+1;
+		else
+			hi=mid;
+	}
+	mid=lo;		if (mid>=t->nentries)	mid=t->nentries-1;
+	lo-=margin; if (lo<0) 			 	lo=0;
+	hi+=margin; if (hi>=t->nentries)	hi=t->nentries-1;
+	while (lo<=hi)
+		cexpSymPrintInfo(pt->aindex[lo++],f);
+	return pt->aindex[mid];
+}
+
 
 #ifdef CEXP_TEST_MAIN
 

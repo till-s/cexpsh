@@ -3,13 +3,15 @@ PROG=sym
 CFLAGS=-g -O
 WRAP=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
+REGEXP_PATH=/home/till_tp/till/xfm/regexp
 YACC=bison
 YFLAGS=-d -y -ocexp.tab.c
 
 sym_OBJS=
 exmpl_OBJS=
 ce_OBJS=elfsyms.o cexp.tab.o
-ce_LIBS=-lreadline -lncurses
+ce_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp
+elfsyms_CFLAGS=-DCEXP_TEST_MAIN
 
 WRAP_OBJS_YES=wrap.o
 WRAP_OBJS_NO=
@@ -20,6 +22,7 @@ WRAP_LDFLAGS_NO=
 OBJS=$($(PROG)_OBJS) $(PROG).o $(WRAP_OBJS_$(WRAP))
 WRAP_LDFLAGS=$(WRAP_LDFLAGS_$(WRAP))
 LIBS=$($(PROG)_LIBS) 
+CFLAGS+=$($(PROG)_CFLAGS)
 
 
 all: $(PROG)
@@ -31,7 +34,7 @@ cexp.tab.c cexp.tab.h: cexp.y
 	bison -d $^
 
 %.o:	%.c
-	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -o $@ $^
+	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) -o $@ $^
 
 clean:
 	$(RM) -f $(PROG) $(OBJS) wrap.o *.tab.c *.tab.h

@@ -558,7 +558,7 @@ CexpSym s;
 #ifdef HAVE_BFD_DISASSEMBLER
 	/* finding our BFD architecture turns out to be non-trivial! */
 	{
-	bfd *abfd;
+	bfd *abfd = 0; /* keep compiler happy */
 	const bfd_arch_info_type *ai = 0;
 	char	      *tn = 0;
 	const char **tgts = 0;

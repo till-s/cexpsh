@@ -668,7 +668,7 @@ do {
 			callback(argc, argv, &context);
 	
 		if (script) {
-			if (rval = process_script(ctx, script, quiet))
+			if ( (rval = process_script(ctx, script, quiet)) )
 				goto cleanup;
 		} else {
 			tmp = argc>0 ? argv[0] : "Cexp";

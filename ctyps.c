@@ -174,12 +174,12 @@ cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from)
 }
 
 const char *
-cexpTVPtr(CexpTypedVal ptr, CexpTypedVal v)
+cexpTVPtr(CexpTypedVal ptr, CexpTypedAddr a)
 {
-	if (CEXP_TYPE_PTRQ(v->type))
+	if (CEXP_TYPE_PTRQ(a->type))
 		return "refuse to take address of pointer";
-	ptr->type=CEXP_TYPE_BASE2PTR(v->type);
-	ptr->tv.p=(void*)&v->tv;
+	ptr->type=CEXP_TYPE_BASE2PTR(a->type);
+	ptr->tv.p=(void*)a->ptv;
 	return 0;
 }
 
@@ -241,16 +241,16 @@ const char *errmsg;
 					return errmsg;
 				y->type=TULong;
 				switch (op) {
-					case OAdd:	y->tv.l=x1->tv.l + x2->tv.l; return 0;
-					case OSub:	y->tv.l=x1->tv.l - x2->tv.l; return 0;
-					case OMul:	y->tv.l=x1->tv.l * x2->tv.l; return 0;
-					case ODiv:	y->tv.l=x1->tv.l / x2->tv.l; return 0;
-					case OMod:	y->tv.l=x1->tv.l % x2->tv.l; return 0;
-					case OShL:	y->tv.l=x1->tv.l << x2->tv.l; return 0;
-					case OShR:	y->tv.l=x1->tv.l >> x2->tv.l; return 0;
-					case OAnd:	y->tv.l=x1->tv.l & x2->tv.l; return 0;
-					case OXor:	y->tv.l=x1->tv.l ^ x2->tv.l; return 0;
-					case OOr:	y->tv.l=x1->tv.l | x2->tv.l; return 0;
+					case OAdd:	y->tv.l=x1->tv.l + x2->tv.l; break;
+					case OSub:	y->tv.l=x1->tv.l - x2->tv.l; break;
+					case OMul:	y->tv.l=x1->tv.l * x2->tv.l; break;
+					case ODiv:	y->tv.l=x1->tv.l / x2->tv.l; break;
+					case OMod:	y->tv.l=x1->tv.l % x2->tv.l; break;
+					case OShL:	y->tv.l=x1->tv.l << x2->tv.l; break;
+					case OShR:	y->tv.l=x1->tv.l >> x2->tv.l; break;
+					case OAnd:	y->tv.l=x1->tv.l & x2->tv.l; break;
+					case OXor:	y->tv.l=x1->tv.l ^ x2->tv.l; break;
+					case OOr:	y->tv.l=x1->tv.l | x2->tv.l; break;
 					default: return "invalid operator on scalars";
 				}
 				/* cast result back to original type */ 
@@ -339,25 +339,28 @@ const char		*errmsg;
 }
 
 const char *
-cexpTVAssign(CexpTypedVal y, CexpTypedVal x)
+cexpTVAssign(CexpTypedAddr y, CexpTypedVal x)
 {
 const char		*errmsg;
 CexpTypedValRec	xx;
-	if (!CEXP_TYPE_PTRQ(y->type))
-			return "need a pointer for assignment";
 	xx=*x;
 	/* cast the value to the proper type */
-	if ((errmsg=cexpTypeCast(&xx,CEXP_TYPE_PTR2BASE(y->type),0)))
+	if ((errmsg=cexpTypeCast(&xx,y->type,0)))
 			return errmsg;
 	/* perform the actual assignment */
 	switch (y->type) {
-			case TUCharP:	*(unsigned char*)y->tv.p = xx.tv.c; break;
-			case TUShortP:	*(unsigned short*)y->tv.p = xx.tv.s; break;
-			case TULongP:	*(unsigned long*)y->tv.p = xx.tv.l; break;
-			case TFloatP:	*(float*)y->tv.p = xx.tv.f; break;
-			case TDoubleP:	*(double*)y->tv.p = xx.tv.d; break;
+			case TUChar:	y->ptv->c = xx.tv.c; break;
+			case TUShort:	y->ptv->s = xx.tv.s; break;
+			case TULong:	y->ptv->l = xx.tv.l; break;
+			case TFloat:	y->ptv->f = xx.tv.f; break;
+			case TDouble:	y->ptv->d = xx.tv.d; break;
 			default:
-				return "invalid left hand type for assignment";
+				if (CEXP_TYPE_PTRQ(y->type)) {
+					y->ptv->p = xx.tv.p;
+				} else {
+					return "invalid left hand type for assignment";
+				}
+			break;
 	}
 	return 0;
 }

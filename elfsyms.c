@@ -50,19 +50,19 @@ filter(Elf32_Sym *sp,CexpType *pt)
 			/* determine the type of variable */
 
 			if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
-				t=TUCharP;
+				t=TUChar;
 			} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
-				t=TUShortP;
+				t=TUShort;
 			} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
-				t=TULongP;
+				t=TULong;
 			} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
-				t=TDoubleP;
+				t=TDouble;
 			} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
 				/* if sizeof(float) == sizeof(long), long has preference */
-				t=TFloatP;
+				t=TFloat;
 			} else {
 				/* if it's bigger than double, leave it (void*) */
-				t=TVoidP;
+				t=TVoid;
 			}
 			*pt=t;
 		}
@@ -100,7 +100,7 @@ addrcomp(const void *a, const void *b)
 {
 	CexpSym *sa=(CexpSym*)a;
 	CexpSym *sb=(CexpSym*)b;
-	return (*sa)->value.tv.p-(*sb)->value.tv.p;
+	return (*sa)->value.ptv-(*sb)->value.ptv;
 }
 
 /* our implementation of the symbol table holds more information
@@ -260,7 +260,7 @@ CexpSym		sane;
 				cesp->size = sp->st_size;
 
 				cesp->value.type = t;
-				cesp->value.tv.p = (void*)sp->st_value;
+				cesp->value.ptv  = (CexpVal)sp->st_value;
 				rval->aindex[cesp-rval->stab.syms]=cesp;
 				
 				cesp++;
@@ -290,11 +290,11 @@ CexpSym		sane;
 	if ((sane=cexpSymTblLookup("cexpSlurpElf",&rval->stab))) {
 		extern void *_edata, *_etext;
 		/* it must be the main symbol table */
-		if (sane->value.tv.p!=cexpSlurpElf)
+		if (sane->value.ptv!=(CexpVal)cexpSlurpElf)
 			goto bailout;
-		if (!(sane=cexpSymTblLookup("_etext",&rval->stab)) || sane->value.tv.p!=&_etext)
+		if (!(sane=cexpSymTblLookup("_etext",&rval->stab)) || sane->value.ptv!=(CexpVal)&_etext)
 			goto bailout;
-		if (!(sane=cexpSymTblLookup("_edata",&rval->stab)) || sane->value.tv.p!=&_edata)
+		if (!(sane=cexpSymTblLookup("_edata",&rval->stab)) || sane->value.ptv!=(CexpVal)&_edata)
 			goto bailout;
 
 		/* OK, sanity test passed */
@@ -362,8 +362,8 @@ CexpType t=s->value.type;
 	if (!CEXP_TYPE_FUNQ(t))
 		t=CEXP_TYPE_PTR2BASE(t);	
 	return
-		fprintf(f,"0x%08lx[%4d]: %s %s\n",
-			(unsigned long)s->value.tv.p,
+		fprintf(f,"0x%p[%4d]: %s %s\n",
+			s->value.ptv,
 			s->size,
 			cexpTypeInfoString(t),
 			s->name);
@@ -383,7 +383,7 @@ int			lo,hi,mid;
 	lo=0; hi=t->nentries-1;
 	while (lo < hi) {
 		mid=(lo+hi)>>1;
-		if (addr > pt->aindex[mid]->value.tv.p)
+		if (addr > (void*)pt->aindex[mid]->value.ptv)
 			lo=mid+1;
 		else
 			hi=mid;

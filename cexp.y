@@ -53,18 +53,19 @@ typedef struct CexpParserCtxRec_ {
 %pure_parser
 
 %union {
-	CexpTypedValRec		val;
-	CexpSym			sym;	/* a symbol table entry */
-	CexpType		typ;
+	CexpTypedValRec				val;
+	CexpTypedAddrRec			lval;
+	CexpSym						sym;	/* a symbol table entry */
+	CexpType					typ;
 	struct			{
-		CexpTypedVal	val;
-		char	        *name;
-	}			uvar;	/* copy of a UVAR */
+		CexpTypedAddr		plval;
+		char	        	*name;
+	}							uvar;	/* copy of a UVAR */
 	struct			{
-		CexpTypedValRec	val;
-		CexpBinOp	op;
-	}			fixexp;
-	unsigned long		ul;
+		CexpTypedAddrRec	lval;
+		CexpBinOp			op;
+	}							fixexp;
+	unsigned long				ul;
 }
 
 %token <val>	NUMBER
@@ -72,25 +73,25 @@ typedef struct CexpParserCtxRec_ {
 %token <sym>	FUNC VAR
 %token <uvar>	IDENT		/* an undefined identifier */
 %token <uvar>  	UVAR		/* user variable */
-%token		KW_CHAR		/* keyword 'char' */
-%token		KW_SHORT	/* keyword 'short' */
-%token		KW_LONG		/* keyword 'long' */
-%token		KW_DOUBLE	/* keyword 'long' */
+%token			KW_CHAR		/* keyword 'char' */
+%token			KW_SHORT	/* keyword 'short' */
+%token			KW_LONG		/* keyword 'long' */
+%token			KW_DOUBLE	/* keyword 'long' */
 
 %type  <val>	exp
 %type  <val>	binexp
-%type  <ul>	or
-%type  <ul>	and
+%type  <ul>		or
+%type  <ul>		and
 %type  <val>	unexp
 %type  <fixexp> postfix prefix
-%type  <val>	lval
+%type  <lval>	lval
 %type  <val>	call
 %type  <val>	funcp
 %type  <val>	castexp
 
-%type  <typ>	fpcast pcast cast typeid
+%type  <typ>	fpcast pcast cast typeid fptype
 
-%type  <uvar>   lvar
+%type  <lval>   clvar lvar
 
 %nonassoc	NONE
 %right		'?' ':'
@@ -105,14 +106,29 @@ typedef struct CexpParserCtxRec_ {
 %left		SHL SHR
 %left		'-' '+'
 %left		'*' '/' '%'
-%right		'!' '~' NEG CAST ADDR DEREF
-%left		PP MM
+%right		CAST
+%right		VARCAST
+%right		DEREF
+%right		ADDR
 %right		PREFIX
+%left		MM
+%left		PP
+%right		NEG
+%right		'~'
+%right		'!'
 %left		CALL
 
 %%
 
 input:	line		{ YYACCEPT; }
+
+redef:	typeid UVAR
+					{ EVAL($2.plval->type = $1;); }
+	| 	typeid '*' UVAR
+					{ EVAL($3.plval->type = CEXP_TYPE_BASE2PTR($1);); }
+	| 	fptype '(' '*' UVAR ')' '(' ')'
+					{ EVAL($4.plval->type = $1); }
+;
 
 line:	'\n'
 	|	IDENT '\n'
@@ -120,6 +136,7 @@ line:	'\n'
 						yyerror("unknown symbol/variable; '=' expected");
 						YYERROR;
 					}
+	|	redef '\n'
 	|	exp '\n'
 					{
 						if (CEXP_TYPE_FPQ($1.type)) {
@@ -152,18 +169,16 @@ line:	'\n'
 					}
 ;
 
-lvar:	IDENT | UVAR
-;
-
 exp:	binexp 
-	|   lval '=' exp
+	|   lval  '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
-	|   lvar '=' exp
-					{ $$=$3; EVAL(if (!($1.val=cexpVarLookup($1.name,1)/*allow creation*/)) {	\
+	|   IDENT '=' exp
+					{ $$=$3; EVAL(if (!($1.plval=cexpVarLookup($1.name,1)/*allow creation*/)) {	\
 									yyerror("unable to add new user variable");	\
 									YYERROR; 								\
 								}\
-								*$1.val=$3;);
+								$1.plval->type = $3.type; \
+								CHECK(cexpTVAssign($1.plval, &$3)); );
 					}
 ;
 
@@ -218,19 +233,19 @@ and:	binexp AND
 					{ $$=cexpTVTrueQ(&$1); PSHEVAL( ! $$); }
 ;
 
-prefix: 	MM lval	%prec PREFIX
-					{ $$.val=$2; $$.op=OSub; }
+prefix:	MM lval	%prec PREFIX
+					{ $$.lval=$2; $$.op=OSub; }
 	|	PP lval %prec PREFIX
-					{ $$.val=$2; $$.op=OAdd; }
+					{ $$.lval=$2; $$.op=OAdd; }
 ;
 
 	
-postfix: 	lval MM
-					{ $$.val=$1; $$.op=OSub; }
+postfix: lval MM
+					{ $$.lval=$1; $$.op=OSub; }
 	|	lval PP
-					{ $$.val=$1; $$.op=OAdd; }
+					{ $$.lval=$1; $$.op=OAdd; }
 	|	lval %prec NONE
-					{ $$.val=$1; $$.op=ONoop; }
+					{ $$.lval=$1; $$.op=ONoop; }
 ;
 
 unexp:
@@ -240,30 +255,6 @@ unexp:
 		NUMBER
 	|	STR_CONST
 	|	call
-	|	postfix
-					{ CexpTypedValRec one;
-					  EVAL(
-						one.type=TUChar;
-						one.tv.c=1;
-						CHECK(cexpTVPtrDeref(&$$,&$1.val));
-						if (ONoop != $1.op) {
-							CHECK(cexpTVBinOp(&one,&$$,&one,$1.op));
-							CHECK(cexpTVAssign(&$1.val,&one));
-						}
-					  );
-					}
-	|	prefix
-					{ CexpTypedValRec one;
-					  EVAL(
-						one.type=TUChar;
-						one.tv.c=1;
-						CHECK(cexpTVPtrDeref(&$$,&$1.val));
-						if (ONoop != $1.op) {
-							CHECK(cexpTVBinOp(&$$,&$$,&one,$1.op));
-							CHECK(cexpTVAssign(&$1.val,&$$));
-						}
-					  );
-					}
 	|	'!' castexp
 					{ $$.type=TULong; $$.tv.l = ! cexpTVTrueQ(&$2); }
 	|	'~' castexp
@@ -275,16 +266,38 @@ unexp:
 					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
 */
 	|	'&' VAR %prec ADDR
-					{ $$=$2->value; }
+					{ CHECK(cexpTVPtr(&$$, &$2->value)); }
 	|	'&' UVAR %prec ADDR
-					{ CHECK(cexpTVPtr(&$$, $2.val)); }
+					{ CHECK(cexpTVPtr(&$$, $2.plval)); }
 ;
 
-lval:	VAR				{ $$=$1->value; }
-	|   '*' castexp %prec DEREF
+lvar:	 VAR				
+					{ $$=$1->value; }
+	|	UVAR		
+					{ $$=*$1.plval; }
+	|	'(' lval ')'
 					{ $$=$2; }
-	|   '(' castexp ')'
-					{ $$=$2; }
+;
+
+clvar:	lvar			%prec NONE
+	|	'(' typeid ')' clvar	%prec VARCAST
+					{ CexpTypedValRec v;
+						v.type=$4.type; v.tv=*$4.ptv;
+						CHECK(cexpTypeCast(&v,$2,1));
+						$$=$4;
+						$$.type=$2;
+					}
+;
+
+lval: 	clvar
+		|   '*' castexp %prec DEREF
+					{ if (!CEXP_TYPE_PTRQ($2.type) || CEXP_TYPE_FUNQ($2.type)) {
+						yyerror("not a valid lval address");
+						YYERROR;
+					  }
+					  $$.type=CEXP_TYPE_PTR2BASE($2.type);
+					  $$.ptv=(CexpVal)$2.tv.p;
+					}
 /*
 	|   	castexp
 	|	cast VAR %prec CAST
@@ -311,9 +324,8 @@ pcast:
 					{ $$=CEXP_TYPE_BASE2PTR($2); }
 ;
 
-fpcast:
-		'(' typeid '(' '*' ')' '(' ')' ')'
-					{ switch ($2) {
+fptype:	typeid
+					{ switch ($1) {
 						default:
 							yyerror("invalid type for function pointer cast");
 						YYERROR;
@@ -329,17 +341,41 @@ fpcast:
 					}
 ;
 
-/* NOTE: for now, we consider it not legal to
- *       deal with pointers to UVARs
- */
-
+fpcast:
+		'(' fptype '(' '*' ')' '(' ')' ')'
+					{ $$=$2; }
+;
 
 funcp:	FUNC	
-					{ $$=$1->value; }
-	|	UVAR 		
-					{$$=*$1.val;}
+					{ $$.type=$1->value.type; $$.tv.p=(void*)$1->value.ptv; }
 	|	'&' FUNC %prec ADDR
-					{ $$=$2->value; }
+					{ $$.type=$2->value.type; $$.tv.p=(void*)$2->value.ptv; }
+	|	postfix
+					{ CexpTypedValRec tmp;
+					  EVAL(
+						$$.type=$1.lval.type;
+						$$.tv=*$1.lval.ptv;
+						tmp.type=TUChar;
+						tmp.tv.c=1;
+						if (ONoop != $1.op) {
+							CHECK(cexpTVBinOp(&tmp,&$$,&tmp,$1.op));
+							CHECK(cexpTVAssign(&$1.lval,&tmp));
+						}
+					  );
+					}
+	|	prefix
+					{ CexpTypedValRec tmp;
+					  EVAL(
+						$$.type=$1.lval.type;
+						$$.tv=*$1.lval.ptv;
+						tmp.type=TUChar;
+						tmp.tv.c=1;
+						if (ONoop != $1.op) {
+							CHECK(cexpTVBinOp(&$$,&$$,&tmp,$1.op));
+							CHECK(cexpTVAssign(&$1.lval,&$$));
+						}
+					  );
+					}
 ;
 
 castexp: unexp
@@ -571,7 +607,7 @@ char *chpt;
 			return KW_DOUBLE;
 		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
-		else if ((rval->uvar.val=cexpVarLookup(sbuf,0))) {
+		else if ((rval->uvar.plval=cexpVarLookup(sbuf,0))) {
 #ifdef CONFIG_STRINGS_LIVE_FOREVER
 			/* if uvars use the string table, it might be there anyway */
 			if (!(rval->uvar.name=cexpStrLookup(sbuf,0)))
@@ -581,7 +617,7 @@ char *chpt;
 		}
 
 		/* it's a currently undefined symbol */
-		rval->uvar.val=0;
+		rval->uvar.plval=0;
 		return (rval->uvar.name=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */

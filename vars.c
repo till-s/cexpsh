@@ -133,16 +133,17 @@ typedef struct CexpStrRec_ {
 
 /* Cexp variables */
 typedef struct CexpVarRec_ {
-	lhR				head;
-	CexpTypedValRec	value;
-	CexpStr			name;
+	lhR					head;
+	CexpTypedAddrRec	pv;
+	CexpValU			val;
+	CexpStr				name;
 } CexpVarRec , *CexpVar;
 
 /* initialize the list anchor's 'n' field to 1 
  * to indicate that the 'library' has not been
  * initialized...
  */
-static CexpVarRec gblList={{(void*)0},{0},(CexpStr)1};
+static CexpVarRec gblList={{(void*)0},{0},{0},(CexpStr)1};
 static CexpStrRec strTab ={{0}};
 
 void
@@ -208,7 +209,7 @@ findN_LOCK(char *name, lh *succ)
  * RETURNS nonzero value if set/create succeeds.
  */
 
-CexpTypedVal
+CexpTypedAddr
 cexpVarLookup(char *name, int creat)
 {
 CexpVar v,where;
@@ -238,14 +239,14 @@ CexpStr s;
 		/* create variable / add to list */
 		lhrAdd(n,(lh)where);
 		n->name=t;
-		n->value.type=TVoid;
-		n->value.tv.p=0;
+		n->pv.type=TVoid;
+		n->pv.ptv=&n->val;
 		v=n; n=0;
 	}
 	__UNLOCK;
 	if (n) free(n);
 	if (s) free(s);
-	return v ? &v->value : 0;
+	return v ? &v->pv : 0;
 }
 
 /* lookup / create a string */
@@ -311,7 +312,7 @@ void	*rval=0;
 	__LOCK;
 	walking++;
 	for (v=(CexpVar)gblList.head.p; v; v=(CexpVar)v->head.p) {
-		if ((rval=walker(&v->name->str[0], &v->value, usrArg)))
+		if ((rval=walker(&v->name->str[0], &v->pv, usrArg)))
 			break;
 	}
 	walking--;
@@ -326,13 +327,13 @@ varPrintList(void)
 CexpVar v,n=0;
 	printf("\nreverse: \n");
 	for (v=(CexpVar)gblList.head.p; v; n=v, v=(CexpVar)v->head.p) {
-			printf("%10s 0x%8lx ",&v->name->str[0], v->value.tv.l);
+			printf("%10s 0x%8lx ",&v->name->str[0], v->pv.ptv->l);
 	}
 
 #ifdef DOUBLE_LINKED
 	printf("\n\nforward: \n");
 	for (; n && n->head.n; n=(CexpVar)n->head.n) {
-			printf("%10s 0x%8lx ",&n->name->str[0], n->value.tv.l);
+			printf("%10s 0x%8lx ",&n->name->str[0], n->pv.ptv->l);
 	}
 #endif
 	printf("\n");

@@ -29,7 +29,7 @@ cexpVarsFlush(void);
  * already.
  */
 
-CexpTypedVal
+CexpTypedAddr
 cexpVarLookup(char *name, int creat);
 
 /* remove a variable
@@ -56,7 +56,7 @@ cexpVarDelete(char *name);
  *       2) The walker  MUST NOT add/delete variables.
  */
 
-typedef void* (*CexpVarWalker)(char *name, CexpTypedVal v, void *usrArg);
+typedef void* (*CexpVarWalker)(char *name, CexpTypedAddr v, void *usrArg);
 
 void *
 cexpVarWalk(CexpVarWalker walker, void *usrArg);

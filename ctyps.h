@@ -71,17 +71,24 @@ typedef enum {
 #define CEXP_TYPE_BASE2PTR(type_enum) \
 				((type_enum) | CEXP_PTR_BIT)
 
-typedef struct CexpTypedValRec_{
-	CexpType	type;
-	union	{
+typedef union  CexpValU_ {
 		void           *p;
 		unsigned char  c;
 		unsigned short s;
 		unsigned long  l;
 		float          f;
 		double         d;
-	}			tv;
+} CexpValU, *CexpVal;
+
+typedef struct CexpTypedValRec_{
+	CexpType	type;
+	CexpValU	tv;
 } CexpTypedValRec, *CexpTypedVal;
+
+typedef struct CexpTypedAddrRec_ {
+	CexpType	type;
+	CexpVal		ptv;
+} CexpTypedAddrRec, *CexpTypedAddr;
 
 /* NOTE: Order is important */
 typedef enum {
@@ -143,14 +150,14 @@ cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from);
  * the proper pointer type.
  */
 const char *
-cexpTVPtr(CexpTypedVal ptr, CexpTypedVal v);
+cexpTVPtr(CexpTypedVal ptr, CexpTypedAddr a);
 
 const char *
 cexpTVBinOp(CexpTypedVal y, CexpTypedVal x1, CexpTypedVal x2, CexpBinOp op);
 
 /* assign x to *y, i.e. y must be a pointer */
 const char *
-cexpTVAssign(CexpTypedVal y, CexpTypedVal x);
+cexpTVAssign(CexpTypedAddr y, CexpTypedVal x);
 
 /* unary operators */
 const char *

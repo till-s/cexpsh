@@ -12,9 +12,9 @@
 #include "ctyps.h"
 
 typedef struct CexpSymRec_ {
-	char			*name;
-	CexpTypedValRec	value;
-	int				size;
+	char				*name;
+	CexpTypedAddrRec	value;
+	int					size;
 } CexpSymRec, *CexpSym;
 
 typedef struct CexpSymTblRec_ {

@@ -28,9 +28,6 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
-#ifdef RTEMS_TEST_IO_STREAM
-#include <iostream.h>
-#endif
 
 extern "C" 
 {

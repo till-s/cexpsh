@@ -1,5 +1,9 @@
 #include <unistd.h>
 #include <stdio.h>
+#define RTEMS_TEST_IO_STREAM
+#ifdef RTEMS_TEST_IO_STREAM
+#include <iostream>
+#endif
 
 int num_inst=0;
 
@@ -88,7 +92,7 @@ cdtest(void)
     BClass bleak;
 
 #ifdef RTEMS_TEST_IO_STREAM
-    cout << "Testing a C++ I/O stream" << endl;
+    std::cout << "Testing a C++ I/O stream" << std::endl;
 #else
     printf("IO Stream not tested\n");
 #endif

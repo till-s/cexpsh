@@ -23,8 +23,6 @@
 #define YYLEX_PARAM		parm
 #define YYERROR_VERBOSE
 
-#define CONFIG_STRINGS_LIVE_FOREVER
-
 #define EVAL_INH	 (((CexpParserCtx)YYPARSE_PARAM)->evalInhibit)
 #define PSHEVAL(inh) do { EVAL_INH<<=1; if (inh) EVAL_INH++; } while(0)
 #define POPEVAL      do { EVAL_INH>>=1; } while(0)

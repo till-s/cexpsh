@@ -4,11 +4,11 @@ What is Cexp?
  -- Brought to you by Till Straumann <strauman@slac.stanford.edu> --
  -- $Id$ --
 
-The Cexp utility gives its user access to all symbols
-present in the currently executing program. Its primary
-target is RTEMS, an open source RTOS, but Cexp should
-compile and run on virtually any platform supported by
-the BFD library.
+The Cexp utility is a C-expression interpreter who
+gives its user access to all symbols present in the currently
+executing program. Its primary target is RTEMS, an open source
+RTOS, but Cexp should compile and run on virtually any platform
+supported by the BFD library.
 
 If Cexp is linked to an executable, it is
 possible to invoke arbitrary functions and to
@@ -35,6 +35,7 @@ CEXP is a simple utility featuring
  - recursive invocation / simple scripts
  - dynamic/runtime 'module' loader
  - disassembler
+ - CEXP is reentrant
 
 Cexp knows about the basic C types (no aggregates), i.e.
 
@@ -57,16 +58,17 @@ and interprets C-style expressions, e.g.
 
 Symbol Table
 ------------
-On startup, Cexp reads the symbol table (either from 
-the executable itself, or from a stripped down '.sym'
-file) and guesses the variable types from their sizes.
+On startup, Cexp reads the 'system' symbol table (either from 
+the executable itself, or from a stripped-down '.sym'
+file - such a stripped-down symbol file can be created using
+the 'xsyms' utility) and guesses the variable types from their sizes.
 (Guess is only supported on ELF targets.)
 
 In some cases, this guess is obviously wrong, but you can 
 always cast the symbol to the correct type.
+
 Arrays are normally 'void' like every symbol for whose
-type Cexp cannot make a guess.
-It is still possible, however, to
+type Cexp cannot make a guess. It is still possible, however, to
 use such a symbol, simply by taking its address and
 casting to a different pointer type:
     
@@ -78,8 +80,6 @@ its type:
 
 Cexp> long *some_array
 Cexp> *(some_array + 25)
-
-After that, cexp has 'learned' the correct type.
 
 Cexp provides a series of lookup functions
 for symbols. Most noteworthy:
@@ -123,7 +123,7 @@ the 'Help' section about details.
 
 Function calling:
 The user is responsible for feeding properly typed arguments;
-unused arguments will be filled with integral 0, which on 
+unused arguments will be filled with integral/scalar 0, which on 
 most ABIs is safe.
 Since the symbol table (on ELF, Cexp is not using .stab but .symtab)
 provides no info about a function's return type, Cexp assumes
@@ -137,8 +137,8 @@ Or
   Cexp> double (*sqrt)()
   Cexp> sqrt(2.345)
 
-A lot of type casting can be avoided by using user
-defined variables, see below.
+A lot of type casting can be avoided by re-declaring or
+using user defined variables, see below.
 
 
 Type Engine
@@ -160,6 +160,13 @@ Cexp supports (fully typed) user variables which are
 visible in a global namespace (i.e. visible to other
 instances of Cexp). The name of user variables must
 not collide with symbols present in the symbol table.
+(When loading object files [AKA 'modules'], name clashes
+are ignored. A symbol in a newly loaded module that
+conflicts with an already defined user variable is
+silently ignored [object file symbols have a higher
+priority than user variables]. However, after unloading
+the conflicting module, the user variable becomes again
+'visible'.)
 
 A user variable is created simply by assigning it
 a value which also automatically defines its type.
@@ -188,10 +195,10 @@ is an 'disguised' char** and
 
     *(char*)*chppt
 
-resolves to 'h'
+yields 'h'
 
-User variables can also hold function pointer and hence
-be handy abbreviations for long names and casts.
+User variables can also hold function pointers and hence
+can be handy abbreviations for long names and casts.
 E.g. a convenient variable can be set for 'sqrt()'
 (which returns a double value):
 
@@ -233,7 +240,7 @@ an 'alias' as in the example above:
 Cexp> s=(double (*)())sqrt
 
 the help information is not propagated to 's'. If 'sqrt'
-had help information, it would need to be copied:
+had help information, it would have to be copied:
 
 Cexp> s.help(sqrt.help())
 
@@ -253,14 +260,14 @@ and
 i.e. a 'main' style and a 'vararg' style. The
 'vararg' version ends up building an argument list
 and calling cexp_main(). It is mainly intended
-for recursive invoking 'cexp()' e.g. for 
+for recursively invoking 'cexp()' e.g. for 
 reading a series of lines from a file.
 Note that the string argument list submitted to
 cexp() must be NULL terminated. When calling
 cexp() from cexp() (e.g. to interpret a script),
 this is not necessary, however, because any unused
-arguments (up to the internal maximum) are filled
-with zeroes...
+arguments (up to the internal maximum of 10 args)
+are filled with zeroes...
 
 The calling syntax of cexp_main/cexp is as follows:
 
@@ -268,7 +275,7 @@ cexp [-s <symbolfile>] [-h] [-d] [-q] [<scriptfile>]
 
 -h and -d have the obvious effect of printing usage
 info and enabling debugging information (only available
-if compiled with YYDEBUG defined).
+if configured with --enable-YYDEBUG).
 
 The -q ('quiet') flag instructs cexp not to print
 any normal output (errors are still reported to stderr)
@@ -291,7 +298,7 @@ cexp then reads commands from stdin (using the TECLA
 library) or alternatively from a script file.
 
 Cexp ignores any characters present on a line
-after it reads the comment tokens
+after it scans the comment tokens
 '#' or '//'.
 
 Example for invoking Cexp from Cexp to evaluate
@@ -302,7 +309,7 @@ a script:
 Loadable Modules / Runtime Loader
 ---------------------------------
 
-When built against the BFD library, cexp is capable of
+When built aginst the BFD library, cexp is capable of
 dynamically loading object files into a running program.
 Cexp keeps track of module dependencies. Note that this
 only covers symbol table dependencies. Cexp rejects
@@ -310,7 +317,7 @@ unloading a module 'A' if there is still another module,
 'B' loaded which had undefined symbols resolved against 'A's
 symbols. Obviously, more subtle dependencies, such as
 threads using a modules text or data cannot be tracked
-easily.
+easily and are ignored.
 
 An object file (AKA 'module') can be loaded invoking the
 command:
@@ -349,3 +356,243 @@ loaded modules if passed NULL ID.
 searches the list of modules for a regular expression and
 reports the IDs of all matches. It returns the first ID
 found (or NULL if there was no match).
+
+Building loadable modules
+- - - - - - - - - - - - -
+Note the important difference between a dymamically loaded
+object and a _shared_ object (such as a shared library). The 
+latter, although also 'dynamically loaded' is different from
+the former. A shared object is shared among several entities
+using disjunct address spaces (e.g. different UNIX processes).
+Supporting shared objects involves PIC and GOTs.
+
+To illustrate the difference, consider a LINUX system
+running two instances of the 'cexp' demo. 'cexp' is linked
+against glibc which is a shared library - both instances
+of 'cexp' use the _same_ copy of libc residing in physical memory.
+Let's now assume the both of the demo programs issue
+
+	cexpModuleLoad("someObjectFile.o")
+
+Cexp's dynamic loader doesn't support shared objects - hence
+both instances of 'cexp' will end up with their own copy of
+'someObjectFile' who will get loaded twice to physical memory.
+
+The main target of Cexp is RTEMS, a real-time OS which has
+a global address space shared by all threads. Hence, there is
+no need for shared object support but dynamically loading
+code is still very desirable.
+
+The Cexp dynamic loader simply accepts _any_ relocatable object file.
+The simplest modules are just object files:
+
+	cross-gcc -c -O some_object.c
+
+Multiple objects can be combined using the '-r' linker option
+
+	cross-ld  -o some_object.o -r some1.o some2.o some3.o
+
+It is also possible to convert entire (static) libraries into
+loadable objects:
+
+	cross-ld  -o lib_object.o -r --whole-archive libSome.a
+
+The 'system' symbol table is itself an object file from where
+Cexp loads the initial symbol table at startup. The executable
+itself may be used for that purpose (unless it is a pure binary
+as it is the case on some embedded systems). Alternatively
+(for saving memory and time), a stripped-down object file containing
+only the symbol table may be generated using the 'xsyms' tool
+(available on ELF targets only), e.g:
+
+	xsyms cexp cexp.sym
+	cexp -s cexp.sym
+
+Loadable Modules 'Magic'
+- - - - - - - - - - - - -
+When loading modules, 'cexp' does some magic operations on
+special symbols it recognizes. Note that the all-capital names
+given here are macros - the actual names can be found in the
+header.
+
+	CEXPMOD_INITIALIZER_SYM (defined in cexpmodP.h), when
+		present in a loaded module, a routine with this
+		name is invoked by cexpModuleLoad() just after calling
+		C++ constructors.
+		This 'module-constructor' routine [for C++ information
+		see below] can be used to initialize a (non-C++) module.
+
+	CEXPMOD_FINALIZER_SYM, when present in a loaded module,
+		a routine with this name is invoked just prior to calling
+		C++ destructors and unloading the module.
+		The FINALIZER may reject the unloading attempt by
+		returning a nonzero value.
+
+	CEXP_HELP_TAB (defined in cexpHelp.h). A module may define
+		(multiple) 'help' tables (their name must begin with
+		the magic CEXP_HELP_TAB string) for providing help
+		information about specific symbols contained in a module.
+		See cexpHelp.h for more information about the help information.
+		cexpModuleLoad() automatically registers this data.
+
+Building the 'Main' Application
+- - - - - - - - - - - - - - - -
+
+When linking a traditional application, only objects referenced by the
+application will be linked into the executable. E.g. an application who
+does not use 'printf()' will not have that routine available. In the
+normal case, this is fine. When using a runtime loader like CEXP, there
+arises a problem: imagine you want to load a piece of code which _does_
+use 'printf()':
+
+  - Cexp resolves the module's undefined symbols, encounters 'printf'
+    but doesn't find it in its symbol table - it rejects loading your
+    module.
+
+  - It is not possible either to simply link your module against libc!
+    The module might reference other libc objects who _are_ present
+    in the application already - Cexp would complain that their symbols
+    are already defined.
+
+Therefore, the 'primary' or 'system' application should be built to 
+include ALL parts of the core libraries (such as the C-library, the
+RTEMS executive managers etc.) who will possibly be used by modules
+loaded into the running system.
+
+Hence, there is a new task for the system designer which (for a statically
+linked application) would be automatically performed by the linker:
+You must now tailor/configure the core parts of your system. This
+is essentially a memory/functionality tradeoff (Sidenote: vxWorks
+is configured in such a way, too). This 'tailoring' essentially
+means that you have to tell the linker what parts of the basic
+system libraries (RTEMS managers, CPU/BSP support, libc, networking
+etc.) should forcibly be included into the link.
+
+Note that it is only necessary to take into account the libraries
+needed by CEXP and the OS itself during this process.
+Any library CEXP does _not_ depend on, directly or indirectly , can
+of course be dynamically loaded any time later.
+
+A special makefile is provided to help you generating the system
+configuration (RTEMS). You can give the make process a list of libraries
+to work on. 'make' then generates a set of files (one per library)
+containing lists of all symbols exported by a library - grouped
+by the object file where these symbols are defined.
+
+You can then browse these lists and delete/comment symbols or
+chunks of symbols that you dont want to be present. In some
+cases it is very much necessary to exclude certain symbols
+from a link because an attempt to forcibly link them results
+in linker errors. This can happen, e.g. if you try to enforce
+linking a (under normal circumstances NEVER used) routine who 
+has unresolved dependencies.
+
+C++ Information
+- - - - - - - -
+
+Dynamically loading C++ modules requires additional support.
+
+	1) static constructors and destructors
+	2) multiply defined instances of code (templates, multiple inclusion of headers)
+	3) exception handling
+
+Unfortunately, all of these items are highly implementation dependent and it is therefore
+unlikely that C++ support works for compilers other than gcc. Alas, there are even
+significant differences between different versions of gcc and target ABI's.
+
+IMHO, C++ is unreadable, unportable, bloat-prone and should be avoided if at all
+possible. That said, let's dive into the details:
+
+	1) static constructors and destructors take care of initializing/finalizing
+	   static objects such as:
+
+		BlahClass	blahObj(a,b,c);
+		int			test=testInitialize(x,y);
+
+	   gcc creates code for initializing/finalizing these kinds of objects and
+	   tags this code with symbols similar to '__GLOBAL__.I.xxx' / '__GLOBAL__.D.xxx'.
+	   If Cexp encounters such symbols, it builds constructor/destructor lists when
+	   loading the module and executes the respective code after loading / prior to
+	   unloading.
+	   There are other possible implementations (such as creating special ctor/dtor
+	   sections) who are not supported - as I said, there is no general way for 
+	   handling C++ :-(
+
+	2) C++ allows for multiple definitions/instantiations of code (a header included
+	   by more than one 'xxx.cc' file may define class members) plus there is the
+	   'template' ''feature'' of C++.
+	   These let C++ code size _explode_ keeping hardware manufacturers happy.
+	   Gcc deals with this problem by putting every piece and bit of (possibly
+	   redundant code and/or data) into a separate '.gnu.linkonce.t.xyzkljsbjj783c'
+	   SECTION. The idea is that the linker (who is in our case 'Cexp') eliminates
+	   redundant sections. The sad result are bloated object files and Cexp symbol
+	   tables (Unfortunately, Cexp must keep _all_ of the zillions of
+	   '.gnu.linkonce.x.yzu' symbols around since a redundant copy might be
+	   loaded/linked at any time :-0 )
+
+       You can help CEXP, however by using proper linker scripts when linking
+       large C++ applications (such as EPICS).
+       If you are sure that your large application is the only (C++) object (sharing
+       common code), you may provide the linker with a script who instructs it
+       to integrate _all_ the "gnu.linkonce.t.xxx" sections into ".text" etc.
+
+       If you don't believe me - just let CEXP load an EPICS IOC and list all the
+       'linkonce' symbols:
+
+         lkup("linkonce")
+
+       you will be surprised!
+	   
+	3) exception handling (while nice at the abstracion level) is another field
+	   that is highly architecture/compiler/version dependent and a seed to bloat.
+       Even reentrancy might not be taken for granted.
+	   Gcc uses two flavors of exception handling 'longjmp' and 'eh_frame' style
+	   which are (to some extent) both supported by Cexp...
+
+As is said: C++ IS THE DEVIL in the detail. While linking C (and even fortran etc.)
+code compiled with different compilers (e.g. libraries) is seamless under a common
+ABI, it is very complex if not impossible with C++.
+
+LICENSING & DISCLAIMERS
+-----------------------
+
+CEXP is released under the terms of the EPICS open license (consult the LICENSE
+file for details)
+
+Copyright 2002, Stanford University and
+		Till Straumann <strauman@slac.stanford.edu>
+
+Stanford Notice
+***************
+
+Acknowledgement of sponsorship
+* * * * * * * * * * * * * * * *
+This software was produced by the Stanford Linear Accelerator Center,
+Stanford University, under Contract DE-AC03-76SFO0515 with the Department
+of Energy.
+
+Government disclaimer of liability
+- - - - - - - - - - - - - - - - -
+Neither the United States nor the United States Department of Energy,
+nor any of their employees, makes any warranty, express or implied,
+or assumes any legal liability or responsibility for the accuracy,
+completeness, or usefulness of any data, apparatus, product, or process
+disclosed, or represents that its use would not infringe privately
+owned rights.
+
+Stanford disclaimer of liability
+- - - - - - - - - - - - - - - - -
+Stanford University makes no representations or warranties, express or
+implied, nor assumes any liability for the use of this software.
+
+This product is subject to the EPICS open license
+- - - - - - - - - - - - - - - - - - - - - - - - - 
+Consult the LICENSE file or http://www.aps.anl.gov/epics/license/open.php
+for more information.
+
+Maintenance of notice
+- - - - - - - - - - -
+In the interest of clarity regarding the origin and status of this
+software, Stanford University requests that any recipient of it maintain
+this notice affixed to any distribution by the recipient that contains a
+copy or derivative of this software.

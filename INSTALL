@@ -15,21 +15,23 @@ NOTE: bison is only required if you
 Libraries:
 ----------
  - libbfd, libopcodes, libiberty (vers. 2.13.1, distributed with Cexp)
- - libelf (vers. 0.8.2 distributed with Cexp; NOTE: 0.8.3 doesn't seem
-   to work!)
-   NOTE: libelf is only needed
-     1) if cexp is configured for using libelf instead of BFD
-        (discouraged; reduced functionality but a less restrictive
-         license: LGPL vs. GPL) 
-     2) for building the host tool 'xsyms' (not ported to BFD yet)
-        which allows for extracting a symbol table from an ELF file.
+ - libelf (vers. 0.8.2; NOTE: 0.8.3 doesn't seem to work!)
+   NOTE: libelf is only needed if cexp is configured for using libelf
+         instead of BFD (discouraged; reduced functionality but a less
+         restrictive license: LGPL vs. GPL) 
+   libelf is downloadable at
+
+     http://www.stud.uni-hannover.de/~michael/software/
+
  - Spencer's libregexp (distributed with Cexp). This is a modified,
-   reentrant version.
+   _reentrant_ version.
+
  - libtecla: clean & lean & reentrant line editor. I like it much
    better than GNU readline (messy, bloated & non-reentrant). Its
    license (X11) is less restrictive than readline's (GPL)
    NOTE: the version distributed with Cexp has been slightly
    patched to support RTEMS.
+
  - alternatively: GNU libreadline, which in turn requires
    libncurses or libtermcap. NOTE: libreadline is _not_ reentrant
    and hence should _NOT_ be used on RTEMS (unless you have
@@ -81,6 +83,11 @@ The configure script recognizes several options:
 	--disable-bfd	use libelf instead of libbfd. Note that this comes
 			at the expense of losing the runtime loader and
 			the disassembler functionality.
+
+			NOTE: you must download libelf (0.8.2 recommended; 0.8.3
+                  didn't work for me) and install it into the CEXP
+                  source directory. Tweaking of the configure/makefiles
+                  required for versions other than 0.8.2.
 	--disable-tecla	don't use the TECLA library (discouraged)
 	--disable-readline don't use GNU readline either (this option is only
 			effective if --disable-tecla is also specified)
@@ -110,6 +117,13 @@ demo program for execution on the host...
 
 Recomendation: start with a host build (e.g. on linux or solaris) and
 play around with the demo.
+
+XSYMS Alternative. The CEXP source directory contains a Makefile with
+a very primitive rule to create 'xsyms'. Running 'gmake xsyms' in the CEXP
+source top directory on a host machine tries to build 'xsyms' using
+an already installed 'libbfd' or 'libelf'. CAVEAT: the mentioned Makefile
+contains other rules for maintenance. In particular, DONT use the 'prep'
+or 'distclean' targets unless you know what you are doing.
 
 RTEMS_NOTE:
 Cexp (and the patched tecla library) contain some hacks to avoid

@@ -10,7 +10,18 @@
 # most of the files are missing and we just use
 # the trivial rule for 'xsyms'
 
-all \
+all: $(if $(wildcard Makefile.am),,xsyms)
+	@if [ -f Makefile.am ] ; then \
+		echo This Makefile must be invoked with an explicit target; \
+		echo Possible Targets are; \
+		echo '    "xsyms": make the "xsyms" host tool (using installed libelf or libbfd)';\
+		echo '    "clean": remove "xsyms"'; \
+		echo '     "prep": regenerate non-CVS/autoxxx files (requires bison-1.28 and autotools)'; \
+		echo '"distclean": remove non-CVS files (REQUIRES bison-1.28 AND autotools TO RECREATE)'; \
+		exit 1; \
+	fi
+
+
 prep: $(if $(wildcard Makefile.am),src bootstrap,xsyms)
 
 
@@ -34,23 +45,29 @@ links:	$(LINKDIR)/binutils-2.13 $(LINKDIR)/regexp $(LINKDIR)/libelf-0.8.0 $(LINK
 
 src: cexp.tab.c cexp.tab.h jumptab.c
 
-bootstrap:
+bootstrap-xsyms bootstrap-cexp:
 	aclocal && autoconf && autoheader && automake -ac
-	(cd libtecla-1.4.1; autoconf)
-	(cd libelf-0.8.2; aclocal && autoconf && autoheader)
+
+bootstrap: bootstrap-cexp
+	(cd libtecla; autoconf)
 	(cd regexp; aclocal && autoconf && automake)
 
-clean distclean:
+clean:
+	$(RM) xsyms
+
+distclean: clean
 	$(RM) gentab Makefile.in aclocal.m4 cexp.output cexp.tab.c
 	$(RM) -r autom4te.cache
 	$(RM) cexp.tab.h compile config.guess config.h.in config.sub configure
 	$(RM) depcomp gentab install-sh jumptab.c missing mkinstalldirs
-	$(RM) libtecla-1.4.1/configure
-	$(RM) xsyms
+	$(RM) libtecla/configure
 
-# primitive rule to just make xsyms
-xsyms: xsyms.c
-	$(CC) -o $@ -I/usr/include/libelf $^ -lelf
+# primitive rule to just make either variant of xsyms
+# NOTE: these rules are intended to use either libbfd or libelf
+#       already installed on the HOST, i.e. not the ones probably
+#       in a CEXP subdir.
+xsyms: xsyms.c xsyms-bfd.c
+	$(CC) -o $@ -I/usr/include/libelf xsyms.c -lelf || $(CC) -o $@ xsyms-bfd.c -lbfd -liberty
 
 install:
 	@echo You must install 'xsyms' manually

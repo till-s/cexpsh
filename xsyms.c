@@ -85,7 +85,12 @@ static void myfailure();
 static void
 usage(char *nm)
 {
+char *chpt=strrchr(nm,'/');
+if (chpt)
+	nm=chpt+1;
 fprintf(stderr,"usage: %s [-p] [-z] [-h] [<infile> [<outfile>] ]\n", nm);
+fprintf(stderr,"       %s implementation using LIBELF\n",nm);
+fprintf(stderr,"       $Id$\n\n");
 fprintf(stderr,"       strip an ELF file leaving only the symbol table\n");
 fprintf(stderr,"       - if there's no <infile>, operate on stdin/out as a filter\n");
 fprintf(stderr,"       - if there's no <outfile>, just list section headers\n");
@@ -166,18 +171,18 @@ int            purge=1;
 	/* Obtain the ELF descriptor */
 	(void) elf_version(EV_CURRENT);
 	if ((elf = elf_begin(fd, ELF_BEGINFLAGS, NULL)) == NULL)
-		myfailure();
+		myfailure(argv[0]);
 	if (DOWRITE) {
 		if ((eout= elf_begin(ofd,  ELF_C_WRITE, NULL)) == NULL)
-			myfailure();
+			myfailure(argv[0]);
 		if (!(nehdr=elf32_newehdr(eout)))
-			myfailure();
+			myfailure(argv[0]);
 	}
 	/* Obtain the .shstrtab data buffer */
 	if (((ehdr = elf32_getehdr(elf)) == NULL) ||
 		((scn = elf_getscn(elf, ehdr->e_shstrndx)) == NULL) ||
 		((data = elf_getdata(scn, NULL)) == NULL))
-			myfailure();
+			myfailure(argv[0]);
 	if (DOWRITE) {
 		if (purge) {
 			nehdr->e_type=ehdr->e_type;
@@ -197,7 +202,7 @@ int            purge=1;
 	/* Traverse input filename, printing each section */
 	for (cnt = 1, scn = NULL; (scn = elf_nextscn(elf, scn)); cnt++) {
 		if ((shdr = elf32_getshdr(scn)) == NULL)
-                    myfailure();
+                    myfailure(argv[0]);
 		(void) fprintf(stderr,"[%d] %s (size: %i, offset %i)\n", cnt,
 				(char *)data->d_buf + shdr->sh_name,
 				shdr->sh_size, shdr->sh_offset);
@@ -244,8 +249,9 @@ int            purge=1;
 }         /* end main */
 
 static void
-myfailure(void)
+myfailure(char *nm)
 {
-	(void) fprintf(stderr, "%s\n", elf_errmsg(elf_errno()));
+	(void) fprintf(stderr, "%s\n\n", elf_errmsg(elf_errno()));
+	usage(nm);
 	exit(1);
 }

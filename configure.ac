@@ -66,7 +66,7 @@ fi
 fi
 
 dnl we need libelf for the 'xsyms' tool
-if test "$enable_bfd" = "no" -o "$host_os" != "rtems" ; then
+if test "$enable_bfd" = "no" ; then
 dnl     AC_CONFIG_SUBDIRS needs a literal arg :-(
 	AC_CONFIG_SUBDIRS(libelf-0.8.2)
 fi

@@ -17,11 +17,17 @@ SYMF_SRCS = bfdstuff.c bfd-disas.c
 SYMLIBP=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/opcodes/.libs -L@BINUTILS@/libiberty
 SYMLIBS=-lbfd -lopcodes -liberty
 SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+xsyms_SOURCES=xsyms-bfd.c
+xsyms_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+xsyms_INCLUDES=-I@BINUTILS@/bfd -I@srcdir@/@BINUTILS@/include
 else
 SYMF_SRCS = elfsyms.c
 SYMLIBP=-Llibelf-local/lib
 SYMLIBS=-lelf
 SYMINCS=-Ilibelf-local/include
+xsyms_SOURCES=xsyms.c
+xsyms_LDADD=-Llibelf-local/lib -lelf
+xsyms_INCLUDES=-Ilibelf-local/include
 endif
 
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h help.c $(SYMF_SRCS) $(TECLA_SRCS)
@@ -46,12 +52,10 @@ CONFIG_THREADS=-DNO_THREAD_PROTECTION
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 #cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
-cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -l@REGEXPLIB@
+cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
 cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=xsyms cexp
-xsyms_LDADD=-Llibelf-local/lib -lelf
-xsyms_INCLUDES=-Ilibelf-local/include
 else
 bin_PROGRAMS=
 endif

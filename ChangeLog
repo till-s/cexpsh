@@ -1,0 +1,16 @@
+
+Changes since CEXP-1.2.beta ("valentine")
+
+ 2003/4/16:
+ - unbundled 'libelf' and provided a BFD based
+   version of 'xsyms'.
+ - Toplevel 'Makefile' with rules 'prep' and 'xsyms'
+   to call autotools, bison etc. and trivial 'xsyms'
+   compilation (needs host-installed libelf or libbfd),
+   respectively.
+ - made spencer_regexp library reentrant
+ - use a wrapper to invoke regexp. Could use 'libiberty'
+   implementation but it is ~25k bigger and would need
+   some wrapping work.
+ - catch attempts to use cexpModuleLoad() when built
+   with LIBELF.

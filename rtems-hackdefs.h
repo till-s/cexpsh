@@ -218,5 +218,7 @@ struct termios {
 #define	TCIOFF		2
 #define	TCION		3
 
+int tcgetattr(int, struct termios *);
+int tcsetattr(int, int, struct termios *);
 
 #endif

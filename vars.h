@@ -34,6 +34,12 @@ cexpVarLookup(char *name, int creat);
 
 /* remove a variable
  * RETURNS: nonzero if the variable was found & deleted
+ *
+ * NOTE: the comments about cexpVarLookup in a multithreaded
+ *       environment. Variables exist in a global namespace,
+ *       so multiple threads may use them. However, if they
+ *       do so, they must make sure not to use pointers to
+ *       'CexpTypedVal's of deleted variables.
  */
 void *
 cexpVarDelete(char *name);
@@ -54,5 +60,17 @@ typedef void* (*CexpVarWalker)(char *name, CexpTypedVal v, void *usrArg);
 
 void *
 cexpVarWalk(CexpVarWalker walker, void *usrArg);
+
+/* string table management
+ * There exists one global 'string table', where static
+ * strings are registered. There is no way of deleting
+ * strings, so it is safe to assume they live 'forever'
+ */
+
+/* lookup a string optionally adding it to the
+ * table.
+ */
+char *
+cexpStrLookup(char *name, int creat);
 
 #endif

@@ -102,6 +102,11 @@ typedef struct CexpParserCtxRec_ {
 input:	line		{ YYACCEPT; }
 
 line:	'\n'
+	|	IDENT '\n'
+					{
+						yyerror("unknown symbol/variable; '=' expected");
+						YYERROR;
+					}
 	|	exp '\n'
 					{
 						if (CEXP_TYPE_FPQ($1.type)) {
@@ -187,7 +192,7 @@ unexp:	VAR
 	|	STR_CONST
 	|	call
 	|   '!' castexp
-					{ $$.tv.l = ! cexpTVTrueQ(&$2); }
+					{ $$.type=TULong; $$.tv.l = ! cexpTVTrueQ(&$2); }
 	|   '~' castexp
 					{ CHECK(cexpTVUnOp(&$$,&$2,OCpl)); }
 	|   '-' castexp %prec NEG
@@ -467,7 +472,12 @@ char *chpt;
 		else if ((rval->sym=cexpSymTblLookup(sbuf, pa->symtbl)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
 		else if ((rval->uvar.val=cexpVarLookup(sbuf,0))) {
-			return (rval->uvar.name=lstAddString(pa,sbuf)) ? UVAR : LEXERR;
+#ifdef CONFIG_STRINGS_LIVE_FOREVER
+			/* if uvars use the string table, it might be there anyway */
+			if (!(rval->uvar.name=cexpStrLookup(sbuf,0)))
+#endif
+				rval->uvar.name=lstAddString(pa,sbuf);
+			return rval->uvar.name ? UVAR : LEXERR;
 		}
 
 		/* it's a currently undefined symbol */
@@ -500,7 +510,12 @@ char *chpt;
 				*dst=0;
 				getch();
 				rval->val.type=TUCharP;
-				return (rval->val.tv.p=lstAddString(pa,sbuf)) ? STR_CONST : LEXERR;
+#ifdef CONFIG_STRINGS_LIVE_FOREVER
+				rval->val.tv.p=cexpStrLookup(sbuf,1);
+#else
+				rval->val.tv.p=lstAddString(pa,sbuf);
+#endif
+				return rval->val.tv.p ? STR_CONST : LEXERR;
 			}
 		} while (ch && limit>2);
 		return LEXERR;

@@ -162,4 +162,6 @@ lkaddr(void *addr);
 
 #define YYDEBUG	1
 
+#define DEBUG 1
+
 #endif

@@ -39,10 +39,6 @@ usage(char *nm)
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 
-#ifndef NODEBUG /* externally override */
-#define DEBUG
-#endif
-
 #ifdef DEBUG
 #include <math.h>
 /* create a couple of variables for testing */

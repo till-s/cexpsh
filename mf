@@ -3,22 +3,25 @@ PROG=ce
 CFLAGS=-g -O -Wall
 WRAP=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
-REGEXP_PATH=/home/till_tp/till/xfm/regexp
-#REGEXP_PATH=/home/till/slac/xfm/regexp
+#REGEXP_PATH=/home/till_tp/till/xfm/regexp
+REGEXP_PATH=/home/till/slac/xfm/regexp
 #NOTE: must be bison, because we want a reentrant
 #      parser (%pure_parser)
 YACC=bison
 YFLAGS=-d -p cexp
+INCS=-I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) 
+DEFS=-DNO_THREAD_PROTECTION -DDEBUG
 
 MAKEDEPEND=gccmakedep
 
 sym_OBJS=
 exmpl_OBJS=
 ce_OBJS=elfsyms.o cexp.tab.o vars.o ctyps.o
-ce_CFLAGS=-DNO_THREAD_PROTECTION
 ce_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp -lm
-elfsyms_CFLAGS=-DCEXP_TEST_MAIN
+elfsyms_DEFS=-DCEXP_TEST_MAIN
 elfsyms_OBJS=ctyps.o
+vars_DEFS=-DTEST_VARS
+vars_LIBS=-lreadline -lncurses
 
 WRAP_OBJS_YES=wrap.o
 WRAP_OBJS_NO=
@@ -29,7 +32,9 @@ WRAP_LDFLAGS_NO=
 OBJS=$($(PROG)_OBJS) $(PROG).o $(WRAP_OBJS_$(WRAP))
 WRAP_LDFLAGS=$(WRAP_LDFLAGS_$(WRAP))
 LIBS=$($(PROG)_LIBS) 
-CFLAGS+=$($(PROG)_CFLAGS)
+DEFS+= $($(PROG)_DEFS)
+INCS+= $($(PROG)_INCS)
+CFLAGS+=$($(PROG)_CFLAGS) $(DEFS) $(INCS)
 
 # This only works as long as C++ is not involved... */
 SRCS=$(OBJS:%.o=%.c)
@@ -50,10 +55,10 @@ jumptab.c: gentab
 	./$^ > $@
 
 ctyps.o: ctyps.c jumptab.c
-	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) -o $@ $<
+	$(CC) -c $(CFLAGS) -o $@ $<
 
 %.o:	%.c
-	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) -o $@ $^
+	$(CC) -c $(CFLAGS) -o $@ $^
 
 clean:
 	$(RM) -f $(PROG) $(OBJS) wrap.o *.tab.c *.tab.h cexp.output
@@ -62,4 +67,4 @@ elfsyms.c: cexp.h
 cexp.h: cexp.tab.h
 
 depend:	cexp.tab.h
-	$(MAKEDEPEND) $(CFLAGS) $(SRCS)
+	$(MAKEDEPEND) $(DEFS) $(INCS) $(SRCS)

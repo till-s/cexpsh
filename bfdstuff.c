@@ -107,6 +107,14 @@
 #define TEXT_SECTION_NAME		".text"
 #define DSO_HANDLE_NAME			"__dso_handle"
 
+/* this probably only makes sense on ELF */
+#ifdef HAVE_ELF_BFD_H
+/* filter dangerous sections; we do ont support shared objects */
+#define FIXUP_SECTION_NAME		".fixup"
+#define GOT_SECTION_NAME		".got"
+#define GOT2_SECTION_NAME		".got2"
+#endif
+
 /* using one static variable for the pattern matcher is
  * OK since the entire cexpLoadFile() routine is called
  * with the WRITE_LOCK held, so mutex is guaranteed for
@@ -414,9 +422,10 @@ CexpSym	cesp;
 static void
 s_count(bfd *abfd, asection *sect, PTR arg)
 {
-Segment		seg=segOf((LinkData)arg, sect);
-flagword	flags=bfd_get_section_flags(abfd,sect);
-const char	*secn=bfd_get_section_name(abfd,sect);
+LinkData	ld    = (LinkData)arg;
+Segment		seg   = segOf(ld, sect);
+flagword	flags = bfd_get_section_flags(abfd,sect);
+const char	*secn = bfd_get_section_name(abfd,sect);
 #if DEBUG & DEBUG_SECT
 	printf("Section %s, flags 0x%08x\n", secn, flags);
 	printf("size: %i, alignment %i\n",
@@ -429,19 +438,43 @@ const char	*secn=bfd_get_section_name(abfd,sect);
 		/* exception handler frame tables have to be 0 terminated and
 		 * we must reserve a little extra space.
 		 */
-		if ( !strcmp(secn, EH_SECTION_NAME) ) {
+		if ( ! (SEC_LINK_ONCE & flags) ) {
+			/* speed up the name comparison by skipping the numerous
+			 * linkonce sections - we assume that none of the ones
+			 * we check for below here are LINKONCE
+			 */
+			if ( !strcmp(secn, EH_SECTION_NAME) ) {
 #ifdef OBSOLETE_EH_STUFF
-			asymbol *asym;
-			/* create a symbol to tag the terminating 0 */
-			asym=((LinkData)arg)->eh_frame_e_sym=bfd_make_empty_symbol(abfd);
-			bfd_asymbol_name(asym) = EH_FRAME_END_PATTERN;
-			asym->value=(symvalue)bfd_section_size(abfd,sect);
-			asym->section=sect;
+				asymbol *asym;
+				/* create a symbol to tag the terminating 0 */
+				asym=ld->eh_frame_e_sym=bfd_make_empty_symbol(abfd);
+				bfd_asymbol_name(asym) = EH_FRAME_END_PATTERN;
+				asym->value=(symvalue)bfd_section_size(abfd,sect);
+				asym->section=sect;
 #else
-			((LinkData)arg)->eh_section = sect;
+				ld->eh_section = sect;
 #endif
-			/* allocate space for a terminating 0 */
-			seg->size+=sizeof(long);
+				/* allocate space for a terminating 0 */
+				seg->size+=sizeof(long);
+			}
+#ifdef HAVE_ELF_BFD_H
+			/* filter dangerous sections; we do ont support shared objects
+			 * do this in s_count and not earlier because we allow a got
+			 * in the main system to support linux/solaris & friends...
+			 */
+			else if (bfd_section_size(abfd,sect) > 0) {
+				if ( !strcmp(FIXUP_SECTION_NAME, secn) ||
+				     !strcmp(GOT_SECTION_NAME, secn)   ||
+				     !strcmp(GOT2_SECTION_NAME, secn) ) {
+					if ( !ld->errors++ ) {
+						fprintf(stderr,
+								"Uh oh - a `%s` section should not be present"
+								" - did you use -fPIC against my advice?\n",
+								secn);
+					}
+				}
+			}
+#endif
 		}
 	}
 }
@@ -1226,7 +1259,10 @@ struct stat		dummybuf;
 	if ( ! (0==cexpSystemModule) ) {
 
 		/* compute the memory space requirements */
+		ldr.errors = 0;
 		bfd_map_over_sections(ldr.abfd, s_count, &ldr);
+		if (ldr.errors)
+			goto cleanup;
 	
 		/* allocate segment space */
 		for (i=0; i<NUM_SEGS; i++) {

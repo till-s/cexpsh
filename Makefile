@@ -67,7 +67,6 @@ bootstrap-xsyms bootstrap-cexp:
 
 bootstrap: bootstrap-cexp
 	(cd libtecla; $(AUTOCONF))
-	(cd regexp; $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE))
 
 clean:
 	$(RM) xsyms

@@ -85,12 +85,13 @@ typedef struct CexpTypedValRec_{
 
 /* NOTE: Order is important */
 typedef enum {
-		OLt		=5,
-		OLe		=6,
-		OEq		=7,
-		ONe		=8,
-		OGe		=9,
-		OGt		=10,
+		ONoop	=-1,
+		OLt	=5,
+		OLe	=6,
+		OEq	=7,
+		ONe	=8,
+		OGe	=9,
+		OGt	=10,
 		OAdd	=11,		/* comparisons above here */
 		OSub	=12,		/* pointers cannot do below this */
 		OMul	=13,
@@ -100,7 +101,7 @@ typedef enum {
 		OShR	=17,		/* bitwise right shift */
 		OAnd	=18,
 		OXor	=19,
-		OOr		=20,
+		OOr	=20,
 } CexpBinOp;
 
 /* unary operators */

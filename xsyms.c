@@ -46,13 +46,14 @@ static void myfailure();
 static void
 usage(char *nm)
 {
-fprintf(stderr,"usage: %s [-p] [-h] [<infile> [<outfile>] ]\n", nm);
+fprintf(stderr,"usage: %s [-p] [-z] [-h] [<infile> [<outfile>] ]\n", nm);
 fprintf(stderr,"       strip an ELF file leaving only the symbol table\n");
 fprintf(stderr,"       - if there's no <infile>, operate on stdin/out as a filter\n");
 fprintf(stderr,"       - if there's no <outfile>, just list section headers\n");
 fprintf(stderr,"       -h this info\n");
 fprintf(stderr,"       -p really 'purge' other sections rather than setting\n");
-fprintf(stderr,"          their size to zero\n");
+fprintf(stderr,"          their size to zero (default)\n");
+fprintf(stderr,"       -z dont 'purge' other sections; just set their size to zero\n");
 }
 
 static Elf_Scn *
@@ -89,8 +90,8 @@ Elf_Scn        *scn=0, *nscn=0, *strtab=0, *symtab=0;
 Elf_Data       *data=0;
 int            fd, ofd=-1, ch;
 unsigned int   cnt;
-char           *optstr="ph";
-int            purge=0;
+char           *optstr="phz";
+int            purge=1;
 
 	while ((ch=getopt(argc, argv, optstr))>0) {
 		switch (ch) {
@@ -99,6 +100,8 @@ int            purge=0;
 				usage(argv[0]); exit(0);
 			case 'p':
 				purge=1; break;
+			case 'z':
+				purge=0; break;
 		}
 	}
 
@@ -133,14 +136,19 @@ int            purge=0;
 		((data = elf_getdata(scn, NULL)) == NULL))
 			myfailure();
 	if (DOWRITE) {
-		nehdr->e_type=ehdr->e_type;
-		nehdr->e_machine=ehdr->e_machine;
-		nehdr->e_version=ehdr->e_version;
-		nehdr->e_entry=ehdr->e_entry;
-		nehdr->e_shstrndx=ehdr->e_shstrndx;
 		if (purge) {
+			nehdr->e_type=ehdr->e_type;
+			nehdr->e_machine=ehdr->e_machine;
+			nehdr->e_version=ehdr->e_version;
 			nehdr->e_shstrndx=elf_ndxscn(copyscn(eout,scn));
+			/* vxWorks also needs a copy of the ident... */
+			memcpy(nehdr->e_ident,ehdr->e_ident,EI_NIDENT);
+		} else {
+			/* just copy the header */
+			*nehdr = *ehdr;
 		}
+		/* vxWorks wants a program header, so give them a dummy */
+		elf32_newphdr(eout,1/*ehdr->e_phnum*/);
 	}
 
 	/* Traverse input filename, printing each section */

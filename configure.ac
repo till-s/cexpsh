@@ -51,6 +51,8 @@ if test "$enable_YYDEBUG" != "no" ; then
 	AC_DEFINE(YYDEBUG,1,[  --enable-YYDEBUG whether to enable YYDEBUG])
 fi
 
+AC_CONFIG_SUBDIRS(regexp)
+
 if test "$enable_tecla" != "no" ; then
 	AC_CONFIG_SUBDIRS(libtecla)
 	AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
@@ -84,8 +86,6 @@ AC_HAVE_FUNCS(rcmd vsnprintf)
 AM_CONDITIONAL(ISRTEMS, test "$host_os" = "rtems")
 AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
-
-AC_CONFIG_SUBDIRS(regexp)
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)

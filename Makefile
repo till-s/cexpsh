@@ -4,8 +4,12 @@
 # Templates/Makefile.lib
 #       Template library Makefile
 #
+# Set this to YES or NO if you want / dont want to use GNU readline
+USE_READLINE=YES
 
-LIBNAME=libcexp.a        # xxx- your library names goes here
+USE_READLINE_YES=-DUSE_GNU_READLINE
+
+LIBNAME=libcexp.a
 LIB=${ARCH}/${LIBNAME}
 
 VPATH=.:getopt
@@ -40,7 +44,7 @@ include $(RTEMS_ROOT)/make/lib.cfg
 # Add local stuff here using +=
 #
 
-DEFINES  += -DYYDEBUG -DCONFIG_STRINGS_LIVE_FOREVER
+DEFINES  += -DYYDEBUG -DCONFIG_STRINGS_LIVE_FOREVER $(USE_READLINE_$(USE_READLINE))
 CPPFLAGS += -I/usr/local/rtems/powerpc-rtems/include
 CFLAGS   +=
 

@@ -11,11 +11,30 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdarg.h>
+#include <string.h>
+#include <ctype.h>
 
+#ifdef USE_GNU_READLINE /* (recommended) */
 #include <readline/readline.h>
 #include <readline/history.h>
-/* avoid reading curses of terminfo headers */
+/* avoid reading curses or terminfo headers */
 extern int tgetnum();
+#else  /* dont use READLINE  */
+#define tgetnum(arg) -1
+#define add_history(line) do {} while (0)
+#define readline my_readline
+static char *my_readline(char *prompt)
+{
+	char *rval=malloc(500);
+	if (prompt)
+		fputs(prompt,stdout);
+	if (!fgets(rval,500,stdin)) {
+		free(rval);
+		rval=0;
+	}
+	return rval;	
+}
+#endif
 
 #include <regexp.h>
 #include "elfsyms.h"

@@ -1,6 +1,7 @@
 ARCH=linux-x86
 CFLAGS=-g -O -Wall -DYYDEBUG
-WRAP=YES
+WRAP=NO
+USE_READLINE=YES
 LIBELF_PATH=/home/till/rtems/libelf-0.8.0
 REGEXP_PATH=/home/till_tp/till/xfm/regexp
 #REGEXP_PATH=/home/till/slac/xfm/regexp
@@ -12,6 +13,11 @@ YFLAGS=-v -d -p cexp
 INCS=-I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) 
 DEFS=-DNO_THREAD_PROTECTION -DDEBUG
 
+READLINE_LIBS_YES=-lreadline -lncurses 
+READLINE_LIBS_NO=
+READLINE_DEFS_YES=-DUSE_GNU_READLINE
+READLINE_DEFS_NO=
+
 MAKEDEPEND=gccmakedep
 
 VPATH=.:getopt
@@ -19,11 +25,11 @@ VPATH=.:getopt
 sym_OBJS=
 exmpl_OBJS=
 cexp_OBJS=elfsyms.o cexp.tab.o vars.o ctyps.o mygetopt_r.o
-cexp_LIBS=-lreadline -lncurses -L$(REGEXP_PATH) -lregexp -lm
+cexp_LIBS=$(READLINE_LIBS_$(USE_READLINE)) -L$(REGEXP_PATH) -lregexp -lm
 elfsyms_DEFS=-DELFSYMS_TEST_MAIN
 elfsyms_OBJS=ctyps.o
 vars_DEFS=-DTEST_VARS
-vars_LIBS=-lreadline -lncurses
+vars_LIBS=$(READLINE_LIBS_$(USE_READLINE))
 
 WRAP_OBJS_YES=wrap.o
 WRAP_OBJS_NO=
@@ -38,7 +44,7 @@ DEFS+= $($(PROG)_DEFS)
 INCS+= $($(PROG)_INCS)
 CFLAGS+=$($(PROG)_CFLAGS) $(DEFS) $(INCS)
 
-# This only works as long as C++ is not involved... */
+# This only works as long as C++ is not involved... 
 SRCS=$(OBJS:%.o=%.c)
 
 
@@ -65,6 +71,9 @@ jumptab.c: gentab
 
 ctyps.o: ctyps.c jumptab.c
 	$(CC) -c $(CFLAGS) -o $@ $<
+
+cexp.o: cexp.c
+	$(CC) -c $(CFLAGS) $(READLINE_DEFS_$(USE_READLINE)) -o $@ $^
 
 %.o:	%.c
 	$(CC) -c $(CFLAGS) -o $@ $^

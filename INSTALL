@@ -1,0 +1,50 @@
+BUILDING AND INSTALLATION HINTS FOR CEXP
+$Id$
+
+For building Cexp you will need the
+following programs and libraries:
+
+Tools:
+------
+ - usual (cross) compiler toolchain
+ - GNU bison (yacc is not enough).
+
+NOTE: bison is only required if you
+         change the grammar 'cexp.y'
+
+Libraries:
+----------
+ - libelf (vers. 0.8.0 distributed with Cexp)
+ - Spencer's libregexp (distributed with Cexp)
+ - GNU libreadline (strongly recommended)
+   which in turn requires
+ - libncurses or libtermcap
+
+NOTE: You can avoid readline/ncurses by
+setting USE_READLINE in the makefiles
+to YES or NO. You will have no line editing
+features, however.
+
+RTEMS NOTE:
+Vanilla libelf _wont_ work on RTEMS
+right now (at least on the TFTP file system),
+because it needs a working 'mmap/munmap'
+or at least 'lseek' - none of which are implemented
+by TFTPfs.
+Therefore, simple wrappers were created which
+emulate the required calls by slurping the
+entire ELF file into memory and 'mmap'ping
+it to libelf.
+This works fine for libelf-0.8.0 (reading
+the entire file to memory is what the library
+ends up doing anyway) but may not work with
+future implementations as it makes certain
+assumptions (which are safe with 0.8.0)
+about how lseek/mmap/munmap are used.
+
+Read the comments in the 'wrap.c' file.
+
+Using the wrappers on an RTEMS system
+should be handled transparently by the
+(modified) 'configure' script but I'm 
+far from being an 'autoconf' wizard...

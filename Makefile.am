@@ -1,6 +1,7 @@
 HOSTCC=@HOSTCC@
 SUBDIRS=@subdirs@
 lib_LIBRARIES=libcexp.a
+##BUILT_SOURCES = builddate.h
 SRCS = cexp.c ctyps.c elfsyms.c vars.c ctyps.h  elfsyms.h  vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h
 
 include_HEADERS = cexp.h
@@ -35,6 +36,12 @@ gentab: gentab.c
 xsyms:  xsyms.c
 	$(HOSTCC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
+*cexp.o: builddate.c
+
+builddate.c: ALWAYS
+	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
+
+.PHONY: ALWAYS
 
 ## gentab.c
 ## init.c

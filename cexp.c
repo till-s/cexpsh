@@ -47,6 +47,8 @@ static char *my_readline(char *prompt)
 
 #include "getopt/mygetopt_r.h"
 
+#include "builddate.c"
+
 #ifdef YYDEBUG
 extern int cexpdebug;
 #endif
@@ -54,7 +56,7 @@ extern int cexpdebug;
 static void
 usage(char *nm)
 {
-	fprintf(stderr, "usage: %s [-h]",nm);
+	fprintf(stderr, "usage: %s [-h] [-v]",nm);
 #ifdef YYDEBUG
 	fprintf(stderr, " [-d]");
 #endif
@@ -62,11 +64,18 @@ usage(char *nm)
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
+	fprintf(stderr, "       -v print version information\n");
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
 	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@TU-Berlin.de>\n");
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+}
+
+static void
+version(char *nm)
+{
+	fprintf(stderr,"%s release $Name$, build date %s\n",nm,cexp_build_date);
 }
 
 #ifdef DEBUG
@@ -224,6 +233,7 @@ int					opt, doWhat;
 jmp_buf				mainContext;
 char				optstr[]={
 						'h',
+						'v',
 						's',':',
 #ifdef YYDEBUG
 						'd',
@@ -235,6 +245,7 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 	switch (opt) {
 		default:  fprintf(stderr,"Unknown Option %c\n",opt);
 		case 'h': usage(argv[0]);
+		case 'v': version(argv[0]);
 		return 0;
 
 #ifdef YYDEBUG

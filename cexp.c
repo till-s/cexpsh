@@ -42,7 +42,7 @@ static char *my_readline(char *prompt)
 #endif
 
 #include <regexp.h>
-#include "elfsyms.h"
+#include "cexpsyms.h"
 #include "vars.h"
 
 #include "getopt/mygetopt_r.h"

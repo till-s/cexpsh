@@ -10,7 +10,7 @@
 #include <ctype.h>
 #include <string.h>
 #define _INSIDE_CEXP_Y
-#include "elfsyms.h"
+#include "cexpsyms.h"
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 

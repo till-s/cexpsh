@@ -15,7 +15,7 @@ LIB=${ARCH}/${LIBNAME}
 VPATH=.:getopt
 
 # C and C++ source names, if any, go here -- minus the .c or .cc
-C_PIECES=elfsyms vars cexp ctyps cexp.tab mygetopt_r
+C_PIECES=elfsyms cexpsyms vars cexp ctyps cexp.tab mygetopt_r
 C_FILES=$(C_PIECES:%=%.c)
 C_O_FILES=$(C_PIECES:%=${ARCH}/%.o)
 
@@ -25,7 +25,7 @@ CC_O_FILES=$(CC_PIECES:%=${ARCH}/%.o)
 
 LIB_HEADERS=cexp.h
 
-H_FILES=${LIB_HEADERS} elfsyms.h vars.h ctyps.h cexp.tab.h
+H_FILES=${LIB_HEADERS} cexpsyms.h vars.h ctyps.h cexp.tab.h
 
 # Assembly source names, if any, go here -- minus the .S
 S_PIECES=

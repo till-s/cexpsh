@@ -2,7 +2,7 @@ HOSTCC=@HOSTCC@
 SUBDIRS=@subdirs@
 lib_LIBRARIES=libcexp.a
 ##BUILT_SOURCES = builddate.h
-SRCS = cexp.c ctyps.c elfsyms.c vars.c ctyps.h  elfsyms.h  vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h
+SRCS = cexp.c ctyps.c elfsyms.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h
 
 include_HEADERS = cexp.h
 
@@ -22,7 +22,7 @@ INCLUDES = -I@srcdir@/regexp -Ilibelf-0.8.0/include -Ilibelf-0.8.0/lib
 # - we _need_ bison
 # - our naming convention
 
-elfsyms.o: cexp.tab.h
+cexpsyms.o: cexp.tab.h
 
 cexp.tab.c cexp.tab.h: cexp.y
 	bison -v -d -p cexp $^
@@ -36,7 +36,9 @@ gentab: gentab.c
 xsyms:  xsyms.c
 	$(HOSTCC) $(CFLAGS) $(INCLUDES) -o $@ $^
 
-*cexp.o: builddate.c
+%cexp.o: builddate.c
+
+cexp.c: builddate.c
 
 builddate.c: ALWAYS
 	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@

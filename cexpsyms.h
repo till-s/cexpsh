@@ -1,5 +1,5 @@
-#ifndef CEXP_ELFSYMS_H
-#define CEXP_ELFSYMS_H
+#ifndef CEXP_CEXPSYMS_H
+#define CEXP_CEXPSYMS_H
 /* $Id$ */
 
 /* Interface to the symbol table */

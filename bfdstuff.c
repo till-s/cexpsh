@@ -33,7 +33,12 @@
 #include "elf-bfd.h"
 #endif
 
-#define  DEBUG 0
+#define	DEBUG_COMMON	(1<<0)
+#define DEBUG_SECT	(1<<1)
+#define DEBUG_RELOC	(1<<2)
+#define DEBUG_SYM	(1<<3)
+
+#define	DEBUG		(DEBUG_SECT|DEBUG_RELOC)
 
 #include "spencer_regexp.h"
 
@@ -82,11 +87,13 @@ typedef struct SegmentRec_ {
 
 /* data we need for linking */
 typedef struct LinkDataRec_ {
+	bfd				*abfd;	
 	SegmentRec		segs[NUM_SEGS];
 	asymbol			**st;
 	asymbol			***new_commons;
 	CexpSymTbl		cst;
 	int				errors;
+	int				num_alloc_sections;
 	BitmapWord		*depend;
 	int				nCtors;
 	int				nDtors;
@@ -99,8 +106,26 @@ typedef struct LinkDataRec_ {
 } LinkDataRec, *LinkData;
 
 /* forward declarations */
-extern void __deregister_frame(void*);
-extern void __register_frame(void*);
+
+/* Hmm - c++ exception handling is _highly_ compiler and version and 
+ * target dependent :-(.
+ *
+ * It is very unlikely that exception handling works with anything other
+ * than gcc.
+ *
+ * Gcc (2.95.3) seems to implement (at least) two flavours of exception
+ * handling: longjump and exception frame tables. The latter requires
+ * the dynamic loader to load and register the exception frame table, the
+ * former is transparent.
+ * Unfortunately, the __register_frame()/__deregister_frame() routines
+ * are absent on targets which do not support this kind of exception handling.
+ * 
+ * Therefore, we use the CEXP symbol table itself to retrieve the actual
+ * routines __register_frame() and __deregister_frame(). Our private pointers
+ * are initialized when we read the system symbol table.
+ */
+static void (*my__register_frame)(void*)=0;
+static void (*my__deregister_frame)(void*)=0;
 
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
@@ -193,13 +218,14 @@ isCtorDtor(asymbol *asym, int quiet)
 static const char *
 filter(void *ext_sym, void *closure)
 {
-asymbol *asym=*(asymbol**)ext_sym;
+LinkData	ld=closure;
+asymbol		*asym=*(asymbol**)ext_sym;
 
-		if ( !(BSF_KEEP & asym->flags) ||
-			  (BSF_LOCAL & asym->flags) ||
-			  (BSF_DEBUGGING & asym->flags) )
+		if ( !(BSF_KEEP & asym->flags) )
 			return 0;
-		return bfd_asymbol_name(asym);
+		return BSF_SECTION_SYM & asym->flags ? 
+					bfd_get_section_name(ld->abfd,bfd_get_section(asym)) :
+					bfd_asymbol_name(asym);
 }
 
 /* this routine is responsible for converting external (BFD) symbols
@@ -214,14 +240,14 @@ asymbol		*asym=*(asymbol**)ext_sym;
 int			s;
 CexpType	t=TVoid;
 #ifdef HAVE_ELF_BFD_H
-elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
+elf_symbol_type *elfsp=elf_symbol_from(ld->abfd, asym);
 #define ELFSIZE(elfsp)	((elfsp)->internal_elf_sym.st_size)
 #else
 #define		elfsp 0
 #define	ELFSIZE(elfsp)	(0)
 #endif
 
-#if DEBUG > 2
+#if DEBUG & DEBUG_SYM
 		printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
 #endif
 
@@ -233,7 +259,7 @@ elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 			if (0==s)
 				s=sizeof(void(*)());
 		} else if (BSF_SECTION_SYM & asym->flags) {
-			/* linkonce section name: leave it void* */
+			/* section name: leave it void* */
 		} else {
 			/* must be BSF_OBJECT */
 			if (asym->flags & BSF_OLD_COMMON) {
@@ -259,7 +285,9 @@ elf_symbol_type *elfsp=elf_symbol_from(0 /*lucky hack: unused by macro */,asym);
 		 * at least look at the section; functions are in the text
 		 * section...
 		 */
-		if (TVoid == t && ! (asym->flags & (BSF_FUNCTION | BSF_OBJECT)) && 0 == s) {
+		if (TVoid == t &&
+			! (asym->flags & (BSF_FUNCTION | BSF_OBJECT | BSF_SECTION_SYM)) &&
+			0 == s) {
 			if (ld->text && ld->text == bfd_get_section(asym))
 				t=TFuncP;
 		} 
@@ -310,20 +338,21 @@ static void
 s_count(bfd *abfd, asection *sect, PTR arg)
 {
 Segment		seg=segOf((LinkData)arg, sect);
-#if DEBUG>0
-	printf("Section %s, flags 0x%08x\n",
-			bfd_get_section_name(abfd,sect), sect->flags);
+flagword	flags=bfd_get_section_flags(abfd,sect);
+const char	*secn=bfd_get_section_name(abfd,sect);
+#if DEBUG & DEBUG_SECT
+	printf("Section %s, flags 0x%08x\n", secn, flags);
 	printf("size: %i, alignment %i\n",
 			bfd_section_size(abfd,sect),
 			(1<<bfd_section_alignment(abfd,sect)));
 #endif
-	if (SEC_ALLOC & bfd_get_section_flags(abfd,sect)) {
-		seg->size+=(1<<bfd_get_section_alignment(abfd,sect));
+	if (SEC_ALLOC & flags) {
+		seg->size+=(1<<bfd_get_section_alignment(abfd,sect))-1;
 		seg->size+=bfd_section_size(abfd,sect);
 		/* exception handler frame tables have to be 0 terminated and
 		 * we must reserve a little extra space.
 		 */
-		if ( !strcmp(bfd_get_section_name(abfd,sect), EH_SECTION_NAME) ) {
+		if ( !strcmp(secn, EH_SECTION_NAME) ) {
 			asymbol *asym;
 			/* allocate space for a terminating 0 */
 			seg->size+=sizeof(long);
@@ -336,60 +365,7 @@ Segment		seg=segOf((LinkData)arg, sect);
 	}
 }
 
-/* count the number of linkonce sections */
-static void
-s_count_linkonce(bfd *abfd, asection *sect, PTR arg)
-{
-	if (SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect))
-		(*(long*)arg)++;
-}
-
-/* filter the linkonce sections of a new object leaving only
- * the ones which have not been loaded previously
- */
-
-typedef struct FilterLinkonceRec_ {
-	asymbol **startp;
-	asymbol **endp;
-} FilterLinkonceRec, *FilterLinkonce;
-
-static void
-s_filter_linkonce(bfd *abfd, asection *sect, PTR arg)
-{
-asymbol **asymp;
-FilterLinkonce	fl=(FilterLinkonce)arg;
-CexpSym			ts=0;
-
-	if (SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect)) {
-		const char *secn=bfd_get_section_name(abfd,sect);
-		/* has a section with this name already been loaded?
-		 * Scan the linkonce sections of this module first:
-		 */
-		for (asymp=fl->startp; asymp<fl->endp; asymp++) {
-			if (!strcmp(bfd_asymbol_name(*asymp), secn)) {
-				break;
-			}
-		}
-		if (asymp>=fl->endp)
-			asymp=0;
-		if ( !asymp && !(ts=cexpSymLookup(bfd_get_section_name(abfd,sect), 0))) {
-			asymbol *newsym;
-			/* it's the first instance; create a new symbol for it */
-			assert(newsym = bfd_make_empty_symbol(abfd));
-			bfd_asymbol_name(newsym) = secn;
-			newsym->section = sect;
-			newsym->flags |= BSF_GLOBAL | BSF_SECTION_SYM | BSF_KEEP;
-			*fl->endp++=newsym;
-		} else {
-			if ( DEBUG || (SEC_LINK_DUPLICATES & bfd_get_section_flags(abfd,sect)))
-				fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
-			/* discard this section */
-			sect->flags &= ~SEC_ALLOC;
-		}
-	}
-}
-
-/* compute the section's vme for loading */
+/* compute the section's vma for loading */
 
 static void
 s_setvma(bfd *abfd, asection *sect, PTR arg)
@@ -399,7 +375,7 @@ LinkData	ld=(LinkData)arg;
 
 	if (SEC_ALLOC & sect->flags) {
 		seg->vmacalc=align_power(seg->vmacalc, bfd_get_section_alignment(abfd,sect));
-#if DEBUG>0
+#if DEBUG & DEBUG_SECT
 		printf("%s allocated at 0x%08x\n",
 				bfd_get_section_name(abfd,sect),
 				seg->vmacalc);
@@ -417,13 +393,32 @@ LinkData	ld=(LinkData)arg;
 	}
 }
 
-/* find basic sections */
+/* find basic sections and the number of sections which are
+ * actually allocated and resolve gnu.linkonce.xxx sections
+ */
 static void
 s_basic(bfd *abfd, asection *sect, PTR arg)
 {
 LinkData	ld=(LinkData)arg;
+flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 	if (!strcmp(TEXT_SECTION_NAME,bfd_get_section_name(abfd,sect))) {
 		ld->text = sect;
+	}
+	if ( SEC_ALLOC & flags ) {
+		if (SEC_LINK_ONCE & flags) {
+			const char *secn=bfd_get_section_name(ld->abfd,sect);
+			if (cexpSymLookup(secn, 0)) {
+				/* a linkonce section with this name had been loaded already;
+				 * discard this one...
+				 */
+				if ( DEBUG || (SEC_LINK_DUPLICATES & flags))
+					fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
+				/* discard this section */
+				sect->flags &= ~SEC_ALLOC;
+				return;
+			}
+		}
+		ld->num_alloc_sections++;
 	}
 }
 
@@ -493,7 +488,7 @@ long		err;
 		continue;
 				}
 			}
-#if DEBUG > 0
+#if DEBUG & DEBUG_RELOC
 			printf("relocating (%s=",
 					bfd_asymbol_name(*(r->sym_ptr_ptr))
 					);
@@ -525,9 +520,7 @@ static void
 buildCtorsDtors(LinkData ld, CexpModule mod)
 {
 asymbol		**asymp;
-	/* TODO: search for magic module initializer/finalizer symbol for
-	 *       supporting C modules
-	 */
+
 	if (ld->nCtors) {
 		mod->ctor_list=(VoidFnPtr*)xmalloc(sizeof(*mod->ctor_list) * (ld->nCtors));
 		memset(mod->ctor_list,0,sizeof(*mod->ctor_list) * (ld->nCtors));
@@ -586,6 +579,9 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
  *   - resolved undef or common slots are replaced by new symbols
  *     pointing to the ABS section
  *   - KEEP flag is set for all globals defined by this object.
+ *   - KEEP flag is set for all section name symbols, except for
+ *     non-ALLOCed linkonce sections (these had already been loaded
+ *     as part of other modules).
  *   - raise a bit for each module referenced by this new one.
  */
 static int
@@ -602,8 +598,9 @@ int			i,num_new_commons=0,errs=0;
 		CexpSym		ts;
 		int			res;
 		CexpModule	mod;
+		const char	*symname;
 
-#if DEBUG>1
+#if DEBUG  & DEBUG_SYM
 		printf("scanning SYM (flags 0x%08x, value 0x%08x) '%s'\n",
 						sp->flags,
 						bfd_asymbol_value(sp),
@@ -645,16 +642,30 @@ int			i,num_new_commons=0,errs=0;
 		/* we only care about global symbols
 		 * (NOTE: undefined symbols are neither local
 		 *        nor global)
-		 * the only exception are the name symbols of
-		 * we created for 'linkonce' sections (s_filter_linkonce())
+		 * The only exception are the name symbols of allocated sections
 		 */
-		if ( (BSF_LOCAL & sp->flags) &&
-			!(  (BSF_SECTION_SYM & sp->flags) &&
-				(SEC_LINK_ONCE & bfd_get_section_flags(abfd,sect))) ) {
-			continue;
+
+		if ( BSF_LOCAL & sp->flags ) {
+			if ( BSF_SECTION_SYM & sp->flags ) {
+				/* keep allocated section names in CEXP's symbol table so we can
+				 * tell the debugger their load address.
+				 *
+				 * NOTE: The already loaded modules have been scanned for
+				 *       gnu.linkonce.xxx sections in 's_basic()' where
+				 *		 redundant occurrencies have been de-SEC_ALLOCed
+				 *		 from this module.
+				 */
+				if (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) {
+						sp->flags|=BSF_KEEP;
+				}
+			}
+			continue; /* proceed with the next symbol */
 		}
 
-		ts=cexpSymLookup(bfd_asymbol_name(sp), &mod);
+		/* non-local, i.e. global or undefined */
+		symname = bfd_asymbol_name(sp);
+
+		ts=cexpSymLookup(symname, &mod);
 
 		if (bfd_is_und_section(sect)) {
 			/* do some magic on undefined symbols which do have a
@@ -698,11 +709,14 @@ int			i,num_new_commons=0,errs=0;
 					/* use existing instance */
 					sp=syms[i]=asymFromCexpSym(abfd,ts,ld->depend,mod);
 				} else {
-					fprintf(stderr,"Symbol '%s' already exists\n",bfd_asymbol_name(sp));
+					fprintf(stderr,"Symbol '%s' already exists\n",symname);
 					errs++;
 					/* TODO: check size and alignment; allow multiple
 					 *       definitions??? - If yes, we have to track
 					 *		 the dependencies also.
+					 */
+					/* TODO: we should allow a new 'strong' symbol to
+					 *       override an existing 'weak' one.
 					 */
 				}
 			} else {
@@ -756,7 +770,7 @@ asection	*csect;
 			val=align_power(val,(
 							apwr=
 							get_align_pwr(abfd,*new_common_ps[i])));
-#if DEBUG > 0
+#if DEBUG & DEBUG_COMMON
 			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(sp),apwr);
 #endif
 			/* copy pointer to old name */
@@ -800,9 +814,8 @@ static int
 slurp_symtab(bfd *abfd, LinkData ld)
 {
 asymbol 			**asyms=0;
-long				i,nsyms,n_linkonce;
+long				i,nsyms;
 long				num_new_commons;
-FilterLinkonceRec	flr;
 
 	if (!(HAS_SYMS & bfd_get_file_flags(abfd))) {
 		fprintf(stderr,"No symbols found\n");
@@ -813,18 +826,9 @@ FilterLinkonceRec	flr;
 		return -1;
 	}
 
-	/* count the number of 'linkonce' section in this module */
-	n_linkonce=0;
-	bfd_map_over_sections(abfd, s_count_linkonce, &n_linkonce);
-	if (n_linkonce && !i)
-		n_linkonce++; /* terminating 0 */
-
-	/* we reserve space in the asymbol table for the names of
-	 * all encountered linkonce sections. We will create asymbols
-	 * for these names for our internal use further down the line.
-	 */
-	if (i + n_linkonce) {
-		asyms=(asymbol**)xmalloc((i + n_linkonce) * sizeof(asymbol*));
+	/* Allocate space for the symbol table  */
+	if (i) {
+		asyms=(asymbol**)xmalloc((i) * sizeof(asymbol*));
 	}
 	nsyms= i ? i/sizeof(asymbol*) - 1 : 0;
 	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {
@@ -847,17 +851,6 @@ FilterLinkonceRec	flr;
 			sizeof(*ld->new_commons),
 			align_size_compare);
 	
-	/* filter the 'linkonce' sections appending asymbols
-	 * for the newly loaded 'linkonce' section names to the
-	 * asymbol table.
-	 */
-	flr.startp=flr.endp=asyms+nsyms;
-
-	if (n_linkonce) {
-		bfd_map_over_sections(abfd, s_filter_linkonce, &flr);
-		*flr.endp=0;
-	}
-
 	/* Now, everything is in place to build our internal symbol table
 	 * representation.
 	 * We cannot do this later, because the size information will be lost.
@@ -867,7 +860,7 @@ FilterLinkonceRec	flr;
 
 	ld->cst=cexpCreateSymTbl(asyms,
 							 sizeof(*asyms),
-							 nsyms + (flr.endp-flr.startp),
+							 nsyms,
 							 filter, assign, ld);
 
 	if (0!=make_new_commons(abfd,ld->new_commons,num_new_commons))
@@ -884,6 +877,7 @@ cleanup:
 
 	return 0;
 }
+
 
 static void
 flushCache(LinkData ld)
@@ -915,7 +909,6 @@ char	*start, *end;
 int
 cexpLoadFile(char *filename, CexpModule mod)
 {
-bfd 			*abfd=0;
 LinkDataRec		ldr;
 int				rval=1,i;
 CexpSym			sane;
@@ -948,7 +941,7 @@ char			tmpfname[30]={
 		ctorDtorRegexp=spencer_regcomp(CTOR_DTOR_PATTERN);
 
 #if 0
-	if ( ! (abfd=bfd_openr(filename,0)) )
+	if ( ! (ldr.abfd=bfd_openr(filename,0)) )
 	{
 		bfd_perror("Opening object file");
 		goto cleanup;
@@ -969,22 +962,22 @@ char			tmpfname[30]={
 		goto cleanup;
 	}
 #endif
-	if ( ! (abfd=bfd_openstreamr(filename,0,f)) ) {
+	if ( ! (ldr.abfd=bfd_openstreamr(filename,0,f)) ) {
 		bfd_perror("Opening BFD on object file stream");
 		goto cleanup;
 	}
-	/* abfd now holds the descriptor and bfd_close_all_done() will release it */
+	/* ldr.abfd now holds the descriptor and bfd_close_all_done() will release it */
 	f=0;
 #endif
-	if (!bfd_check_format(abfd, bfd_object)) {
+	if (!bfd_check_format(ldr.abfd, bfd_object)) {
 		bfd_perror("Checking format");
 		goto cleanup;
 	}
 
-	/* find basic sections (such as text...) */
-	bfd_map_over_sections(abfd, s_basic, &ldr);
+	/* get basic section info and filter linkonce sections */
+	bfd_map_over_sections(ldr.abfd, s_basic, &ldr);
 
-	if (slurp_symtab(abfd,&ldr)) {
+	if (slurp_symtab(ldr.abfd,&ldr)) {
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
 	}
@@ -997,7 +990,7 @@ char			tmpfname[30]={
 	if ( ! (0==cexpSystemModule) ) {
 
 		/* compute the memory space requirements */
-		bfd_map_over_sections(abfd, s_count, &ldr);
+		bfd_map_over_sections(ldr.abfd, s_count, &ldr);
 	
 		/* allocate segment space */
 		for (i=0; i<NUM_SEGS; i++) {
@@ -1006,19 +999,17 @@ char			tmpfname[30]={
 		}
 
 		/* compute and set the base addresses for all sections to be allocated */
-		bfd_map_over_sections(abfd, s_setvma, &ldr);
+		bfd_map_over_sections(ldr.abfd, s_setvma, &ldr);
 
 		ldr.errors=0;
 memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
-		bfd_map_over_sections(abfd, s_reloc, &ldr);
+		bfd_map_over_sections(ldr.abfd, s_reloc, &ldr);
 		if (ldr.errors)
 			goto cleanup;
 
 	} else {
 		/* it's the system symtab */
-/* TSILL
 		assert( 0==ldr.new_commons );
-*/
 	}
 
 	cexpSymTabSetValues(ldr.cst);
@@ -1040,13 +1031,15 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 			/* as a side effect, since we have an open BFD, we
 			 * use it to fetch a disassembler for the target
 			 */
-			cexpDisassemblerInstall(abfd);
+			cexpDisassemblerInstall(ldr.abfd);
 
 		} else {
 			fprintf(stderr,"SANITY CHECK FAILED! Stale symbol file?\n");
 			goto cleanup;
 		}
 	}
+
+	/* FROM HERE ON, NO CLEANUP MUST BE DONE */
 
 
 	/* the following steps are not needed when
@@ -1064,15 +1057,22 @@ printf("TSILL registering EH_FRAME 0x%08lx\n",  bfd_asymbol_value(ldr.eh_frame_b
 				 */
 				*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
 			}
-			assert(__register_frame);
+			assert(my__register_frame);
 			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
-			__register_frame(ehFrame);
+			my__register_frame(ehFrame);
 		}
 
 		/* build ctor/dtor lists */
 		if (ldr.nCtors || ldr.nDtors) {
 			buildCtorsDtors(&ldr,mod);
 		}
+	} else {
+		/* initialize the my__[de]register_frame() pointers if possible */
+		if ((sane=cexpSymTblLookup("__register_frame",ldr.cst)))
+			my__register_frame=(void(*)(void*))sane->value.ptv;
+		if ((sane=cexpSymTblLookup("__deregister_frame",ldr.cst)))
+			my__deregister_frame=(void(*)(void*))sane->value.ptv;
+
 	}
 
 	flushCache(&ldr);
@@ -1109,14 +1109,16 @@ cleanup:
 	if (ldr.new_commons)
 		free(ldr.new_commons);
 
-	if (ehFrame)
-		__deregister_frame(ehFrame);
+	if (ehFrame) {
+		assert(my__deregister_frame);
+		my__deregister_frame(ehFrame);
+	}
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);
 
-	if (abfd)
-		bfd_close_all_done(abfd);
+	if (ldr.abfd)
+		bfd_close_all_done(ldr.abfd);
 
 	if (f) {
 		fclose(f);
@@ -1137,8 +1139,10 @@ static void
 bfdCleanupCallback(CexpModule mod)
 {
 	/* release the frame info we had stored in the modPvt field */
-	if (mod->modPvt && __deregister_frame)
-		__deregister_frame(mod->modPvt);
+	if (mod->modPvt) {
+		assert(my__deregister_frame);
+		my__deregister_frame(mod->modPvt);
+	}
 }
 
 #ifdef __rtems
@@ -1225,19 +1229,9 @@ cleanup:
 }
 #endif
 
-/* Hmm - c++ exception handling is _highly_ compiler and version and 
- * target dependent :-(.
- *
- * It is very unlikely that exception handling works with anything other
- * than gcc.
- *
- * Gcc (2.95.3) seems to implement (at least) two flavours of exception
- * handling: longjump and exception frame tables. The latter requires
- * the dynamic loader to load and register the exception frame table, the
- * former is transparent.
- * Unfortunately, the __register_frame()/__deregister_frame() routines
- * are absent on targets which do not support this kind of exception handling.
- * Therefore, we define a weak alias which is not very satisfying and will
+#if 0
+/*
+ * Define a weak alias which is not very satisfying and will
  * fail on targets who do not support weak aliases :-(
  */
 void (*__nullfn_hack)(void*)=0;
@@ -1245,4 +1239,5 @@ void (*__nullfn_hack)(void*)=0;
 #ifndef __sparc__
 void __register_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
 void __deregister_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
+#endif
 #endif

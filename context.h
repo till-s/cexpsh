@@ -102,7 +102,7 @@ extern CexpContextOSD	cexpCurrentContext;
 
 #define cexpContextRunOnce(pdone, fn)	epicsThreadOnce(pdone,(void (*)(void*))fn,0)
 
-#elif defined(__rtems)
+#elif defined(__rtems__)
 
 #ifdef RTEMS_TODO_DONE /* see cexplock.h comment */
 #include <rtems.h>

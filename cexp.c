@@ -15,7 +15,7 @@
 #include <ctype.h>
 #include <setjmp.h>
 #include <string.h>
-#if defined(__rtems) && !defined(RTEMS_TODO_DONE)
+#if defined(__rtems__) && !defined(RTEMS_TODO_DONE)
 #include "rtems-hackdefs.h"
 #else
 #include <termios.h>
@@ -48,7 +48,7 @@ extern int tgetnum();
 #define add_history(line) do {} while (0)
 #define tgetnum(arg) -1
 
-#if defined(USE_RTEMS_SHELL) && defined(__rtems)
+#if defined(USE_RTEMS_SHELL) && defined(__rtems__)
 
 
 extern shell_scanline(char *line, int size, FILE *in, FILE *out);

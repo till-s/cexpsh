@@ -33,7 +33,7 @@ cexpEventCreate(CexpEvent *id)
 #define cexpEventDestroy(e)	epicsEventDestroy(e)
 
 
-#elif defined(__rtems)
+#elif defined(__rtems__)
 
 #if defined(RTEMS_TODO_DONE) /* avoid pulling in <rtems.h> until we can do this in a BSP independent way */
 #include <rtems.h>

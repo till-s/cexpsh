@@ -133,7 +133,7 @@ static void (*my__deregister_frame)(void*)=0;
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
-#ifdef __rtems
+#ifdef __rtems__
 static FILE *
 copyFileToTmp(int fd, char *tmpfname);
 #endif
@@ -922,7 +922,7 @@ int				rval=1,i;
 CexpSym			sane;
 FILE			*f=0;
 void			*ehFrame=0;
-#ifdef __rtems
+#ifdef __rtems__
 char			tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
@@ -957,7 +957,7 @@ struct stat		dummybuf;
 		goto cleanup;
 	}
 #else
-#ifdef __rtems
+#ifdef __rtems__
 	/* RTEMS has no NFS support (yet), and the TFTPfs is strictly
 	 * sequential access (no lseek(), no stat()). Hence, we copy
 	 * the file to scratch file in memory (IMFS).
@@ -1149,7 +1149,7 @@ cleanup:
 	if (f) {
 		fclose(f);
 	}
-#ifdef __rtems
+#ifdef __rtems__
 	if (filename==tmpfname)
 		unlink(tmpfname);
 #endif
@@ -1171,7 +1171,7 @@ bfdCleanupCallback(CexpModule mod)
 	}
 }
 
-#ifdef __rtems
+#ifdef __rtems__
 static FILE *
 copyFileToTmp(int fd, char *tmpfname)
 {

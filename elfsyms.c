@@ -141,7 +141,7 @@ CexpSym		sane;
 #ifdef USE_ELF_MEMORY
 char		*buf=0,*ptr=0;
 long		size=0,avail=0,got;
-#ifdef		__rtems
+#ifdef		__rtems__
 extern		struct in_addr rtems_bsdnet_bootp_server_address;
 char		HOST[30];
 #else
@@ -166,7 +166,7 @@ int			fd=-1;
 		*(ptr++)=0;
 		memmove(ptr+4,ptr,strlen(ptr));
 		memcpy(ptr,"cat ",4);
-#ifdef __rtems
+#ifdef __rtems__
 		inet_ntop(AF_INET, &rtems_bsdnet_bootp_server_address, HOST, sizeof(HOST));
 #endif
 		/* try to load via rsh */

@@ -361,28 +361,35 @@ CexpType t=s->value.type;
 			s->name);
 }
 
-
-/* do a binary search for an address */
-CexpSym
-cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
+/* do a binary search for an address returning its aindex number */
+int
+cexpSymTblLkAddrIdx(void *addr, int margin, FILE *f, CexpSymTbl t)
 {
 int			lo,hi,mid;
 
 	lo=0; hi=t->nentries-1;
 		
 	while (lo < hi) {
-		mid=(lo+hi)>>1;
-		if (addr > (void*)t->aindex[mid]->value.ptv)
-			lo=mid+1;
+		mid=(lo+hi+1)>>1; /* round up */
+		if (addr < (void*)t->aindex[mid]->value.ptv)
+			hi = mid-1;
 		else
-			hi=mid;
+			lo = mid;
 	}
-	mid=lo;		if (mid>=t->nentries)	mid=t->nentries-1;
+	
+	mid=lo;
+
 	if (f) {
-		lo-=margin; if (lo<0) 			 	lo=0;
-		hi+=margin; if (hi>=t->nentries)	hi=t->nentries-1;
+		lo=mid-margin; if (lo<0) 		 	lo=0;
+		hi=mid+margin; if (hi>=t->nentries)	hi=t->nentries-1;
 		while (lo<=hi)
 			cexpSymPrintInfo(t->aindex[lo++],f);
 	}
-	return t->aindex[mid];
+	return mid;
+}
+
+CexpSym
+cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t)
+{
+	return t->aindex[cexpSymTblLkAddrIdx(addr,margin,f,t)];
 }

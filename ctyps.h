@@ -184,7 +184,7 @@ cexpTypePromote(CexpTypedVal a, CexpTypedVal b);
  *       this is not permissible.
  */
 const char *
-cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...);
+cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...);
 
 void
 cexpTAPrintInfo(CexpTypedAddr a, FILE *f);

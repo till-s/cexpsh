@@ -15,6 +15,15 @@ cexpSymLookup(const char *name, CexpModule *pmod);
 CexpSym
 cexpSymLkAddr(void *addr, int margin, FILE *f, CexpModule *pmod);
 
+/* search for an address in all modules giving its aindex 
+ * to the *pmod's aindex table
+ *
+ * RETURNS: aindex or -1 if the address is not within the
+ *          boundaries of any module.
+ */
+int
+cexpSymLkAddrIdx(void *addr, int margin, FILE *f, CexpModule *pmod);
+
 /* return a module's name (string owned by module code) */
 char *
 cexpModuleName(CexpModule mod);

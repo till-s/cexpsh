@@ -517,24 +517,6 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 #define AA CexpTypedVal
 
 
-/* determine whether a function is 'magic', i.e. if we should
- * implicitely pass the parser context.
- *
- * For that purpose, we search the symbol table for the function's
- * address and if found, we check the flag...
- */
-static int
-fnIsMagic(CexpTypedVal fn)
-{
-CexpSym found;
-
-	if (!CEXP_TYPE_FUNQ(fn->type))
-		return 0;
-
-	return ( (found=cexpSymLkAddr(fn->tv.p, 0, 0, 0)) &&
-		    (found->flags & CEXP_SYMFLG_PASS_CTX)) ;
-}
-
 #if defined(__PPC__) && defined(_CALL_SYSV)
 
 /* an PPC / SVR4 ABI specific implementation of the function call
@@ -582,7 +564,7 @@ typedef DB (*FN_PPCSVRABI_DB)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB
 
 
 const char *
-cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...)
+cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
 {
 va_list 		ap;
 CexpTypedVal 	v;
@@ -596,9 +578,6 @@ DB				dargs[MAXDBLARGS];
 				return "need a function pointer";
 
 		nargs=0; fpargs=0;
-
-		if (fnIsMagic(fn))
-			iargs[nargs++]=(UL)ctx;
 
 		va_start(ap,fn);
 
@@ -722,13 +701,12 @@ typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 #endif
 
 const char *
-cexpTVFnCall(CexpParserCtx ctx, CexpTypedVal rval, CexpTypedVal fn, ...)
+cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
 {
 va_list 		ap;
 CexpTypedVal 	args[MAXARGS],v;
 int				nargs,fpargs,i;
 CexpTypedValRec zero;
-CexpTypedValRec context;
 const char		*err=0;
 
 		/* sanity check */
@@ -738,13 +716,7 @@ const char		*err=0;
 		zero.type=TULong;
 		zero.tv.l=0;
 
-		context.type=TULong;
-		context.tv.l=(unsigned long)ctx;
-
 		nargs=0; fpargs=0;
-
-		if (fnIsMagic(fn))
-			args[nargs++]=&context;
 
 		va_start(ap,fn);
 

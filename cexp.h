@@ -156,20 +156,22 @@ cexp_main(int argc, char **argv);
  * once the internal jmpbuf is initialized.
  */
 
+/* A main routine context (for doing special magic) */
+typedef struct CexpContextRec_ *CexpContext;
+
 int
-cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, jmp_buf *env));
+cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx));
 
 /* kill a main loop. This should only be called by
  * low level exception code for aborting the main loop
  *
- * ctxt is a pointer to a main loop's context.
  * The 'doWhat' argument may be either 0 or
  * CEXP_MAIN_KILLED. In the former case, 'cexp'
  * will cleanup, recover and resume execution,
  * otherwise it will return after cleaning up.
  */
 void
-cexp_kill(jmp_buf *ctxt, int doWhat);
+cexp_kill(int doWhat);
 
 /* error return values: */
 #define CEXP_MAIN_INVAL_ARG	1	/* invalid option / argument */

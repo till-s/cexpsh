@@ -79,12 +79,16 @@ int			index;
 	return rval;
 }
 
-/* search for an address in all modules */
-CexpSym
-cexpSymLkAddr(void *addr, int margin, FILE *f, CexpModule *pmod)
+/* search for (the closest) address in all modules giving its
+ * aindex
+ *
+ * RETURNS: -1 if not found (i.e. within the boundaries of) any module.
+ */
+int
+cexpSymLkAddrIdx(void *addr, int margin, FILE *f, CexpModule *pmod)
 {
 CexpModule	m;
-CexpSym		rval=0;
+int			rval=-1;
 CexpSymTbl	t;
 
 	__RLOCK();
@@ -96,7 +100,7 @@ CexpSymTbl	t;
 			continue;
 		if (f)
 			fprintf(f,"=====  In module '%s' =====:\n",m->name);
-		if ((rval=cexpSymTblLkAddr(addr,margin,f,t)))
+		if ((rval=cexpSymTblLkAddrIdx(addr,margin,f,t)) >= 0)
 			break;
 	}
 	if (pmod)
@@ -105,6 +109,20 @@ CexpSymTbl	t;
 	__RUNLOCK();
 
 	return rval;
+}
+
+/* search for an address in all modules */
+CexpSym
+cexpSymLkAddr(void *addr, int margin, FILE *f, CexpModule *pmod)
+{
+int			i;
+CexpModule	m;
+
+	if (!pmod)
+		pmod = &m;
+	i=cexpSymLkAddrIdx(addr,margin,f,pmod);
+
+	return i >= 0 ? (*pmod)->symtbl->aindex[i] : 0;
 }
 
 /* return a module's name (string owned by module code) */

@@ -49,6 +49,10 @@ cexpCreateSymTbl(
 void
 cexpFreeSymTbl(CexpSymTbl *tbl);
 
+/* do a binary search for a symbol's aindex number */
+int
+cexpSymTblLkAddrIdx(void *addr, int margin, FILE *f, CexpSymTbl t);
+
 #define LOAD_CHUNK    2000
 
 #endif

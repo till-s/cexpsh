@@ -14,8 +14,12 @@
 #include <string.h>
 #include <ctype.h>
 #include <setjmp.h>
+#if defined(__rtems) && !defined(RTEMS_TODO_DONE)
+#include "rtems-hackdefs.h"
+#else
 #include <termios.h>
 #include <sys/ioctl.h>
+#endif
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -36,10 +40,11 @@ extern int tgetnum();
 #define  readline_r(prompt,context) readline(prompt)
 #else  /* dont use READLINE  */
 
-#define tgetnum(arg) -1
 #define add_history(line) do {} while (0)
+#define tgetnum(arg) -1
 
 #if defined(USE_RTEMS_SHELL) && defined(__rtems)
+
 
 extern shell_scanline(char *line, int size, FILE *in, FILE *out);
 
@@ -101,6 +106,7 @@ int ch;
 #include <regexp.h>
 #include "cexpmod.h"
 #include "vars.h"
+#include "context.h"
 
 #include "getopt/mygetopt_r.h"
 
@@ -184,7 +190,14 @@ struct winsize	win;
 		return -1;
 	}
 
+#ifdef USE_TECLA
+	{
+	GlTerminalSize ts=gl_terminal_size(cexpCurrentContext->gl, 80, 24);
+	nl = ts.nline;
+	}
+#else
 	nl = ioctl(STDIN_FD, TIOCGWINSZ,&win) ? tgetnum("li") : win.ws_row;
+#endif
 
 	if (nl<=0)
 		nl=24;
@@ -288,9 +301,9 @@ char	*argv[10]; /* limit to 10 arguments */
  * probably get much worse...
  */
 void
-cexp_kill(jmp_buf *ctxt, int doWhat)
+cexp_kill(int doWhat)
 {
-	longjmp(*ctxt,doWhat);
+	longjmp(cexpCurrentContext->jbuf,doWhat);
 }
 
 int
@@ -299,9 +312,26 @@ cexp_main(int argc, char **argv)
 	return cexp_main1(argc, argv, 0);
 }
 
+/* A stack of Cexp contexts. The purpose of this is
+ * to provide unrelated code (such as the disassembler
+ * or the above 'kill' routine) access to the main
+ * routine's stack frame (i.e. the essential parts of it
+ * which are part of the CexpContextRec) in a re-entrant
+ * way.
+ * Cexp may invoke itself recursively (e.g. to process
+ * scripts) and the context info of the nested running
+ * instances are linked together using the context's
+ * 'next' field.
+ * In a multithreaded environment, the global variable
+ * 'cexpCurrentContext' must be maintained on a per-thread
+ * basis. This requires the use of special OS magic.
+ */
+CexpContext cexpCurrentContext=0;
+
 int
-cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, jmp_buf *env))
+cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
 {
+CexpContextRec		context;	/* the public parts of this instance's context */
 FILE				*scr=0;
 char				*line=0,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
@@ -309,10 +339,8 @@ CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt, doWhat;	
-jmp_buf				mainContext;
 #ifdef USE_TECLA
-GetLine				*gl=0;	/* line editor */
-#define	rl_context  gl
+#define	rl_context  context.gl
 #else
 #define rl_context  0
 #endif
@@ -364,15 +392,32 @@ if (!cexpSystemModule) {
 mdbgInit();
 #endif
 
+/* initialize the public context */
+context.next=0;
+#ifdef HAVE_BFD_DISASSEMBLER
+cexpDisassemblerInit(&context.dinfo, stdout);
+#endif
+
+if (!cexpCurrentContext) {
+	/* topmost frame */
 #ifdef USE_TECLA
-if (!script) {
-	gl = new_GetLine(200,2000);
-	if (!gl) {
+	context.gl = new_GetLine(200,2000);
+	if (!context.gl) {
 		fprintf(stderr,"Unable to create line editor\n");
 		return CEXP_MAIN_NO_MEM;
 	}
-}
 #endif
+	/* register first instance running in this thread's context; */
+	cexpContextRegister();
+} else {
+#ifdef USE_TECLA
+	/* re-use caller's line editor */
+	context.gl = cexpCurrentContext->gl;
+#endif
+}
+/* push our frame to the top */
+context.next=cexpCurrentContext;
+cexpCurrentContext = &context;
 
 do {
 	if (!(ctx=cexpCreateParserCtx())) {
@@ -382,10 +427,10 @@ do {
 		goto cleanup;
 	}
 
-	if (!(rval=setjmp(mainContext))) {
+	if (!(rval=setjmp(context.jbuf))) {
 		/* call them back to pass the jmpbuf */
 		if (callback)
-			callback(argc, argv, &mainContext);
+			callback(argc, argv, &context);
 	
 		if (script) {
 			char buf[500]; /* limit line length to 500 chars :-( */
@@ -433,16 +478,14 @@ cleanup:
 	
 } while (-1==rval);
 
+cexpCurrentContext = cexpCurrentContext->next;
+if (!cexpCurrentContext) {
+	/* we'll exit the topmost instance */
 #ifdef USE_TECLA
-if (gl)
-	del_GetLine(gl);
+	del_GetLine(context.gl);
 #endif
-
-return rval;
+	cexpContextUnregister();
 }
 
-int
-main_ends_here(void)
-{
-return 0;
+return rval;
 }

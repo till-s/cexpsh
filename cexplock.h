@@ -167,7 +167,7 @@ cexpWriteLock(CexpRWLock l)
 	while (l->readers) {
 		l->sleeping_writers++;
 		cexpUnlock(l->mutex);
-		cexpEventSleep(l->nap);
+		cexpEventWait(l->nap);
 		cexpLock(l->mutex);
 	}
 }

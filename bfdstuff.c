@@ -54,8 +54,9 @@ static  regexp	*ctorDtorRegexp=0;
 /* as a side effect, this code gives access to a disassembler which
  * itself is implemented by libopcodes
  */
-#include "dis-asm.h"
-disassembler_ftype cexpBfdDisassembler=0;
+extern void	cexpDisassemblerInstall(bfd *abfd);
+#else
+#define		cexpDisassemblerInstall(a) do {} while(0)
 #endif
 
 /* this is PowerPC specific; note that some architectures
@@ -1002,13 +1003,10 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 
         	/* OK, sanity test passed */
 
-#ifdef HAVE_BFD_DISASSEMBLER
 			/* as a side effect, since we have an open BFD, we
 			 * use it to fetch a disassembler for the target
 			 */
-			if (!(cexpBfdDisassembler = disassembler(abfd)))
-				bfd_perror("Warning: no disassembler found");
-#endif
+			cexpDisassemblerInstall(abfd);
 
 		} else {
 			fprintf(stderr,"SANITY CHECK FAILED! Stale symbol file?\n");

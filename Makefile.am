@@ -38,7 +38,6 @@ include_HEADERS = cexp.h cexpHelp.h
 
 #CONFIGHACKS=-DHAVE_ELF_BFD_H -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
 
-xsyms_LDADD=-Llibelf-0.8.0/lib -lelf
 
 if !ISRTEMS
 CONFIG_THREADS=-DNO_THREAD_PROTECTION
@@ -49,6 +48,8 @@ cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
 cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=xsyms cexp
+xsyms_LDADD=-Llibelf-0.8.0/lib -lelf
+xsyms_INCLUDES=-Ilibelf-0.8.0/include -Ilibelf-0.8.0/lib
 else
 bin_PROGRAMS=
 endif
@@ -56,7 +57,7 @@ endif
 libcexp_a_CFLAGS=$(CONFIGHACKS) $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
-INCLUDES = -I@srcdir@/regexp
+INCLUDES = -I@srcdir@/regexp $(xsyms_INCLUDES)
 
 #we can't use automake for this because
 # - we _need_ bison

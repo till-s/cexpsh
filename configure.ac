@@ -1,5 +1,6 @@
 AC_INIT(cexp, 1.0, <strauman@slac.stanford.edu>)
 AM_INIT_AUTOMAKE(cexp, 1.0)
+AM_MAINTAINER_MODE
 
 dnl if the versions are changed, the AC_CONFIG_SUBDIRS arguments
 dnl below need to be adapted :-(

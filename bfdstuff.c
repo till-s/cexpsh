@@ -209,7 +209,7 @@ segOf(LinkData ld, asection *sect)
  * (currently only works for ELF)
  */
 #ifdef HAVE_ELF_BFD_H
-static __inline__ int
+static inline int
 get_align_pwr(bfd *abfd, asymbol *sp)
 {
 register unsigned long rval=0,tst;
@@ -246,7 +246,7 @@ asymbol			*spb=**(asymbol***)b;
  *         -1 if it is a destructor
  *          0 otherwise
  */
-static __inline__ int
+static inline int
 isCtorDtor(asymbol *asym, int quiet)
 {
 	/* From bfd/linker.c: */

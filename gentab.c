@@ -71,4 +71,5 @@ for (mask=0; mask < (1<<MAXBITS); mask++) {
 	printf("\t"); fnam(mask); printf(",\n");
 }
 	printf("};\n");
+return 0;
 }

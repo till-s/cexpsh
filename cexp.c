@@ -459,13 +459,11 @@ context.next=0;
 if (!cexpContextGetCurrent()) {
 	/* topmost frame */
 #ifdef HAVE_TECLA
-	CPL_MATCH_FN(cexpSymComplete);
 	context.gl = new_GetLine(200,2000);
 	if (!context.gl) {
 		fprintf(stderr,"Unable to create line editor\n");
 		return CEXP_MAIN_NO_MEM;
 	}
-	gl_customize_completion(context.gl, 0, cexpSymComplete);
 #endif
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();
@@ -487,6 +485,13 @@ do {
 		rval = CEXP_MAIN_NO_MEM;
 		goto cleanup;
 	}
+
+#ifdef HAVE_TECLA
+	{
+	CPL_MATCH_FN(cexpSymComplete);
+	gl_customize_completion(context.gl, ctx, cexpSymComplete);
+	}
+#endif
 
 	if (cexpSigHandlerInstaller)
 		cexpSigHandlerInstaller(sighandler);

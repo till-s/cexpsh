@@ -11,6 +11,15 @@
 
 #define	 MATCH_MAX	100
 
+/* ugly hack - this must match the definition in cexp.y */
+
+/* if the lexer detects an unterminated string constant
+ * it returns LEXERR_INCOMPLETE_STRING - offset;
+ * the offset is the difference between the current position
+ * ( == end of the string) and the opening quote.
+ */
+#define LEXERR_INCOMPLETE_STRING	(-100)
+
 extern CexpSym _cexpSymLookupRegex();
 
 int
@@ -23,6 +32,29 @@ char			*pattern=0;
 int				count=MATCH_MAX,i;
 CexpSym			s;
 CexpModule		m;
+CexpParserCtx	ctx = closure;
+CexpTypedValRec	dummy;
+int				quote;
+
+	cexpResetParserCtx(ctx, line);
+	/* try to find an opening quote using the lexer
+	 * it returns a magic error code containing the
+	 * offset (with respect to the end of the line)
+	 * of such an opening quote...
+	 */
+	while ( (quote=cexplex(&dummy, ctx)) > 0 && '\n' != quote )
+		/* nothing else to do */;
+
+	if ( quote <= LEXERR_INCOMPLETE_STRING ) {
+		int			rval;
+		CplFileConf	*conf = new_CplFileConf();
+
+		/* start position = end + offset returned by cexplex() */
+		cfc_file_start(conf, word_end + quote - LEXERR_INCOMPLETE_STRING);
+		rval = cpl_file_completions(cpl, conf, line, word_end);
+		del_CplFileConf(conf);
+		return rval;
+	}
 
 	/* search start of the word */
 	for (word_start=word_end; word_start>0; word_start--) {

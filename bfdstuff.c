@@ -442,13 +442,16 @@ long		err;
 	 *       ALLOC set but with no CONTENTS (such as
 	 *       bss)
 	 */
-	bfd_get_section_contents(
-		abfd,
-		sect,
-		(PTR)bfd_get_section_vma(abfd,sect),
-		0,
-		bfd_section_size(abfd,sect)
-	);
+	if (!bfd_get_section_contents(
+				abfd,
+				sect,
+				(PTR)bfd_get_section_vma(abfd,sect),
+				0,
+				bfd_section_size(abfd,sect))) {
+		bfd_perror("reading section contents");
+		ld->errors++;
+		return;
+	}
 
 	/* if there are relocations, resolve them */
 	if ((SEC_RELOC & sect->flags)) {
@@ -458,6 +461,7 @@ long		err;
 		if (sz<=0) {
 			fprintf(stderr,"No relocs for section %s???\n",
 					bfd_get_section_name(abfd,sect));
+			ld->errors++;
 			return;
 		}
 		/* slurp the relocation records; build a list */
@@ -466,6 +470,7 @@ long		err;
 		if (sz<=0) {
 			fprintf(stderr,"ERROR: unable to canonicalize relocs\n");
 			free(cr);
+			ld->errors++;
 			return;
 		}
 		for (i=0; i<sz; i++) {

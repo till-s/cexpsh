@@ -34,7 +34,7 @@ SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmo
 #BFDLIBP=-L $(BINUT)/$(ARCH)/bfd/.libs/ -L $(BINUT)/$(ARCH)/libiberty/ -L $(BINUT)/$(ARCH)/opcodes/.libs/
 
 
-include_HEADERS = cexp.h
+include_HEADERS = cexp.h cexpHelp.h
 
 #CONFIGHACKS=-DHAVE_ELF_BFD_H -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
 
@@ -44,8 +44,8 @@ if !ISRTEMS
 CONFIG_THREADS=-DNO_THREAD_PROTECTION
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
-#cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lregexp
-cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lregexp
+#cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
+cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
 cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=xsyms cexp

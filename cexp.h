@@ -100,7 +100,7 @@ cexpCreateParserCtx(FILE *f);
  * _after_ parsing the line.
  */
 void
-cexpResetParserCtx(CexpParserCtx ctx, char *linebuf);
+cexpResetParserCtx(CexpParserCtx ctx, const char *linebuf);
 
 /* Release a parser context.
  * 

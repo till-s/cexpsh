@@ -42,13 +42,16 @@
 #define ISIDENTCHAR(ch) ('_'==(ch) || '@'==(ch))
 
 #define LEXERR	-1
+/* ugly hack; helper for word completion */
+#define LEXERR_INCOMPLETE_STRING	-100
+
 void yyerror();
 int  yylex();
 
 typedef char *LString;
 
 typedef struct CexpParserCtxRec_ {
-	char			*chpt;
+	const char		*chpt;
 	LString			lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
@@ -722,9 +725,11 @@ char *chpt;
 		/* it's a currently undefined symbol */
 		return (rval->lstr=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
-		/* generate a character constant */
+		/* generate a string constant */
 		char *dst;
+		const char *strStart;
 		dst=sbuf-1;
+		strStart = pa->chpt+1;
 		do {
 		skipit:	
 			dst++; limit--;
@@ -756,7 +761,7 @@ char *chpt;
 				return rval->val.tv.p ? STR_CONST : LEXERR;
 			}
 		} while (ch && limit>2);
-		return LEXERR;
+		return LEXERR_INCOMPLETE_STRING - (pa->chpt - strStart);
 	} else {
 		long rv=ch;
 		if (rv) getch();
@@ -854,7 +859,7 @@ CexpParserCtx	ctx=0;
 }
 
 void
-cexpResetParserCtx(CexpParserCtx ctx, char *buf)
+cexpResetParserCtx(CexpParserCtx ctx, const char *buf)
 {
 	ctx->chpt=buf;
 	ctx->evalInhibit=0;

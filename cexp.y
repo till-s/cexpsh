@@ -10,6 +10,8 @@
 #define YYPARSE_PARAM		parm
 #define YYLEX_PARAM		parm
 #define YYERROR_VERBOSE
+
+#define LEXERR	-1
 %}
 %pure_parser
 
@@ -18,7 +20,6 @@
 	unsigned char	*caddr;	/* an byte address */
 	unsigned short	*saddr;	/* an short address */
 	unsigned long	*laddr;	/* an long address */
-	unsigned char	*id;	/* an undefined identifier */
 	CexpFuncPtr		func;	/* function  pointer */
 	CexpSym			sym;	/* a symbol table entry */
 }
@@ -26,7 +27,7 @@
 
 %token <num>	NUMBER
 %token <caddr>  CHAR_CONST
-%token <id>		IDENT
+%token <caddr>	IDENT
 %token <sym>	VAR FUNC CHAR_VAR SHORT_VAR LABEL
 %token			CHAR_CAST	/* keyword 'char' */
 %token			SHORT_CAST	/* keyword 'short' */
@@ -196,6 +197,23 @@ CexpSym rval;
 #endif
 
 
+/* add a string to the line string table returning its index
+ * RETURNS a negative number on error
+ */
+unsigned char *
+lstAddString(CexpParserArg env, char *string)
+{
+unsigned char *rval=0;
+	if (env->lstLen<sizeof(env->lineStrTbl)/sizeof(env->lineStrTbl[0])) {
+		if ((rval=malloc(strlen(string)+1))) {
+			env->lineStrTbl[env->lstLen++]=rval;
+			strcpy(rval,string);
+		}
+	} else {
+		fprintf(stderr,"Cexp: Line String Table exhausted\n");
+	}
+	return rval;
+}
 
 #define ch (*pa->chpt)
 #define getch() do { (pa->chpt)++;} while(0)
@@ -205,6 +223,7 @@ yylex(YYSTYPE *rval, void *arg)
 {
 unsigned long	num;
 CexpParserArg 	pa=arg;
+char sbuf[80], limit=sizeof(sbuf)-1;
 
 	while (' '==ch || '\t'==ch)
 		getch();
@@ -243,48 +262,54 @@ CexpParserArg 	pa=arg;
 		rval->num=num;
 		return NUMBER;
 	} else if (isalpha(ch)) {
-		char idbuf[80], limit=sizeof(idbuf)-1;
 		/* slurp in an identifier */
-		char *chpt=idbuf;
+		char *chpt=sbuf;
 		do {
 			*(chpt++)=ch;
 			getch();
 		} while (isalnum(ch) && (--limit > 0));
 		*chpt=0;
 		/* is it one of the type cast keywords? */
-		if (!strcmp(idbuf,"char"))
+		if (!strcmp(sbuf,"char"))
 			return CHAR_CAST;
-		else if (!strcmp(idbuf,"short"))
+		else if (!strcmp(sbuf,"short"))
 			return SHORT_CAST;
-		else if (!strcmp(idbuf,"long"))
+		else if (!strcmp(sbuf,"long"))
 			return LONG_CAST;
-		else if (rval->sym=cexpSymTblLookup(pa->symtbl, idbuf))
+		else if (rval->sym=cexpSymTblLookup(pa->symtbl, sbuf))
 			return rval->sym->type;
 
 		/* it's a currently undefined symbol */
-		rval->id=idbuf;
-		return IDENT;
+		return (rval->caddr=lstAddString(pa,sbuf)) >= 0 ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a character constant */
-		/* TODO allocate new string */
+		char *dst;
+		dst=sbuf-1;
 		do {
+		skipit:	
+			dst++; limit--;
 			getch();
-			*dst=ch;
-			if ('\'==ch) {
+			*dst=ch; fprintf(stderr,"%c\n",ch);
+			if ('\\'==ch) {
 				getch();
 				switch (ch) {
-					case 'n':	*dst='\n'; break;
-					case 'r':	*dst='\r'; break;
-					case 't':	*dst='\t'; break;
-					case '"':	*dst='"';  break;
-					case '\':	           break;
-					case '0':	*dst=0;    break;
+					case 'n':	*dst='\n'; goto skipit;
+					case 'r':	*dst='\r'; goto skipit;
+					case 't':	*dst='\t'; goto skipit;
+					case '"':	*dst='"';  goto skipit;
+					case '\\':	           goto skipit;
+					case '0':	*dst=0;    goto skipit;
 					default:
-						dst++; *dst=ch;
+						dst++; limit--; *dst=ch;
 						break;
 				}
 			}
-		} while (ch && '"'!=ch);
+			if ('"'==ch) {
+				*dst=0;
+				return (rval->caddr=lstAddString(pa,sbuf)) ? CHAR_CONST : LEXERR;
+			}
+		} while (ch && limit>2);
+		return LEXERR;
 	} else {
 		/* it's any kind of 'special' character such as
 		 * an operator etc.
@@ -294,7 +319,7 @@ CexpParserArg 	pa=arg;
 		/* yyparse cannot deal with '\0' chars, so we translate it back to '\n'...*/
 		return rv ? rv : '\n';
 	}
-	return 0; /* seems to mean ERROR */
+	return 0; /* seems to mean ERROR/EOF */
 }
 
 int

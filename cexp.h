@@ -4,23 +4,25 @@
 typedef unsigned long (*CexpFuncPtr)();
 
 typedef struct CexpSymRec_ {
-	char		*name;
-	int		type;
-	int		size;
+	char			*name;
+	int				type;
+	int				size;
 	union	{
-		CexpFuncPtr	func;
+		CexpFuncPtr		func;
 		unsigned long	*addr;
-	}			val;
+	}				val;
 } CexpSymRec, *CexpSym;
 
 typedef struct CexpSymTblRec_ {
 	unsigned long	nentries;
-	CexpSym		syms;
+	CexpSym			syms;
 } CexpSymTblRec, *CexpSymTbl;
 
 typedef struct CexpParserArgRec {
-	CexpSymTbl	symtbl;
+	CexpSymTbl		symtbl;
 	unsigned char	*chpt;
+	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
+	unsigned int	lstLen;
 } CexpParserArgRec, *CexpParserArg;
 
 void

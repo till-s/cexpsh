@@ -91,9 +91,14 @@ typedef struct LinkDataRec_ {
 	asymbol			*eh_frame_b_sym;
 	asymbol			*eh_frame_e_sym;
 	unsigned long	text_vma;
+	void			*iniCallback;
+	void			*finiCallback;
 } LinkDataRec, *LinkData;
 
 /* forward declarations */
+extern void __deregister_frame(void*);
+extern void __register_frame(void*);
+
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
@@ -595,8 +600,24 @@ int			i,num_new_commons=0,errs=0;
 		/* mark end with 32-bit 0 if this symbol is contained
  		 * in a ".eh_frame" section
 		 */
-		if (!strcmp(EH_FRAME_BEGIN_PATTERN, bfd_asymbol_name(sp)))
+		if (!strcmp(EH_FRAME_BEGIN_PATTERN, bfd_asymbol_name(sp))) {
 			ld->eh_frame_b_sym=sp;
+
+		/* check for magic initializer/finalizer symbols */
+		} else if (!strcmp(CEXPMOD_INITIALIZER_SYM, bfd_asymbol_name(sp))) {
+
+			/* set the local flag; we dont want these in our symbol table */
+			sp->flags |= BSF_LOCAL;
+			/* store a pointer to the internal symbol table slot; we lookup the
+			 * value after relocation
+			 */
+			ld->iniCallback=syms+i;
+
+		} else if (!strcmp(CEXPMOD_FINALIZER_SYM, bfd_asymbol_name(sp))) {
+			sp->flags |= BSF_LOCAL;
+			ld->finiCallback=syms+i;
+		}
+
 
 		/* we only care about global symbols
 		 * (NOTE: undefined symbols are neither local
@@ -876,6 +897,7 @@ LinkDataRec		ldr;
 int				rval=1,i,j;
 CexpSym			sane;
 FILE			*f=0;
+void			*ehFrame=0;
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -1004,7 +1026,6 @@ memset(ldr.segs[ONLY_SEG].chunk,0xee,ldr.segs[ONLY_SEG].size); /*TSILL*/
 		 * in its own section, we also must write a terminating 0
 		 */
 		if (ldr.eh_frame_b_sym) {
-			extern void __register_frame(void*);
 printf("TSILL registering EH_FRAME 0x%08x\n",
 			bfd_asymbol_value(ldr.eh_frame_b_sym));
 			if ( ldr.eh_frame_e_sym ) {
@@ -1013,9 +1034,8 @@ printf("TSILL registering EH_FRAME 0x%08x\n",
 				*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
 			}
 			assert(__register_frame);
-			/* store the frame info in the modPvt field */
-			mod->modPvt=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
-			__register_frame(mod->modPvt);
+			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
+			__register_frame(ehFrame);
 		}
 
 		/* build ctor/dtor lists */
@@ -1032,9 +1052,22 @@ printf("TSILL registering EH_FRAME 0x%08x\n",
 	ldr.segs[ONLY_SEG].chunk=0;
 
 	mod->symtbl  = ldr.cst;
+	ldr.cst=0;
+
+	if (ldr.iniCallback) {
+		/* it's still an asymbol**; we now lookup the value */
+		mod->iniCallback=(void(*)(CexpModule)) bfd_asymbol_value((*(asymbol**)ldr.iniCallback));
+	}
+	if (ldr.finiCallback) {
+		mod->finiCallback=(int(*)(CexpModule)) bfd_asymbol_value((*(asymbol**)ldr.finiCallback));
+	}
+
 	mod->cleanup = bfdCleanupCallback;
 	mod->text_vma= ldr.text_vma;
-	ldr.cst=0;
+
+	/* store the frame info in the modPvt field */
+	mod->modPvt=ehFrame;
+	ehFrame=0;
 
 	rval=0;
 
@@ -1044,6 +1077,9 @@ cleanup:
 		free(ldr.st);
 	if (ldr.new_commons)
 		free(ldr.new_commons);
+
+	if (ehFrame)
+		__deregister_frame(ehFrame);
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);
@@ -1060,7 +1096,6 @@ cleanup:
 static void
 bfdCleanupCallback(CexpModule mod)
 {
-extern void __deregister_frame(void*);
 	/* release the frame info we had stored in the modPvt field */
 	if (mod->modPvt && __deregister_frame)
 		__deregister_frame(mod->modPvt);

@@ -215,8 +215,8 @@ CexpModule	m,found=0;
 		f=stdout;
 
 	if (!(rc=regcomp(needle))) {
-		fprintf(stderr,"unable to compile regexp '%s'\n",re);
-		return -1;
+		fprintf(stderr,"unable to compile regexp '%s'\n", needle);
+		return 0;
 	}
 
 	__RLOCK();
@@ -226,7 +226,7 @@ CexpModule	m,found=0;
 			/* record first item found */
 			if (!found)
 				found=m;
-			fprintf(f,"0x08x: %x\n",m, m->name);
+			fprintf(f,"0x%08x: %s\n",m, m->name);
 		}
 	}
 
@@ -265,6 +265,13 @@ CexpModule	pred,m;
 			goto cleanup;
 		}
 	}
+
+	if (mod->finiCallback && mod->finiCallback(mod)) {
+		fprintf(stderr,"Unload rejected by module finalizer!\n");
+		/* unload rejected by module */
+		goto cleanup;
+	}
+
 
 	/* remove from dependency bitmaps */
 	for (m=cexpSystemModule; m; m=m->next)
@@ -404,6 +411,9 @@ CexpModule m,tail,nmod,rval=0;
 		nmod->ctor_list=0;
 		nmod->nCtors=0;
 	}
+
+	if (nmod->iniCallback)
+		nmod->iniCallback(nmod);
 
 	addDependencies(nmod);
 

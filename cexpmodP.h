@@ -20,6 +20,14 @@ typedef short			ModuleId;	/* Id < 0 means INVALID */
 
 typedef void			(*VoidFnPtr)(void);
 
+/* 'magic' names; if symbols with these names are found in
+ * an object file, pointers should be stored (by the object
+ * loader code) to the iniCallback and finiCallback fields
+ * below...
+ */
+#define	CEXPMOD_INITIALIZER_SYM	"_cexpModuleInitialize"
+#define CEXPMOD_FINALIZER_SYM   "_cexpModuleFinalize"
+
 typedef struct CexpModuleRec_ {
 	CexpSymTbl			symtbl;
 	char				*name;
@@ -34,8 +42,24 @@ typedef struct CexpModuleRec_ {
 	unsigned			nCtors;
 	VoidFnPtr			*dtor_list;
 	unsigned			nDtors;
-	void				(*cleanup)(CexpModule thismod); /* cleanup routine is invoked after destructors */
+	void				(*cleanup)(CexpModule thismod);
+									/* cleanup routine is invoked after destructors NOTE:
+									 * this routine is intended for use by the object code
+									 * module whereas the 'finiCallback()' below is used
+									 * to point to code in the loaded module.
+									 */
 	void				*modPvt;	/* lowlevel object format private data */
+	void				(*iniCallback)(CexpModule thismod);
+									/* optional (non-C++) initialization routine; called
+									 * after constructors
+									 */
+	int					(*finiCallback)(CexpModule thismod);
+									/* optional (non-C++) finalizer; called before destructors.
+									 * If 'finiCallback()' returns a non-zero value, this is
+									 * interpreted as REJECTING the unload operation and the
+									 * module is left untouched. This can e.g. be used to
+									 * prevent a 'in-use' driver from being unloaded.
+									 */
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

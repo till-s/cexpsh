@@ -12,7 +12,7 @@
 #include <stdlib.h>
 
 #include "ctyps.h"
-#include "cexpsyms.h"
+#include "cexpmod.h"
 
 static char *fundesc[]={
 		"long (*)()  ",
@@ -531,8 +531,8 @@ CexpSym found;
 	if (!CEXP_TYPE_FUNQ(fn->type))
 		return 0;
 
-	return (found=cexpSymLkAddr(fn->tv.p, 0, 0, 0)) &&
-		   (found->flags & CEXP_SYMFLG_PASS_CTX);
+	return ( (found=cexpSymLkAddr(fn->tv.p, 0, 0, 0)) &&
+		    (found->flags & CEXP_SYMFLG_PASS_CTX)) ;
 }
 
 #if defined(__PPC__) && defined(_CALL_SYSV)

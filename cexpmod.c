@@ -11,18 +11,11 @@
 
 CexpModule cexpSystemModule=0;
 
-#ifdef NO_THREAD_PROTECTION
-#define __RLOCK() do {} while(0)
-#define __RUNLOCK() do {} while(0)
-#define __WLOCK() do {} while(0)
-#define __WUNLOCK() do {} while(0)
-#else
 static CexpRWLockRec	_rwlock={0};
-#define __RLOCK()	do { cexpReadLock(&_rwlock); } while (0)
-#define __RUNLOCK()	do { cexpReadUnlock(&_rwlock); } while (0)
-#define __WLOCK()	do { cexpWriteLock(&_rwlock); } while (0)
-#define __WUNLOCK()	do { cexpWriteUnlock(&_rwlock); } while (0)
-#endif
+#define __RLOCK()	cexpReadLock(&_rwlock)
+#define __RUNLOCK()	cexpReadUnlock(&_rwlock)
+#define __WLOCK()	cexpWriteLock(&_rwlock)
+#define __WUNLOCK()	cexpWriteUnlock(&_rwlock)
 
 void
 cexpModuleInit(void)

@@ -91,11 +91,26 @@ cexpEventCreate(CexpEvent *pe)
 #define cexpEventDestroy(l) rtems_semaphore_delete((l))
 
 #elif defined(NO_THREAD_PROTECTION)
+
 typedef void *CexpLock;
+typedef void *CexpEvent;
+
 #define cexpLock(l)		do {} while(0)
 #define cexpUnlock(l)		do {} while(0)
 #define cexpLockCreate(l)	do {} while(0)
 #define cexpLockDestroy(l)	do {} while(0)
+
+#define cexpEventSend(l)	do {} while(0)
+#define cexpEventWait(l)	do {} while(0)
+#define cexpEventCreate(l)	do {} while(0)
+#define cexpEventDestroy(l)	do {} while(0)
+
+#define cexpReadLock(l)		do {} while(0)
+#define cexpReadUnlock(l)	do {} while(0)
+#define cexpWriteLock(l)	do {} while(0)
+#define cexpWriteUnlock(l)	do {} while(0)
+#define cexpRWLockInit(l)	do {} while(0)
+
 #else
 #error "thread protection not implemented for this target system"
 #endif
@@ -107,6 +122,7 @@ typedef struct CexpRWLockRec_ {
 	unsigned	sleeping_writers;
 } CexpRWLockRec, *CexpRWLock;
 
+#ifndef NO_THREAD_PROTECTION
 static __inline__ void
 cexpRWLockInit(CexpRWLock pl)
 {
@@ -161,5 +177,6 @@ cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);
 }
+#endif
 
 #endif

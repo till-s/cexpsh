@@ -107,7 +107,7 @@ int				quote;
 	for (word_start=word_end; word_start>0; word_start--) {
 		/* these characters should match the lexer, see cexp.y ISIDENTCHAR() */
 		register int ch=(unsigned char)line[word_start-1];
-		if (! (isalpha(ch) || '_'==ch || '@'==ch) )
+		if (! ( (word_start ? isalnum(ch) : isalpha(ch)) || '_'==ch || '@'==ch) )
 			break;
 	}
 	if (word_start<word_end) {

@@ -4,7 +4,7 @@ What is Cexp?
  -- Brought to you by Till Straumann <strauman@slac.stanford.edu> --
  -- $Id$ --
 
-The Cexp utility is a C-expression interpreter who
+The Cexp utility is a C-expression interpreter which
 gives its user access to all symbols present in the currently
 executing program. Its primary target is RTEMS, an open source
 RTOS, but Cexp should compile and run on virtually any platform
@@ -80,7 +80,7 @@ the 'xsyms' utility) and guesses the variable types from their sizes.
 In some cases, this guess is obviously wrong, but you can 
 always cast the symbol to the correct type.
 
-Arrays are normally 'void' like every symbol for whose
+Arrays are normally 'void' like every symbol for which's
 type Cexp cannot make a guess. It is still possible, however, to
 use such a symbol, simply by taking its address and
 casting to a different pointer type:
@@ -404,7 +404,7 @@ Let's now assume the both of the demo programs issue
 
 Cexp's dynamic loader doesn't support shared objects - hence
 both instances of 'cexp' will end up with their own copy of
-'someObjectFile' who will get loaded twice to physical memory.
+'someObjectFile' which will get loaded twice to physical memory.
 
 The main target of Cexp is RTEMS, a real-time OS which has
 a global address space shared by all threads. Hence, there is
@@ -467,7 +467,7 @@ Building the 'Main' Application
 - - - - - - - - - - - - - - - -
 
 When linking a traditional application, only objects referenced by the
-application will be linked into the executable. E.g. an application who
+application will be linked into the executable. E.g. an application which
 does not use 'printf()' will not have that routine available. In the
 normal case, this is fine. When using a runtime loader like CEXP, there
 arises a problem: imagine you want to load a piece of code which _does_
@@ -478,13 +478,13 @@ use 'printf()':
     module.
 
   - It is not possible either to simply link your module against libc!
-    The module might reference other libc objects who _are_ present
+    The module might reference other libc objects which _are_ present
     in the application already - Cexp would complain that their symbols
     are already defined.
 
 Therefore, the 'primary' or 'system' application should be built to 
 include ALL parts of the core libraries (such as the C-library, the
-RTEMS executive managers etc.) who will possibly be used by modules
+RTEMS executive managers etc.) which will possibly be used by modules
 loaded into the running system.
 
 Hence, there is a new task for the system designer which (for a statically
@@ -498,7 +498,7 @@ etc.) should forcibly be included into the link.
 
 Note that it is only necessary to take into account the libraries
 needed by CEXP and the OS itself during this process.
-Any library CEXP does _not_ depend on, directly or indirectly , can
+Any library CEXP does _not_ depend on, directly or indirectly, can
 of course be dynamically loaded any time later.
 
 A special makefile is provided (Makefile.syms)
@@ -512,7 +512,7 @@ chunks of symbols that you dont want to be present. In some
 cases it is very much necessary to exclude certain symbols
 from a link because an attempt to forcibly link them results
 in linker errors. This can happen, e.g. if you try to enforce
-linking a (under normal circumstances NEVER used) routine who 
+linking a (under normal circumstances NEVER used) routine which 
 has unresolved dependencies.
 
 Makefile.syms can then be used to generate a special ELF
@@ -549,8 +549,11 @@ possible. That said, let's dive into the details:
 	   If Cexp encounters such symbols, it builds constructor/destructor lists when
 	   loading the module and executes the respective code after loading / prior to
 	   unloading.
+	   Later versions of gcc use the '__cxa_atexit' callback mechanism which requires
+	   CEXP to call '__cxa_finalize()' when a module is unloaded. This seems to be
+	   a C++ ABI standard and is supported by Cexp.
 	   There are other possible implementations (such as creating special ctor/dtor
-	   sections) who are not supported - as I said, there is no general way for 
+	   sections) which are not supported - as I said, there is no general way for 
 	   handling C++ :-(
 
 	2) C++ allows for multiple definitions/instantiations of code (a header included
@@ -559,7 +562,7 @@ possible. That said, let's dive into the details:
 	   These let C++ code size _explode_ keeping hardware manufacturers happy.
 	   Gcc deals with this problem by putting every piece and bit of (possibly
 	   redundant code and/or data) into a separate '.gnu.linkonce.t.xyzkljsbjj783c'
-	   SECTION. The idea is that the linker (who is in our case 'Cexp') eliminates
+	   SECTION. The idea is that the linker (which is in our case 'Cexp') eliminates
 	   redundant sections. The sad result are bloated object files and Cexp symbol
 	   tables (Unfortunately, Cexp must keep _all_ of the zillions of
 	   '.gnu.linkonce.x.yzu' symbols around since a redundant copy might be
@@ -568,7 +571,7 @@ possible. That said, let's dive into the details:
        You can help CEXP, however by using proper linker scripts when linking
        large C++ applications (such as EPICS).
        If you are sure that your large application is the only (C++) object (sharing
-       common code), you may provide the linker with a script who instructs it
+       common code), you may provide the linker with a script which instructs it
        to integrate _all_ the "gnu.linkonce.t.xxx" sections into ".text" etc.
 
        If you don't believe me - just let CEXP load an EPICS IOC and list all the
@@ -580,7 +583,7 @@ possible. That said, let's dive into the details:
 	   
 	3) exception handling (while nice at the abstracion level) is another field
 	   that is highly architecture/compiler/version dependent and a seed to bloat.
-       Even reentrancy might not be taken for granted.
+	   Even reentrancy might not be taken for granted.
 	   Gcc uses two flavors of exception handling 'longjmp' and 'eh_frame' style
 	   which are (to some extent) both supported by Cexp...
 
@@ -594,7 +597,9 @@ Cexp currently does not support the short data areas according to the SYSV/EABI
 specifications. Short data sections are merged by Cexp into the normal data
 segment and hence cannot be accessed via R13/R2. Hence, when compiling loadable
 modules, the compiler's -msdata flag must not be set to either of 'eabi', 'sysv'
-or 'use'.
+or 'use'. If you try to load code compiled with an improper -msdata setting,
+you will get a 'Relocation of unsupported size/type requested' error for the
+relocation type 'R_PPC_EMB_SDA21' or 'R_PPC_SDAREL16' or similar.
 
 LICENSING & DISCLAIMERS
 -----------------------

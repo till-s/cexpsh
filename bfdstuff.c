@@ -85,6 +85,8 @@
 #include "elf-bfd.h"
 #endif
 
+#define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
+
 #define	DEBUG_COMMON	(1<<0)
 #define DEBUG_SECT		(1<<1)
 #define DEBUG_RELOC		(1<<2)
@@ -469,7 +471,7 @@ const char	*secn = bfd_get_section_name(abfd,sect);
 					if ( !ld->errors++ ) {
 						fprintf(stderr,
 								"Uh oh - a `%s` section should not be present"
-								" - did you use -fPIC against my advice?\n",
+								" - did you compile with -fPIC against my advice?\n",
 								secn);
 					}
 				}
@@ -541,6 +543,21 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 		ld->num_alloc_sections++;
 	}
 }
+
+/* Extracted from bfd.h; unfortunately conversion of relocation error
+ * codes to message strings is not available in libbfd  (unless I missed it)
+ */
+static char *reloc_err_msg[]={
+	"ok (no error)",
+	"The relocation was performed, but there was an overflow",
+	"The address to relocate was not within the section supplied",
+	"'continue' (Used by special functions)",
+	"Unsupported relocation size/type requested",
+  	"bfd_reloc_other",
+	"The symbol to relocate against was undefined",
+	"The relocation was performed, but may not be ok/dangerous"
+};
+
 
 /* read the section contents and process the relocations.
  */
@@ -674,7 +691,6 @@ long		err;
 			r->address,
 			r->sym_ptr_ptr);
 #endif
-
 			if ((err=bfd_perform_relocation(
 				abfd,
 				r,
@@ -682,7 +698,10 @@ long		err;
 				sect,
 				0 /* output bfd */,
 				0))) {
-				fprintf(stderr,"Relocation failed: relocation_status %i\n",err);
+				fprintf(stderr,
+					"Relocation of type '%s' failed: %s (check compiler flags!)\n",
+					r->howto->name,
+					err >= NumberOf(reloc_err_msg) ? "unknown error" : reloc_err_msg[err]);
 				ld->errors++;
 			}
 		}

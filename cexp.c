@@ -108,6 +108,7 @@ int	 l;
 }
 #elif defined(HAVE_TECLA)
 
+#include "teclastuff.h"
 #include <libtecla.h>
 
 static char *readline_r(char *prompt, GetLine *gl)
@@ -427,7 +428,6 @@ cexp_main(int argc, char **argv)
  * context.h).
  */
 CexpContextOSD cexpCurrentContext=0;
-
 
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))

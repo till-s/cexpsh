@@ -19,8 +19,9 @@
  * ( == end of the string) and the opening quote.
  */
 #define LEXERR_INCOMPLETE_STRING	(-100)
+extern int		cexplex();
 
-extern CexpSym _cexpSymLookupRegex();
+extern CexpSym	_cexpSymLookupRegex();
 
 int
 cexpSymComplete(WordCompletion *cpl, void *closure, const char *line, int word_end)

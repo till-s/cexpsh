@@ -404,7 +404,8 @@ cexp_kill(int doWhat)
 {
 CexpContext context;
 	cexpContextGetCurrent(&context);
-	longjmp(context->jbuf,doWhat);
+	if ( context )
+		longjmp(context->jbuf,doWhat);
 }
 
 static void

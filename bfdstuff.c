@@ -1274,7 +1274,7 @@ char							*thename = 0;
 
 	thename       = malloc(MAXPATHLEN);
 
-	if ( '/' == filename[0] || !path )
+	if ( strchr(filename,'/') || !path )
 		path = "";
 
 	col = path-1;

@@ -400,7 +400,7 @@ CexpType	t=s->value.type;
 
 	if (!f) f=stdout;
 
-	i+=fprintf(f,"%010p[%6d]: ",
+	i+=fprintf(f,"%10p[%6d]: ",
 			(void*)s->value.ptv,
 			s->size);
 	if (!CEXP_TYPE_FUNQ(t)) {

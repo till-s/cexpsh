@@ -128,7 +128,7 @@ usage(char *nm)
 #ifdef YYDEBUG
 	fprintf(stderr, " [-d]");
 #endif
-	fprintf(stderr," [-s <ELF symbol file>]");
+	fprintf(stderr," [-s <symbol file>]");
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
@@ -137,7 +137,7 @@ usage(char *nm)
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
-	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@@TU-Berlin.de>\n");
+	fprintf(stderr, "       Author: Till Straumann <strauman@@slac.stanford.edu\n");
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 

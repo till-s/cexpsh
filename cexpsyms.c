@@ -444,7 +444,7 @@ int  verbose=0;
 	if (newhelp) {
 		if (sym->flags & CEXP_SYMFLG_MALLOC_HELP)
 			free(sym->help);
-#ifdef CONFIG_STRINGS_LIVE_FOREVER && 0 /* might come from another module; we better make a copy */
+#if defined(CONFIG_STRINGS_LIVE_FOREVER) && 0 /* might come from another module; we better make a copy */
 		/* the help storage is probably an 'eternal' string */
 		sym->help=newhelp;
 #else

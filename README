@@ -306,6 +306,7 @@ a script:
 
   Cexp> cexp("script_file")
 
+
 Loadable Modules / Runtime Loader
 ---------------------------------
 
@@ -370,7 +371,7 @@ Supporting shared objects involves PIC and GOTs.
 
 CEXP does _not_ support shared libraries! An attempt to run
 a loaded module that was compiled with '-fpic', '-fPIC'
-and/or linked with the '-shared' options will crash.
+and/or linked with the '-shared' options will crash hard.
 
 ***********************************************************
 
@@ -482,9 +483,10 @@ needed by CEXP and the OS itself during this process.
 Any library CEXP does _not_ depend on, directly or indirectly , can
 of course be dynamically loaded any time later.
 
-A special makefile is provided to help you generating the system
-configuration (RTEMS). You can give the make process a list of libraries
-to work on. 'make' then generates a set of files (one per library)
+A special makefile is provided (but distributed separately)
+to help you generating the system configuration (RTEMS).
+You can give the make process a list of libraries to work on.
+'make' then generates a set of files (one per library)
 containing lists of all symbols exported by a library - grouped
 by the object file where these symbols are defined.
 

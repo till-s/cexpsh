@@ -1,0 +1,228 @@
+What is Cexp?
+-------------
+
+ -- Brought to you by Till Straumann <strauman@slac.stanford.edu> --
+ -- $Id$ --
+
+The Cexp utility gives its user access to all symbols
+present in the currently executing program. Its primary
+target is RTEMS, an open source RTOS, but Cexp should
+compile and run on virtually any platform using the ELF
+binary format.
+
+If Cexp is linked to an executable, it is
+possible to invoke arbitrary functions and to
+read/write variables (and hence virtually any
+memory location) by interpreting C-style expressions.
+
+Description
+-----------
+
+CEXP is a simple utility featuring
+ - symbol table
+ - C expression parser/interpreter
+ - type "engine"
+ - user definable variables
+ - recursive invocation / simple scripts
+
+Cexp knows about the basic C types (no aggregates), i.e.
+
+char,   char*
+short,  short*
+long,   long*
+double, double*
+long    (*)()
+double  (*)()
+
+and interprets C-style expressions, e.g.
+
+	printf("Hello world")
+
+	some_variable = 0xdeadbeef
+
+	some_double_variable = *(double*)&some_variable
+
+Symbol Table
+------------
+On startup, Cexp reads the symbol table from an ELF
+file and guesses the variable types from their sizes.
+
+In some cases, this is obviously wrong, but you can 
+always cast the symbol to the correct type. Arrays
+are normally 'void' like every symbol for whose
+type Cexp cannot make a guess.
+It is still possible, however, to
+use such a symbol, simply by taking its address and
+casting to a different pointer type:
+    
+    *(((long*)&some_array)+25)
+
+evaluates to the unsigned long array element
+some_array[25].
+
+Cexp provides a series of lookup functions
+for symbols. Most noteworthy:
+
+lkup(char *regexp)
+lkAddr(unsigned long addr)
+whatis(char *name)
+
+These are just normal C functions which can be
+invoked by Cexp. Note that lkup() takes a regular
+expression argument allowing for powerful searching.
+'whatis()' requires an exact match which is useful
+for short variable names which would cause 'lkup' to
+produce long listings.
+
+C-Expression Parser / Interpreter
+---------------------------------
+The C expression parser has some restrictions:
+    - no '?' ':' expression
+    - no [], '->', '.'
+    - no multilevel pointer dereferencing (since e.g. char**
+      is not a valid type, Cexp cannot dereference 
+      **addr. You must explicitly cast this:
+
+        *(char*)*(long*)some_char_pointer_pointer
+
+      which assumes that sizeof(long) == sizeof(char*)
+      for the particular machine.
+
+However, most of the other operators are available, including
+the 'comma' operator and the logical '&&' and '||' with the
+correct semantics, i.e. conditional evaluation of expression
+parts e.g.
+
+      (dd=deviceDetect(_some_device_address)) && driverInit(dd)
+
+will call the driverInit() function only if deviceDetect()
+returns a nonzero value.
+
+Function calling:
+The user is responsible for feeding properly typed arguments;
+unused arguments will be filled with integral 0, which on 
+most ABIs is safe.
+Since the ELF symbol table (Cexp is not using .stab but .symtab)
+provides no info about a function's return type, Cexp assumes
+all functions to return long. Floating point functions
+must be cast appropriately:
+
+    ((double(*)())sqrt)(2.345)
+
+A lot of type casting can be avoided by using user
+defined variables, see below.
+
+Type Engine
+-----------
+Cexp knows about (and only about) the primitive types listed
+above.
+NOTE: Cexp treats ALL integral types as UNSIGNED although
+no 'unsigned' keyword is used or recognized. The main
+reason for this is to save typing. Hence
+char is in fact unsigned char etc.
+
+An 'int' type is missing (but could easily added) which
+means that on some machines (e.g. an alpha) no 32bit
+type is currently available...
+
+User Variables
+--------------
+Cexp supports (fully typed) user variables which are
+visible in a global namespace (i.e. visible to other
+instances of Cexp). The name of user variables must
+not collide with symbols present in the symbol table.
+
+A user variable is created simply by assigning it
+a value which also automatically defines its type.
+
+    hallo="hallo"
+
+creates a 'char*' and assigns it the address of a
+string constant. The string is stored in 'malloc()ated'
+memory and 'lives' forever. Subsequent use of the
+same string (strcmp(a,b)==0) results in re-using the
+already stored instance of the string.
+String constants must not be written-to!
+
+The type of user variables can be modifed, simply
+by re-declaring them, in a C-style manner:
+
+    long hallo
+
+results in 'hallo' maintaining its value (the address
+of the string constant) but interpreting it as a long.
+Hence
+
+    chppt = &hallo
+
+is an 'disguised' char** and
+
+    *(char*)*chppt
+
+resolves to 'h'
+
+User variables can also hold function pointer and hence
+be handy abbreviations for long names and casts.
+E.g. a convenient variable can be set for 'sqrt()'
+(which returns a double value):
+
+    s=((double(*)())sqrt)
+
+It is then possible to automatically get the correct
+return type:
+
+    printf("Let's print a double: %g\n",s(44.34))
+
+How to Start/Invoke Cexp - Simple Scripts
+-----------------------------------------
+Cexp has two entry points,
+
+    cexp_main(int argc, char **argv)
+
+and
+
+    cexp(char *arg1,...)
+
+i.e. a 'main' style and a 'vararg' style. The
+'vararg' version ends up building an argument list
+and calling cexp_main(). It is mainly intended
+for recursive invoking 'cexp()' e.g. for 
+reading a series of lines from a file.
+Note that the string argument list submitted to
+cexp() must be NULL terminated. When calling
+cexp() from cexp() (e.g. to interpret a script),
+this is not necessary, however, because any unused
+arguments (up to the internal maximum) are filled
+with zeroes...
+
+The calling syntax of cexp_main/cexp is as follows:
+
+cexp [-s <symbolfile>] [-h] [-d] [<scriptfile>]
+
+-h and -d have the obvious effect of printing usage
+info and enabling debugging information (only available
+if compiled with YYDEBUG defined).
+
+Note that the -s option MUST be used the first time
+'Cexp' is started and it must be provided with an
+appropriate symbol file. This can be the executable
+itself of a stripped version (use the 'xsyms' utility)
+to reduce memory usage and loading time on RTEMS systems.
+A basic check is made to protect against version mismatch
+between the symbol file and the executable.
+
+Once Cexp has loaded the system's symbol table, further
+instances will simply use the global system table if
+the -s argument is missing.
+
+cexp then reads commands from stdin (using GNU
+readline) or alternatively from a script file.
+
+Cexp ignores any characters present on a line
+after it reads the comment characters
+'#' or '//'.
+
+Example for invoking Cexp from Cexp to evaluate
+a script:
+
+    Cexp> cexp("script_file")

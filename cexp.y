@@ -15,8 +15,28 @@
 
 #define EVAL_INH	 (((CexpParserCtx)YYPARSE_PARAM)->evalInhibit)
 #define PSHEVAL(inh) do { EVAL_INH<<=1; if (inh) EVAL_INH++; } while(0)
-#define POPEVAL(inh) do { EVAL_INH>>=1; } while(0)
+#define POPEVAL      do { EVAL_INH>>=1; } while(0)
 #define EVAL(stuff)  if (! EVAL_INH ) do { stuff; } while (0)
+
+#define FILL_FN_ARGS
+#ifdef  FILL_FN_ARGS
+#define	FILLARG 0
+#define FILLER  ,FILLARG
+#else
+#define FILLARG
+#define FILLER
+#endif
+
+#define FILL1	FILLER
+#define FILL2	FILL1 FILLER
+#define FILL3	FILL2 FILLER
+#define FILL4	FILL3 FILLER
+#define FILL5	FILL4 FILLER
+#define FILL6	FILL5 FILLER
+#define FILL7	FILL6 FILLER
+#define FILL8	FILL7 FILLER
+#define FILL9	FILL8 FILLER
+#define FILL10  FILLARG FILL9
 
 #define LEXERR	-1
 %}
@@ -33,28 +53,30 @@
 
 
 %token <num>	NUMBER
-%token <caddr>  CHAR_CONST
+%token <caddr>  STR_CONST
 %token <caddr>	IDENT
 /* NOTE: elfsym.c relies on the order of FUNC..VAR */
 %token <sym>	FUNC LABEL CHAR_VAR SHORT_VAR VAR
 %token			CHAR_CAST	/* keyword 'char' */
 %token			SHORT_CAST	/* keyword 'short' */
 %token			LONG_CAST	/* keyword 'long' */
-%type  <num>	exp			/* expression */
-%type  <caddr>	caddr
-%type  <caddr>  cptr
-%type  <saddr>	saddr
-%type  <saddr>  sptr
-%type  <laddr>	llval laddr
-%type  <laddr>  lptr
-%type  <num>	bool
-%type  <func>	funcp
-%type  <num>	call
-%type  <sym>	var
+%type  <num>	exp
+%type  <num>	binexp
 %type  <num>	or
 %type  <num>	and
+%type  <num>	unexp
+%type  <caddr>	clval
+%type  <saddr>	slval
+%type  <laddr>	llval
+%type  <caddr>  cptr
+%type  <saddr>  sptr
+%type  <laddr>	lptr
+%type  <sym>	var
+%type  <func>	funcp
+%type  <num>	call
 
-%right			NONE
+
+%right			'?' ':'
 %right			'='
 %left			OR
 %left			AND
@@ -63,7 +85,7 @@
 %left			'&'
 %left			EQ NE
 %left			'<' '>' LE GE
-%left			SHFT
+%left			SHL SHR
 %left			'-' '+'
 %left			'*' '/' '%'
 %right			'!' '~' NEG CAST ADDR DEREF
@@ -74,126 +96,186 @@
 input:	line		{ YYACCEPT; }
 
 line:	'\n'
-	|	exp '\n' { printf("0x%08x (%i)\n",$1,$1); }
+	|		exp '\n' { printf("0x%08x (%i)\n",$1,$1); }
 ;
 
-exp:	NUMBER					{ $$=$1; }
-/*
-	|	LABEL					{ $$=(unsigned long)$1->val.addr; }
-	|	cptr					{ $$=(unsigned long)$1; }
-	|	sptr					{ $$=(unsigned long)$1; }
-	|	lptr					{ $$=(unsigned long)$1; }
-	|	clval	%prec NONE		{ $$=*$1; }
-	|	slval	%prec NONE		{ $$=*$1; }
-	|	llval	%prec NONE		{ $$=*$1; }
-	|	clval '=' exp			{ $$=$3; EVAL(*$1=(unsigned char)$3); }
-	|	slval '=' exp			{ $$=$3; EVAL(*$1=(unsigned short)$3); }
-	|	llval '=' exp			{ $$=$3; EVAL(*$1=(unsigned long)$3); }
-*/
-	|	VAR '=' exp			{ $$=$3; EVAL(*$1->val.addr=(unsigned long)$3); }
-	|	VAR 	%prec NONE				{ $$=*$1->val.addr; }
+exp:	binexp 
+					{ $$ = $1; }
+	|	clval '=' exp
+					{ $$=$3&0xff; 	EVAL(*(unsigned char*)$1  = (unsigned char)$$); }
+	|	slval '=' exp
+					{ $$=$3&0xffff; EVAL(*(unsigned short*)$1 = (unsigned short)$$); }
+	|	llval '=' exp
+					{ $$=$3; 		EVAL(*$1 = $$); }
+;
+
+binexp:	unexp
+	|	or  binexp	%prec OR
+					{ $$=($1||$2); POPEVAL; }
+	|	and binexp	%prec AND
+					{ $$=($1&&$2); POPEVAL; }
+	|	binexp '|' binexp
+					{ $$=$1|$3; }
+	|	binexp '^' binexp
+					{ $$=$1^$3; }
+	|	binexp '&' binexp
+					{ $$=$1&$3; }
+	|	binexp NE binexp
+					{ $$=($1!=$3 ? BOOLTRUE : 0); }
+	|	binexp EQ binexp
+					{ $$=($1==$3 ? BOOLTRUE : 0); }
+	|	binexp '>' binexp
+					{ $$=($1>$3 ? BOOLTRUE : 0); }
+	|	binexp '<' binexp
+					{ $$=($1<$3 ? BOOLTRUE : 0); }
+	|	binexp LE binexp
+					{ $$=($1<=$3 ? BOOLTRUE : 0); }
+	|	binexp GE binexp
+					{ $$=($1>=$3 ? BOOLTRUE : 0); }
+	|	binexp SHL binexp
+					{ $$=$1<<$3; }
+	|	binexp SHR binexp
+					{ $$=$1>>$3; }
+	|	binexp '+' binexp
+					{ $$=$1+$3; }
+	|	binexp '-' binexp
+					{ $$=$1-$3; }
+	|	binexp '*' binexp
+					{ $$=$1*$3; }
+	|	binexp '/' binexp
+					{ $$=$1/$3; }
+	|	binexp '%' binexp
+					{ $$=$1%$3; }
+;
+
+or:		binexp OR
+					{ $$=$1; PSHEVAL($$); }
+;
 	
-	|	exp '|' exp				{ $$=$1|$3; }
-/*
-	|	exp '^' exp				{ $$=$1^$3; }
-	|	exp '&' exp				{ $$=$1&$3; }
-	|	bool			%prec NONE		{ $$=$1; }
-	|   exp '<' '<' exp %prec SHFT { $$=($1<<$4); }
-	|   exp '>' '>' exp %prec SHFT { $$=($1>>$4); }
-	|	exp '+' exp				{ $$=$1+$3; }
-	|	exp '-' exp				{ $$=$1+$3; }
-	|	exp '*' exp				{ $$=$1+$3; }
-	|	exp '/' exp				{ $$=$1+$3; }
-	|	exp '%' exp				{ $$=$1+$3; }
-	|	'-' exp %prec NEG 		{ $$=-$2; }
-	|	'~' exp 				{ $$=~$2; }
-	|	'(' exp ')'				{ $$=$2; }
-	|	call					{ $$=$1; }
-*/
+and:	binexp AND
+					{ $$=$1; PSHEVAL( ! $$); }
+;
+	
+
+unexp:	VAR
+					{ $$=*(unsigned long*)$1->val.addr; }
+	|	LABEL		
+					{ $$=(unsigned long)$1->val.addr; }
+	|	NUMBER
+					{ $$=$1; }
+	|	'(' exp ')'
+					{ $$=$2; }
+	|   '!' unexp
+					{ $$=!$2; }
+	|   '~' unexp
+					{ $$=~$2; }
+	|   '-' unexp %prec NEG
+					{ $$=-$2; }
+	|	'(' CHAR_CAST ')' unexp
+					{ $$=$4 & 0xff; }
+	|	'(' SHORT_CAST ')' unexp
+					{ $$=$4 & 0xffff; }
+	|	'(' LONG_CAST ')' unexp
+					{ $$=$4; }
+	|	cptr
+					{ $$=(unsigned long)$1; }
+	|	sptr
+					{ $$=(unsigned long)$1; }
+	|	lptr
+					{ $$=(unsigned long)$1; }
+	|	'*' cptr %prec DEREF
+					{ $$=*(unsigned char*)$2; }
+	|	'*' sptr %prec DEREF
+					{ $$=*(unsigned short*)$2; }
+	|	'*' lptr %prec DEREF
+					{ $$=*$2; }
+	|	call
+					{ $$=$1; }
 ;
 
-funcp:	FUNC			{ $$=$1->val.func; }
+var:	CHAR_VAR	{ $$=$1; }
+	|	SHORT_VAR	{ $$=$1; }
+	|	VAR			{ $$=$1; }
+;
+
+clval:	CHAR_VAR
+					{ $$=(unsigned char*)$1->val.addr; }
+	|	'(' CHAR_CAST ')' var %prec CAST
+					{ $$=(unsigned char*)$4->val.addr; }
+	|	'*' cptr %prec DEREF
+					{ $$=$2; }
+;
+
+slval:	SHORT_VAR
+					{ $$=(unsigned short*)$1->val.addr; }
+	|	'(' SHORT_CAST ')' var %prec CAST
+					{ $$=(unsigned short*)$4->val.addr; }
+	|	'*' sptr %prec DEREF
+					{ $$=$2; }
+;
+
+
+llval:	VAR
+					{ $$=$1->val.addr; }
+	|	'(' LONG_CAST ')' var %prec CAST
+					{ $$=$4->val.addr; }
+	|	'*' lptr %prec DEREF
+					{ $$=$2; }
+;
+
+cptr:	'&' CHAR_VAR %prec ADDR
+					{ $$=(unsigned char*)$2->val.addr; }
+	|	'(' CHAR_CAST '*' ')' unexp %prec CAST
+					{ $$=(unsigned char*)$5; }
+	|	STR_CONST
+					{ $$=$1; }
+;
+
+sptr:	'&' SHORT_VAR %prec ADDR
+					{ $$=(unsigned short*)$2->val.addr; }
+	|	'(' SHORT_CAST '*' ')' unexp %prec CAST
+					{ $$=(unsigned short*)$5; }
+;
+
+lptr:	'&' VAR	 %prec ADDR
+					{ $$=$2->val.addr; }
+	|	'(' LONG_CAST '*' ')' unexp %prec CAST
+					{ $$=(unsigned long*)$5; }
+	|	funcp
+					{ $$=(unsigned long*)$1; }
+	|	'&' funcp %prec ADDR
+					{ $$=(unsigned long*)$2; }
+;
+
+funcp:	FUNC	
+					{ $$=$1->val.func; }
 ;	
 
 call:	funcp '(' ')'
-		%prec CALL	{	EVAL($$=$1()); }
+		%prec CALL	{	EVAL($$=$1(FILL10)); }
 	|	funcp '(' exp ')'
-		%prec CALL	{	EVAL($$=$1($3)); }
+		%prec CALL	{	EVAL($$=$1($3 FILL9)); }
 	|	funcp '(' exp ',' exp ')'
-		%prec CALL	{	EVAL($$=$1($3,$5)); }
+		%prec CALL	{	EVAL($$=$1($3,$5 FILL8)); }
 	|	funcp '(' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7 FILL7)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9 FILL6)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11 FILL5)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13 FILL4)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15 FILL3)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17 FILL2)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19)); }
+		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19 FILL1)); }
 	|	funcp '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
 		%prec CALL	{	EVAL($$=$1($3,$5,$7,$9,$11,$13,$15,$17,$19,$21)); }
 ;
 
-or:		exp '|' '|'					{ $$=$1; PSHEVAL($$); }		/* inhibit further '=' and call evaluation */
-;
-
-and:	exp '&' '&'					{ $$=$1; PSHEVAL( ! $$); }	/* inhibit further '=' and call evaluation */
-;
-
-bool: 	'!' exp						{ $$=($2==0 ? BOOLTRUE : 0); }
-	|	or	exp %prec OR			{ $$=($1||$2); POPEVAL(); }
-	|	and	exp %prec AND			{ $$=($1&&$2); POPEVAL(); }
-	|	exp '<' exp					{ $$=($1<$3 ? BOOLTRUE : 0); }
-	|	exp '<' '=' exp	%prec LE	{ $$=($1<=$4 ? BOOLTRUE : 0); }
-	|	exp '=' '=' exp	%prec EQ	{ $$=($1==$4 ? BOOLTRUE : 0); }
-	|	exp '!' '=' exp	%prec NE	{ $$=($1!=$4 ? BOOLTRUE : 0); }
-	|	exp '>' '=' exp	%prec GE	{ $$=($1>=$4 ? BOOLTRUE : 0); }
-	|	exp '>' exp					{ $$=($1>$3 ? BOOLTRUE : 0); }
-;
-
-var:	CHAR_VAR		{ $$=$1; }
-	|	SHORT_VAR		{ $$=$1; }
-	|	VAR				{ $$=$1; }
-;
-
-llval:	laddr				  %prec '='			{ $$=$1; }
-;
-
-caddr:	CHAR_VAR		 	  %prec NONE		{ $$=(unsigned char*)$1->val.addr; }
-	|	'(' CHAR_CAST ')' var %prec CAST		{ $$=(unsigned char*)$4->val.addr; }
-	|	'*' cptr			  %prec DEREF		{ $$=$2; }
-;
-saddr:	SHORT_VAR								{ $$=(unsigned short*)$1->val.addr; }
-	|	'(' SHORT_CAST ')' var %prec CAST		{ $$=(unsigned short*)$4->val.addr; }
-	|	'*' sptr %prec DEREF					{ $$=$2; }
-;
-laddr:	VAR										{ $$=$1->val.addr; }
-/*
-	|	'(' LONG_CAST ')' var %prec CAST		{ $$=$4->val.addr; }
-	|	'*' lptr %prec DEREF					{ $$=$2; }
-*/
-;
-
-cptr:	'&' CHAR_VAR %prec ADDR					{ $$=(unsigned char*)$2->val.addr; }
-	|	'(' CHAR_CAST '*' ')' exp %prec CAST	{ $$=(unsigned char*)$5; }
-	|	CHAR_CONST								{ $$=$1 }
-;
-
-sptr:	'&' SHORT_VAR %prec ADDR				{ $$=(unsigned short*)$2->val.addr; }
-	|	'(' SHORT_CAST '*' ')' exp %prec CAST	{ $$=(unsigned short*)$5; }
-;
-
-lptr:	'&' VAR	 %prec ADDR						{ $$=$2->val.addr; }
-	|	'(' LONG_CAST '*' ')' exp %prec CAST 	{ $$=(unsigned long*)$5; }
-	|	funcp									{ $$=(unsigned long*)$1; }
-;
-
-		
+	
 %%
 
 
@@ -307,16 +389,39 @@ char sbuf[80], limit=sizeof(sbuf)-1;
 			if ('"'==ch) {
 				*dst=0;
 				getch();
-				return (rval->caddr=lstAddString(pa,sbuf)) ? CHAR_CONST : LEXERR;
+				return (rval->caddr=lstAddString(pa,sbuf)) ? STR_CONST : LEXERR;
 			}
 		} while (ch && limit>2);
 		return LEXERR;
 	} else {
+		long rv=ch;
+		if (rv) getch();
+
 		/* it's any kind of 'special' character such as
 		 * an operator etc.
 		 */
-		long rv=ch;
-		if (rv) getch();
+
+		/* check for 'double' character operators '&&' '||' '<<' '>>' '==' '!=' '<=' '>=' */
+		switch (ch) { /* the second character */
+			default: break;
+
+			case '&': if ('&'==rv) rv=AND; break;
+			case '|': if ('|'==rv) rv=OR;  break;
+
+			case '<': if ('<'==rv) rv=SHL; break;
+			case '>': if ('>'==rv) rv=SHR; break;
+
+			case '=':
+				switch (rv) {
+					default: break;
+					case '=': rv=EQ;	break;
+					case '!': rv=NE;	break;
+					case '<': rv=LE;	break;
+					case '>': rv=GE;	break;
+				}
+			break;
+		}
+		if (rv>255) getch(); /* skip second char */
 		/* yyparse cannot deal with '\0' chars, so we translate it back to '\n'...*/
 		return rv ? rv : '\n';
 	}

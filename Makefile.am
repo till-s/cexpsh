@@ -18,7 +18,7 @@ SYMLIBS=-lbfd -lopcodes -liberty
 SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 xsyms_SOURCES=xsyms-bfd.c
 xsyms_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-xsyms_CPPFLAGS=-I@BINUTILS@/bfd -I@srcdir@/@BINUTILS@/include
+xsyms_CPPFLAGS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
 SYMF_SRCS = elfsyms.c
 SYMLIBP=-Llibelf-local/lib

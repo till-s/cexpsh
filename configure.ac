@@ -34,9 +34,12 @@ AC_ARG_ENABLE(bfd,
 
 dnl if target==host, we build CEXP; either for the build host
 dnl or for a different one otherwise, we build 'xsyms' only...
-if test "$target-system" != "$host-system"  ; then
+if test "$target-system" != "$host-system" ; then
 enable_cexp=no
 fi
+
+dnl is this a 'xsyms' only checkout?
+AC_CHECK_FILE($srcdir/cexp.y,,enable_cexp=no)
 
 if test "$enable_cexp" != "no" ; then
 

@@ -2,7 +2,6 @@ AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 
 HOSTCC=@HOSTCC@
 SUBDIRS=@subdirs@
-lib_LIBRARIES=libcexp.a
 ##BUILT_SOURCES = builddate.h
 
 if USETECLA
@@ -55,6 +54,7 @@ endif
 
 if DO_CEXPLIB
 
+lib_LIBRARIES=libcexp.a
 include_HEADERS = cexp.h cexpHelp.h
 
 libcexp_a_CFLAGS=$(CONFIGHACKS) $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)

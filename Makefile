@@ -5,6 +5,7 @@
 #       original makefile and might contain
 #       useful info
 #
+
 all: src bootstrap
 
 
@@ -22,6 +23,9 @@ gentab: gentab.c
 jumptab.c: gentab
 	./$^ > $@
 	$(RM) $^
+
+links:	./binutils-2.13 ./regexp ./libelf-0.8.0 ./libtecla-1.4.1
+	ln -s $(LINKDIR)/$^ .
 
 src: cexp.tab.c cexp.tab.h jumptab.c
 

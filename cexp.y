@@ -72,7 +72,6 @@ typedef struct CexpParserCtxRec_ {
 %type  <ul>		and
 %type  <val>	unexp
 %type  <val>	lval
-%type  <val>  	lvp
 %type  <val>	call
 %type  <val>	funcp
 %type  <val>	castexp
@@ -206,10 +205,8 @@ unexp:	VAR
 ;
 
 lval:	VAR			{ $$=$1->value; }
-	|   '*' lvp %prec DEREF
+	|   '*' castexp %prec DEREF
 					{ $$=$2; }
-	|   '*' UVAR %prec DEREF
-					{ $$=*$2.val; }
 	|	cast VAR %prec CAST
 					{ $$=$2->value; CHECK(cexpTypeCast(&$$,$1,0)); }
 ;
@@ -249,15 +246,6 @@ fpcast:
 						break;
 					  }
 					}
-;
-
-/* pointers that may appear on the left hand
- * side of an assignment '*' lvp '=' exp
- */
-lvp:	'&' VAR %prec ADDR
-					{ $$=$2->value; }
-	|	pcast castexp %prec CAST
-					{ $$=$2; CHECK(cexpTypeCast(&$$,$1,CNV_FORCE)); }
 ;
 
 /* NOTE: for now, we consider it not legal to

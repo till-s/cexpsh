@@ -155,9 +155,9 @@ int            purge=1;
 	for (cnt = 1, scn = NULL; (scn = elf_nextscn(elf, scn)); cnt++) {
 		if ((shdr = elf32_getshdr(scn)) == NULL)
                     myfailure();
-		(void) fprintf(stderr,"[%d] %s (size: %i)\n", cnt,
+		(void) fprintf(stderr,"[%d] %s (size: %i, offset %i)\n", cnt,
 				(char *)data->d_buf + shdr->sh_name,
-				shdr->sh_size);
+				shdr->sh_size, shdr->sh_offset);
 		if (DOWRITE) {
 			if (purge) {
 				if (0==strcmp((char *)data->d_buf + shdr->sh_name,

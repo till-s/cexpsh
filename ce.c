@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 
@@ -28,12 +29,39 @@ usage(char *nm)
 
 int a,b,c,d,e;
 
+#ifdef __rtems
+#define main cexp_main
+#define optind 1
+#endif
+
+/* alternate entries for the lookup functions */
+void
+lkup(char *regexp)
+{
+CexpSym s;
+int		ch=0;
+	for (s=0; !ch && (s=cexpSymTblLookupRegex(regexp,25,s,0,0));) {
+		char *line;
+		line=readline("More (Y/n)?");
+		ch=line[0];
+		free(line);
+		if ('Y'==toupper(ch)) ch=0;
+	}
+}
+
+void
+lkaddr(unsigned long *addr)
+{
+	cexpSymTblLkAddr(addr, 8, 0, 0);
+}
 int
 main(int argc, char **argv)
 {
-int					fd,opt;
 char				*line;
 CexpParserCtx		ctx;
+
+#ifndef __rtems
+int					opt;
 char				optstr[]={
 						'h',
 
@@ -52,13 +80,14 @@ while ((opt=getopt(argc, argv, optstr))>=0) {
 #endif
 	}
 }
+#endif
 
-if (argc-optind<1 || !(ctx=cexpCreateParserCtx(argv[optind]))) {
+if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(argc>optind?argv[optind]:0)))) {
 	fprintf(stderr,"Need an elf symbol table file arg\n");
 	return 1;
 }
 
-fprintf(stderr,"main is at 0x%08x\n",(unsigned long)main);
+fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)main);
 
 while ((line=readline("Cexpr>"))) {
 	cexpResetParserCtx(ctx,line);

@@ -1,6 +1,6 @@
 #include <fcntl.h>
 #include <stdio.h>
-#include <libelf.h>
+#include <libelf/libelf.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -24,9 +24,9 @@
  *   which is then mmapp()ed as one chunk.
  *
  * --> lseek(SEEK_END) reads the file 'realloc()ing' buffer space.
- *     mmap() returns a buffer
- *     munmap() writes a dirty buffer back and releases it.
- *     ftruncate allocates a buffer and zeroes it.
+ * --> mmap() returns a buffer
+ * --> munmap() writes a dirty buffer back and releases it.
+ * --> ftruncate allocates a buffer and zeroes it.
  */
 
 #define MAXBUFS 10

@@ -8,6 +8,10 @@
 #include <readline/history.h>
 #endif
 
+/* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
+
+/* License: GPL, http://www.gnu.org */
+
 /* Implementation of CEXP variables, currently
  * just a linked list. The number of user generated
  * variables is probably small and performance is

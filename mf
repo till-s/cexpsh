@@ -8,6 +8,8 @@ REGEXP_PATH=/home/till_tp/till/xfm/regexp
 YACC=bison
 YFLAGS=-d -y -ocexp.tab.c
 
+MAKEDEPEND=gccmakedep
+
 sym_OBJS=
 exmpl_OBJS=
 ce_OBJS=elfsyms.o cexp.tab.o vars.o ctyps.o
@@ -26,6 +28,9 @@ OBJS=$($(PROG)_OBJS) $(PROG).o $(WRAP_OBJS_$(WRAP))
 WRAP_LDFLAGS=$(WRAP_LDFLAGS_$(WRAP))
 LIBS=$($(PROG)_LIBS) 
 CFLAGS+=$($(PROG)_CFLAGS)
+
+# This only works as long as C++ is not involved... */
+SRCS=$(OBJS:%.o=%.c)
 
 
 all: $(PROG)
@@ -49,7 +54,10 @@ ctyps.o: ctyps.c jumptab.c
 	$(CC) -c $(CFLAGS) -I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) -o $@ $^
 
 clean:
-	$(RM) -f $(PROG) $(OBJS) wrap.o *.tab.c *.tab.h
+	$(RM) -f $(PROG) $(OBJS) wrap.o *.tab.c *.tab.h cexp.output
 
 elfsyms.c: cexp.h
 cexp.h: cexp.tab.h
+
+depend:
+	$(MAKEDEPEND) $(CFLAGS) $(SRCS)

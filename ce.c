@@ -1,3 +1,11 @@
+/* $Id$ */
+
+/* 'main' program for CEXP which reads lines of input
+ * and calls the parser (yyparse()) on each of them...
+ */
+
+/* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
+
 #include "cexp.h"
 #include <fcntl.h>
 #include <stdio.h>

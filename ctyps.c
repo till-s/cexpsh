@@ -1,11 +1,17 @@
 /* $Id$ */
 
+/* This file contains the implementation of support for elementary
+ * C types (unsigned long, double etc.).
+ */
+
+/* Author: Till Straumann <strauman@slac.stanford.edu> */
+
+/* License: GPL, http://www.gnu.org */
+
 #include <assert.h>
 #include <stdlib.h>
 
 #include "ctyps.h"
-
-/* cexp type 'engine' */
 
 static char *fundesc[]={
 		"long (*)()  ",
@@ -467,15 +473,156 @@ int i;
 #define DB double
 #define AA CexpTypedVal
 
-/* maximal number of mixed arguments */
+#if defined(__PPC__) && defined(_CALL_SYSV)
+
+/* an PPC / SVR4 ABI specific implementation of the function call
+ * interface.
+ *
+ * The PPC-SVR4-ABI would always put the first 8 integer arguments
+ * into gpr3..10 and the first 8 double arguments into f1..f8.
+ * This makes calling any function (with integer/double args only)
+ * a piece of cake...
+ * 
+ * Note that _ANY_ combination of integer/double (of up to
+ * 8 of each) arguments will end up in the same registers.
+ *
+ * I.e 
+ *
+ * fprintf(stdout,"hello, %i and %lf\n",i,e);
+ * 
+ * and 
+ *
+ * fprintf(e,stdout,"hello, %i and %lf\n",i);
+ * fprintf(stdout,e,"hello, %i and %lf\n",i);
+ * fprintf(stdout,"hello, %i and %lf\n",e,i);
+ *
+ * will all work :-)
+ *
+ * If we have more than 8 arguments, we must not mix the ones
+ * that exceed 8. Hence we allow for up to 10 integer and 8 doubles.
+ *
+ */
+
+/* NOTE: the minimum of these MUST NOT exceed 8
+ *       Also note that the FN_PPCSVRABI_xx type declarations
+ *       as well as the function call itself must be adjusted
+ *       when changing any of these numbers.
+ */
+#define MAXINTARGS 10
+#define MAXDBLARGS 8
+
+typedef UL (*FN_PPCSVRABI_UL)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB,DB);
+typedef DB (*FN_PPCSVRABI_DB)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL,DB,DB,DB,DB,DB,DB,DB,DB);
+
+
+const char *
+cexpTVFnCall(CexpTypedVal rval, CexpTypedVal fn, ...)
+{
+va_list 		ap;
+CexpTypedVal 	v;
+int				nargs,fpargs,i;
+const char		*err=0;
+UL				iargs[MAXINTARGS];
+DB				dargs[MAXDBLARGS];
+
+		/* sanity check */
+		if (!CEXP_TYPE_FUNQ(fn->type))
+				return "need a function pointer";
+
+		nargs=0; fpargs=0;
+		va_start(ap,fn);
+
+		while ((v=va_arg(ap,CexpTypedVal))) {
+			if (CEXP_TYPE_FPQ(v->type)) {
+				if (fpargs>=MAXDBLARGS) {
+					err="Too many double arguments";
+					goto cleanup;
+				}
+				dargs[fpargs++]=v->tv.d;
+			} else {
+				if (nargs>=MAXINTARGS) {
+					err="Too many integer arguments";
+					goto cleanup;
+				}
+				iargs[nargs++]=v->tv.l;
+			}
+		}
+		va_end(ap);
+		for (i=nargs; i<MAXINTARGS; i++)
+				iargs[i]=0;
+		for (i=fpargs; i<MAXDBLARGS; i++)
+				dargs[i]=0;
+
+		/* call it */
+		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
+		if (TDFuncP==fn->type)
+			rval->tv.d=((FN_PPCSVRABI_DB)fn->tv.p)(
+							iargs[0],iargs[1],iargs[2],iargs[3],iargs[4],iargs[5],iargs[6],iargs[7],iargs[8],iargs[9],
+							dargs[0],dargs[1],dargs[2],dargs[3],dargs[4],dargs[5],dargs[6],dargs[7]);
+		else
+			rval->tv.l=((FN_PPCSVRABI_UL)fn->tv.p)(
+							iargs[0],iargs[1],iargs[2],iargs[3],iargs[4],iargs[5],iargs[6],iargs[7],iargs[8],iargs[9],
+							dargs[0],dargs[1],dargs[2],dargs[3],dargs[4],dargs[5],dargs[6],dargs[7]);
+
+		return 0; /* va_end already called */
+	
+cleanup:
+		va_end(ap);
+		return err;
+}
+
+#else  /* ABI dependent implementation of cexpTVFnCall */
+
+/* This is the GENERIC / PORTABLE implementation of the function
+ * call interface
+ */
+
+/* maximal number of mixed arguments
+ * NOTE: if this is changed, the jumptable
+ *       ('jumptab.c') included below MUST
+ *       BE UPDATED accordingly. Also, the
+ *       actual call through the jumptable
+ *       in cexpTVFnCall must be modified.
+ */
 #define MAXBITS	5
 
-/* maximal number of unsigned long only arguments */
+/* maximal number of unsigned long only arguments
+ * NOTE: if this is changed, the typedefs for L10
+ *       and D10 as well as the actual function call
+ *       in cexpTVFnCall must be changed accordingly.
+ */
 #define MAXARGS 10
 
 typedef UL (*L10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 typedef DB (*D10)(UL,UL,UL,UL,UL,UL,UL,UL,UL,UL);
 
+/* include an automatically (gentab utility) generated
+ * file containing definitions of wrappers for all 32
+ * possible function call combinations as well as a
+ * jumptable. For up to two arguments this would
+ * look as follows:
+ *
+ * static long ll(CexpTypedVal fn, CexpTypedVal a1, CexpTypedVal a2)
+ * { return ((unsigned long(*)()fn->tv.p)(a1->tv.l, a1->tv.l); }
+ *
+ * static long ld(CexpTypedVal fn, CexpTypedVal a1, CexpTypedVal a2)
+ * { return ((unsigned long(*)()fn->tv.p)(a1->tv.l, a1->tv.d); }
+ *
+ * static long dl(CexpTypedVal fn, CexpTypedVal a1, CexpTypedVal a2)
+ * { return ((unsigned long(*)()fn->tv.p)(a1->tv.d, a1->tv.l); }
+ *
+ * static long dd(CexpTypedVal fn, CexpTypedVal a1, CexpTypedVal a2)
+ * { return ((unsigned long(*)()fn->tv.p)(a1->tv.d, a1->tv.d); }
+ *
+ * static long (*jumptab[2])()={ ll, ld, dl, dd};
+ *
+ * based on the number/position of double arguments, cexpTVFnCall then
+ * computes the right index into the jumptable and calls the respective
+ * wrapper. The compiler then takes care of setting up the correct
+ * calling frame. If we have more information about the particular
+ * ABI, this can be significantly improved (see PPC/SVR4 implementation
+ * above).
+ */
 #include "jumptab.c"
 
 const char *
@@ -521,7 +668,7 @@ const char		*err=0;
 		rval->type=CEXP_TYPE_PTR2BASE(fn->type);
 		if (fpargs) {
 				if (TDFuncP==fn->type)
-					rval->tv.d=((double(*)())(jumptab[fpargs]))(fn,args[0],args[1],args[2],args[3],args[4]);
+					rval->tv.d=((double(*)())(jumptab[fpargs]))(fn JUMPTAB_ARGLIST(args));
 				else
 					rval->tv.l=jumptab[fpargs](fn,args[0],args[1],args[2],args[3],args[4]);
 		} else {
@@ -556,3 +703,4 @@ cleanup:
 		va_end(ap);
 		return err;
 }
+#endif /* ABI dependent implementation of cexpTVFnCall */

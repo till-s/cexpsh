@@ -16,7 +16,6 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-/*#include <elf.h>*/
 #include <libelf/libelf.h>
 #include <assert.h>
 #include <regexp.h>
@@ -26,6 +25,14 @@
 
 
 /* filter the symbol table entries we're interested in */
+
+/* NOTE: this routine defines the CexpType which is assigned
+ *       to an object read from the symbol table. Currently,
+ *       this only based on object size with integers
+ *       taking preference over floats.
+ *       All of this knowledge / heuristics is concentrated
+ *       in one place, namely HERE.
+ */
 static int
 filter(Elf32_Sym *sp,CexpType *pt)
 {
@@ -71,6 +78,9 @@ namecomp(const void *a, const void *b)
 	return strcmp(sa->name, sb->name);
 }
 
+/* compare the 'values' of two symbols, i.e. the addresses
+ * they represent.
+ */
 static int
 addrcomp(const void *a, const void *b)
 {
@@ -79,6 +89,9 @@ addrcomp(const void *a, const void *b)
 	return (*sa)->value.tv.p-(*sb)->value.tv.p;
 }
 
+/* our implementation of the symbol table holds more information
+ * that we make public
+ */
 typedef struct PrivSymTblRec_ {
 	/* NOTE: the stab field MUST be first, so we can cast pointers around */
 	CexpSymTblRec	stab;	/* symbol table, sorted in ascending order (key=name) */
@@ -86,6 +99,9 @@ typedef struct PrivSymTblRec_ {
 	CexpSym		*aindex;	/* an index sorted to ascending addresses */
 } PrivSymTblRec, *PrivSymTbl;
 
+/* THE global system symbol table. We might have to think about
+ * this again, once RTEMS has a dynamic loader...
+ */
 CexpSymTbl cexpSysSymTbl=0;
 
 CexpSym
@@ -101,6 +117,11 @@ CexpSymRec key;
 				namecomp);
 }
 
+/* a semi-public routine which takes a precompiled regexp.
+ * The reason this is not public is that we try to keep
+ * the public from having to deal with/know about the regexp
+ * implementation, i.e. which variant, which headers etc.
+ */
 CexpSym
 _cexpSymTblLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
@@ -139,6 +160,11 @@ regexp	*rc;
 	return found;
 }
 
+/* read an ELF file, extract the relevant information and
+ * build our internal version of the symbol table.
+ * All libelf resources are released upon return from this
+ * routine.
+ */
 CexpSymTbl
 cexpSlurpElf(int fd)
 {
@@ -330,6 +356,7 @@ int			lo,hi,mid;
 
 
 #ifdef CEXP_TEST_MAIN
+/* only build this 'main' if we are testing the ELF subsystem */
 
 int
 main(int argc, char **argv)

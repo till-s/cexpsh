@@ -1,10 +1,26 @@
+/* $Id$ */
 #include <stdio.h>
+
+/* 'gentab' is a utility to generate the CEXP function call
+ * jumptable. It is very crude because the jumptable is
+ * actually not meant to ever change...
+ */
+
+/* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
+
+
+/* this is the 'configurable' parameter
+ * read the respective comments in ctyps.c
+ * before changing it. The numbers used 
+ * by ctyps MUST AGREE with the number here.
+ * As I said, this is _not_designed_ to 
+ * ever change!
+ */
+#define MAXBITS 5
 
 #define UL 0
 #define DB 1
 #define RES UL
-
-#define MAXBITS 5
 
 char *typ[]={"UL","DB"};
 char  typch[]={'L','D'};
@@ -61,6 +77,7 @@ int
 main()
 {
 int mask;
+	printf("/* WARNING: DO NOT EDIT THIS MACHINE-GENERATED FILE */\n");
 for (mask=0; mask< (1<<MAXBITS); mask++) {
 	printf("typedef %s (*",typ[RES]); tnam(mask); printf(")("); targs(mask); printf(");\n");
 	printf("static  %s ",typ[RES]);    fnam(mask); protoargs(); printf("\n");
@@ -71,5 +88,9 @@ for (mask=0; mask < (1<<MAXBITS); mask++) {
 	printf("\t"); fnam(mask); printf(",\n");
 }
 	printf("};\n");
+	printf("#define JUMPTAB_ARGLIST(args) ");
+for (mask=0; mask < MAXBITS; mask++)
+	printf(",args[%i]",mask);
+	printf("\n");
 return 0;
 }

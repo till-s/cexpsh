@@ -6,6 +6,8 @@
 
 /* Interface to CEXP variables */
 
+/* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
+
 /* initialize the facility */
 void
 cexpVarInit(void);

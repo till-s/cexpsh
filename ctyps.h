@@ -2,10 +2,15 @@
 #define CEXP_TYPES_H
 
 /* $Id$ */
-/* Cexp type 'engine' */
+
+/* Interface to the Cexp C-type 'engine' */
+
+/* Author: Till Straumann <strauman@slac.stanford.edu> */
+
+/* License: GPL, http://www.gnu.org */
 
 #include <stdarg.h>
-#include <stdio.h>
+#include <stdio.h>	/* only needed for the PrintInfo routine */
 
 /* for now, we only support ulong result type */
 typedef unsigned long (*CexpFuncPtr)();

@@ -215,18 +215,18 @@ redef:	typeid anyvar
 
 newdef: typeid IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($2, $1))) YYERROR;);
-					  CHECK(cexpTA2TV(&$$,&found->value));
+					  EVAL(if (!(found = varCreate($2, $1))) YYERROR; \
+					  		CHECK(cexpTA2TV(&$$,&found->value)) );
 					}
 	| 	typeid '*' IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR;);
-					  CHECK(cexpTA2TV(&$$,&found->value));
+					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR; \
+					  		CHECK(cexpTA2TV(&$$,&found->value)));
 					}
 	| 	fptype '(' '*' IDENT ')' '(' ')'
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($4, $1))) YYERROR;);
-					  CHECK(cexpTA2TV(&$$,&found->value));
+					  EVAL(if (!(found = varCreate($4, $1))) YYERROR; \
+					  		CHECK(cexpTA2TV(&$$,&found->value)));
 					}
 ;
 

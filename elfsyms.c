@@ -16,10 +16,11 @@
 
 #include <stdio.h>
 #include <fcntl.h>
-#include <elf.h>
+/*#include <elf.h>*/
 #include <libelf/libelf.h>
 #include <assert.h>
 #include <regexp.h>
+#include <stdlib.h>
 
 #include "cexp.h"
 
@@ -109,7 +110,7 @@ cexpSlurpElf(int fd)
 Elf		*elf=0;
 Elf32_Ehdr	*ehdr;
 Elf_Scn		*scn;
-Elf32_Shdr	*shdr;
+Elf32_Shdr	*shdr=0;
 Elf_Data	*strs;
 PrivSymTbl	rval=0;
 
@@ -176,7 +177,8 @@ PrivSymTbl	rval=0;
 				 */
 				cesp->name=dst;
 				src=strtab+sp->st_name;
-				while (*(dst++)=*(src++));
+				while ((*(dst++)=*(src++)))
+						/* do nothing else */;
 
 				cesp->size = sp->st_size;
 
@@ -282,8 +284,8 @@ static char *types[]={
 	assert((i=s->type-FUNC) >=0 && i<sizeof(types)/sizeof(types[0]));
 	if (!f) f=stdout;
 	return
-		fprintf(f,"0x%08x[%4i] %s: %s\n",
-			s->val.addr,
+		fprintf(f,"0x%08lx[%4d] %s: %s\n",
+			(unsigned long)s->val.addr,
 			s->size,
 			types[i],
 			s->name);

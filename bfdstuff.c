@@ -150,12 +150,12 @@ extern void	cexpDisassemblerInstall(bfd *abfd);
 #elif defined(__mc68000__) || defined(__mc68000) || defined(mc68000)
 #    define CACHE_LINE_SIZE 16
 #  if defined(__rtems__)
-extern void CPU_cache_flush_1_data_line(void *addr);
-extern void CPU_cache_invalidate_1_instruction_line(void *addr);
+extern void _CPU_cache_flush_1_data_line(void *addr);
+extern void _CPU_cache_invalidate_1_instruction_line(void *addr);
 #    define FLUSHINVAL_LINE(addr) \
 		do { \
-			CPU_cache_flush_1_data_line(addr); \
-			CPU_cache_invalidate_1_instruction_line(addr); \
+			_CPU_cache_flush_1_data_line(addr); \
+			_CPU_cache_invalidate_1_instruction_line(addr); \
 		} while (0)
 #    define FLUSHFINISH() do {} while (0)
 #  else
@@ -189,6 +189,7 @@ typedef struct LinkDataRec_ {
 	CexpSymTbl		cst;
 	int				errors;
 	int				num_alloc_sections;
+	int				num_section_names;	/* differs because of linkonce sections */
 	BitmapWord		*depend;
 	int				nCtors;
 	int				nDtors;
@@ -541,6 +542,17 @@ LinkData	ld=(LinkData)arg;
 	}
 }
 
+/* just count the number of section names we have to remember
+ * (debugger support)
+ */
+static void
+s_nsects(bfd *abfd, asection *sect, PTR arg)
+{
+LinkData	ld=(LinkData)arg;
+	if ( SEC_ALLOC & bfd_get_section_flags(ld->abfd, sect) )
+		ld->num_section_names++;
+}
+
 /* find basic sections and the number of sections which are
  * actually allocated and resolve gnu.linkonce.xxx sections
  */
@@ -553,8 +565,12 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 		ld->text = sect;
 	}
 	if ( SEC_ALLOC & flags ) {
+		const char *secn=bfd_get_section_name(ld->abfd,sect);
+
+		/* temporarily store a pointer to the name */
+		ld->module->section_syms[ld->num_section_names++] = (CexpSym)secn;
+
 		if (SEC_LINK_ONCE & flags) {
-			const char *secn=bfd_get_section_name(ld->abfd,sect);
 			if (cexpSymLookup(secn, 0)) {
 				/* a linkonce section with this name had been loaded already;
 				 * discard this one...
@@ -1209,13 +1225,13 @@ char	*start, *end;
 }
 
 
-/* the caller of this routine holds the module lock */
+/* the caller of this routine holds the module lock */ 
 int
 cexpLoadFile(char *filename, CexpModule mod)
 {
 LinkDataRec						ldr;
 int								rval=1,i;
-CexpSym							sane;
+CexpSym							sane, *psym;
 FILE							*f=0;
 void							*ehFrame=0;
 #ifdef __rtems__
@@ -1311,8 +1327,24 @@ static unsigned long			sysMach;
 		sysMach = mach;
 	}
 
+	/* get number of all ALLOC sections to compute the
+	 * number of all section names we remember (for debugger
+	 * support).
+	 */
+	bfd_map_over_sections(ldr.abfd, s_nsects, &ldr);
+	if (!(ldr.module->section_syms =
+			malloc( sizeof(*ldr.module->section_syms)
+				    * (ldr.num_section_names + 1) )) ) {
+		fprintf(stderr,"No memory\n");
+		goto cleanup;
+	}
+	ldr.num_section_names = 0; /* reset index to be reused in s_basic */
+	
+
 	/* get basic section info and filter linkonce sections */
 	bfd_map_over_sections(ldr.abfd, s_basic, &ldr);
+	ldr.module->section_syms[ldr.num_section_names]=0;
+
 
 	if (slurp_symtab(ldr.abfd,&ldr)) {
 		fprintf(stderr,"Error creating symbol table\n");
@@ -1350,9 +1382,23 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 	} else {
 		/* it's the system symtab */
 		assert( 0==ldr.new_commons );
+		if ( ldr.text )
+			ldr.text_vma=bfd_get_section_vma(ldr.abfd,ldr.text);
 	}
 
 	cexpSymTabSetValues(ldr.cst);
+
+	/* record the section names */
+	for ( psym = ldr.module->section_syms; *psym; psym++ ) {
+		CexpSym s;
+		/* If no section name is found in this module's symtab
+		 * then it must be a previously loaded linkonce...
+		 */
+		if ( s = cexpSymTblLookup( (char*)*psym, ldr.cst ) )
+			*psym = s;
+		else 
+			*psym = cexpSymLookup( (char*)*psym, 0 );
+	}
 
 	/* system symbol table sanity check */
 	if ((sane=cexpSymTblLookup("cexpLoadFile",ldr.cst))) {

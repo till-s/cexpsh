@@ -85,6 +85,9 @@ typedef struct LinkDataRec_ {
 static asymbol *
 asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
+static void
+bfdCleanupCallback(CexpModule);
+
 /* how to decide where a particular section should go */
 static Segment
 segOf(LinkData ld, asection *sect)
@@ -932,7 +935,9 @@ printf("TSILL registering EH_FRAME 0x%08x\n",
 			 */
 			*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
 		}
-		__register_frame(bfd_asymbol_value(ldr.eh_frame_b_sym));
+		/* store the frame info in the modPvt field */
+		mod->modPvt=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
+		__register_frame(mod->modPvt);
 	}
 
 	/* build ctor/dtor lists */
@@ -946,6 +951,7 @@ printf("TSILL registering EH_FRAME 0x%08x\n",
 	ldr.segs[ONLY_SEG].chunk=0;
 
 	mod->symtbl  = ldr.cst;
+	mod->cleanup = bfdCleanupCallback;
 	ldr.cst=0;
 
 	rval=0;
@@ -964,4 +970,13 @@ cleanup:
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
 
 	return rval;
+}
+
+static void
+bfdCleanupCallback(CexpModule mod)
+{
+extern void __deregister_frame();
+	/* release the frame info we had stored in the modPvt field */
+	if (mod->modPvt)
+		__deregister_frame(mod->modPvt);
 }

@@ -33,6 +33,8 @@ typedef struct CexpModuleRec_ {
 	unsigned			nCtors;
 	VoidFnPtr			*dtor_list;
 	unsigned			nDtors;
+	void				(*cleanup)(CexpModule thismod); /* cleanup routine is invoked after destructors */
+	void				*modPvt;	/* lowlevel object format private data */
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

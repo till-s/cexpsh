@@ -205,6 +205,10 @@ CexpModule	pred,m;
 		}
 	}
 
+	/* call module cleanup routine */
+	if (mod->cleanup)
+		mod->cleanup(mod);
+
 	/* remove from list */
 	pred->next=mod->next;
 	mod->next=0;

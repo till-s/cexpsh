@@ -107,7 +107,7 @@ asymFromCexpSym(bfd *abfd, CexpSym csym, BitmapWord *depend, CexpModule mod);
 
 #ifdef __rtems
 static FILE *
-copyFileToTmp(char *name);
+copyFileToTmp(char *name, char *tmpfname);
 #endif
 
 static void
@@ -921,6 +921,11 @@ int				rval=1,i;
 CexpSym			sane;
 FILE			*f=0;
 void			*ehFrame=0;
+#ifdef __rtems
+char			tmpfname[30]={
+		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
+		0};
+#endif
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -954,10 +959,10 @@ void			*ehFrame=0;
 	 * sequential access (no lseek(), no stat()). Hence, we copy
 	 * the file to scratch file in memory (IMFS).
 	 */
-	if ( ! (f=copyFileToTmp(filename)) ) {
+	if ( ! (f=copyFileToTmp(filename, tmpfname)) ) {
 		goto cleanup;
 	}
-	filename=0;
+	filename=tmpfname;
 #else
 	if ( ! (f=fopen(filename,"r")) ) {
 		perror("opening object file");
@@ -1109,10 +1114,19 @@ cleanup:
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);
+
 	if (abfd)
 		bfd_close_all_done(abfd);
-	if (f)
+
+	if (f) {
 		fclose(f);
+	}
+#ifdef __rtems
+	if (filename==tmpfname)
+		unlink(tmpfname);
+#endif
+
+
 	for (i=0; i<NUM_SEGS; i++)
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
 
@@ -1129,7 +1143,7 @@ bfdCleanupCallback(CexpModule mod)
 
 #ifdef __rtems
 static FILE *
-copyFileToTmp(char *name)
+copyFileToTmp(char *name, char *tmpfname)
 {
 FILE		*rval=0,*infile=0,*outfile=0;
 char		buf[BUFSIZ];
@@ -1143,6 +1157,10 @@ struct stat	stbuf;
 		umask(old);
 	}
 
+#if 0 /* sigh - there is a bug in RTEMS/IMFS; the memory of a
+		 tmpfile() is actually never released, so we work around
+		 this...
+	   */
 	/* open files; the tmpfile will be removed by the system
 	 * as soon as it's closed
 	 */
@@ -1150,6 +1168,21 @@ struct stat	stbuf;
 		perror("creating scratch file");
 		goto cleanup;
 	}
+#else
+	{
+	int	fd;
+	if ( (fd=mkstemp(tmpfname)) < 0 ) {
+		perror("creating scratch file");
+		goto cleanup;
+	}
+	if ( !(outfile=fdopen(fd,"w+")) ) {
+		perror("opening scratch file");
+		close(fd);
+		unlink(tmpfname);
+		goto cleanup;
+	}
+	}
+#endif
 
 	if (!(infile=fopen(name,"r")) || ferror(infile)) {
 		perror("opening object file");
@@ -1182,8 +1215,10 @@ struct stat	stbuf;
 	outfile=0;
 
 cleanup:
-	if (outfile)
+	if (outfile) {
 		fclose(outfile);
+		unlink(tmpfname);
+	}
 	if (infile)
 		fclose(infile);
 	return rval;

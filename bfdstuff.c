@@ -595,17 +595,23 @@ long		err;
 						 * __dso_handle and a g++ version which supports
 						 * __cxa_atexit/__cxa_finalize() but does NOT
 						 * define its own __dso_handle will fail.
+						 * (assert() when the symbols are looked up)
 						 *
-						 * Note however that we assert that we have either
-						 * both, __cxa_finalize AND __dso_handle or neither.
-						 * --> we will get either an undefined symbol reference
-						 *     (module asks for __dso_handle but libgcc has
-						 *      no __cxa_finalize() and no __dso_handle)
-						 *     or assert() fails
-						 *     [below, where the symbols are looked up]
-						 *     (module asks for __dso_handle, libgcc has not
-						 *     both)
+						 * We will get an undefined symbol reference
+						 * if the module asks for __dso_handle but libgcc has
+						 * no __cxa_finalize() and no __dso_handle.
+						 *
+						 * We will get this error if the module asks for
+						 * __dso_handle but libc has no __cxa_finalize
 						 */
+						if ( !my__cxa_finalize ) {
+							fprintf(stderr,
+								"Warning: found '"DSO_HANDLE_NAME"' but not '__cxa_finalize'\n");
+							fprintf(stderr,
+								"         disabling '__cxa_atexit' support!\n");
+							ld->errors++;
+		continue;
+						}
 						sp = bfd_make_empty_symbol(abfd);
 						/* copy pointer to name */
 						bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
@@ -1316,14 +1322,7 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 
 		/* Handle special cases */
 		if ( my__cxa_finalize && !my__dso_handle ) {
-			assert(!"TODO: should create dummy '"
-				DSO_HANDLE_NAME
-				"' in system symbol table");
-		}
-		if ( !my__cxa_finalize && my__dso_handle ) {
-			fprintf(stderr,"Warning: found '"DSO_HANDLE_NAME"' but not '__cxa_finalize'\n");
-			fprintf(stderr,"         disabling '__cxa_atexit' support!\n");
-			my__dso_handle = 0;
+			assert(!"TODO: should create dummy '"DSO_HANDLE_NAME"' in system symbol table");
 		}
 	}
 

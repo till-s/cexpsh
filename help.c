@@ -6,7 +6,7 @@
 #include "cexpsyms.h"
 #include "cexp.h"
 #define _INSIDE_CEXP_
-#include "help.h"
+#include "cexpHelp.h"
 
 #ifdef HAVE_BFD_DISASSEMBLER
 extern int cexpDisassemble();
@@ -28,7 +28,7 @@ static CexpHelpTabRec CEXP_HELP_TAB[]={
 for a regular expression.  Info about the symbol will be\n\
 printed on stdout.",
 		int,
-		lkup,(char *retexp_pattern)
+		lkup,(char *regexp_pattern)
 	),
 	HELP(
 "Search for an address in the system symbol table and\n\

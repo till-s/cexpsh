@@ -22,7 +22,7 @@
 #include "cexp.h"
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
-#include "help.h"
+#include "cexpHelp.h"
 
 /* Oh well; rtems/score/ppctypes.h defines boolean and bfd
  * defines boolean as well :-( Can't you people use names

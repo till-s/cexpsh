@@ -32,7 +32,7 @@
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
 #define _INSIDE_CEXP_
-#include "help.h"
+#include "cexpHelp.h"
 
 /* filter the symbol table entries we're interested in */
 

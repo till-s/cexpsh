@@ -38,8 +38,8 @@ typedef enum {
     TFloatP     =8  | (sizeof(float)<<8) | CEXP_PTR_BIT,
     TDouble     =10 | (sizeof(double)<<8),
     TDoubleP    =10 | (sizeof(double)<<8) | CEXP_PTR_BIT,
-    TFuncP      =6  | CEXP_FUN_BIT | CEXP_PTR_BIT,
-    TDFuncP     =10 | CEXP_FUN_BIT | CEXP_PTR_BIT,
+    TFuncP      =TULong  | CEXP_FUN_BIT | CEXP_PTR_BIT,
+    TDFuncP     =TDouble | CEXP_FUN_BIT | CEXP_PTR_BIT,
 } CexpType;
 
 /* Utility macros operating on CexpType */

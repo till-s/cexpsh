@@ -14,6 +14,10 @@
 #undef  _INSIDE_CEXP_Y
 #include "vars.h"
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 /* not letting them live makes not much sense */
 #ifndef CONFIG_STRINGS_LIVE_FOREVER
 #define CONFIG_STRINGS_LIVE_FOREVER
@@ -217,7 +221,7 @@ line:	'\n'
 exp:	binexp 
 	|   lval  '=' exp
 					{ $$=$3; EVAL(CHECK(cexpTVAssign(&$1, &$3))); }
-	|   lval  MODOP exp
+	|   lval  MODOP	exp
 					{ EVAL( \
 						CHECK(cexpTA2TV(&$$,&$1)); \
 						CHECK(cexpTVBinOp(&$$, &$$, &$3, $2)); \
@@ -304,6 +308,9 @@ unexp:
 */
 		NUMBER
 	|	STR_CONST
+/*
+	|	'(' commaexp ')' { $$=$2; }
+*/
 	|	call
 	|	'!' castexp
 					{ $$.type=TULong; $$.tv.l = ! cexpTVTrueQ(&$2); }
@@ -330,6 +337,14 @@ lvar:	 VAR
 ;
 
 clvar:	lvar			%prec NONE
+	|	cast clvar	%prec VARCAST
+					{ CexpTypedValRec v;
+						v.type=$2.type; v.tv=*$2.ptv;
+						CHECK(cexpTypeCast(&v,$1,1));
+						$$=$2;
+						$$.type=$1;
+					}
+/* TSILL
 	|	'(' typeid ')' clvar	%prec VARCAST
 					{ CexpTypedValRec v;
 						v.type=$4.type; v.tv=*$4.ptv;
@@ -337,6 +352,7 @@ clvar:	lvar			%prec NONE
 						$$=$4;
 						$$.type=$2;
 					}
+*/
 ;
 
 lval: 	clvar
@@ -366,12 +382,12 @@ typeid:	KW_CHAR
 ;
 
 cast:	'(' typeid  ')'
-					{ $$=$2; }
+		%prec CAST	{ $$=$2; }
 ;
 
 pcast:
 		'(' typeid	'*'	 ')'
-					{ $$=CEXP_TYPE_BASE2PTR($2); }
+		%prec CAST	{ $$=CEXP_TYPE_BASE2PTR($2); }
 ;
 
 fptype:	typeid
@@ -436,9 +452,9 @@ castexp: unexp
 ;	
 
 
-call:	'(' commaexp ')'
-					{ $$=$2; }
-	|	funcp
+call:
+		'(' commaexp ')' %prec CALL{ $$=$2; } |
+		funcp
 	|	call '(' ')'
 		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
 	|	call '(' exp ')'
@@ -632,7 +648,7 @@ char *chpt;
 			rval->val.tv.c=(unsigned char)num;
 			rval->val.type=TUChar;
 		} else if (num< (1<< (8*sizeof(unsigned short))) ) {
-			rval->val.tv.c=(unsigned short)num;
+			rval->val.tv.s=(unsigned short)num;
 			rval->val.type=TUShort;
 		} else {
 			rval->val.tv.l=num;

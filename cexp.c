@@ -464,6 +464,10 @@ if (!cexpContextGetCurrent()) {
 		fprintf(stderr,"Unable to create line editor\n");
 		return CEXP_MAIN_NO_MEM;
 	}
+	/* mute warnings about being unable to 
+	 * read ~/.teclarc
+	 */
+	gl_configure_getline(context.gl,0,0,0);
 #endif
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();

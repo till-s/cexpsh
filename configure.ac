@@ -47,6 +47,7 @@ fi
 if test "$enable_tecla" != "no" ; then
 	AC_CONFIG_SUBDIRS(libtecla-1.4.1)
 	AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
+	AC_CHECK_LIB(termcap,tgetnum,[LIBS="$LIBS -ltermcap"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
 else if test "$enable_readline" != "no" ; then
 	AC_CHECK_HEADER(readline/readline.h)
 	if test "$ac_cv_header_readline_readline_h" = "yes" ; then

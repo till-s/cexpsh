@@ -82,6 +82,15 @@ distclean: clean
 # NOTE: these rules are intended to use either libbfd or libelf
 #       already installed on the HOST, i.e. not the ones probably
 #       in a CEXP subdir.
+##################################################################
+#       THIS WORKS ONLY ON AN ELF SYSTEM
+#       On other host systems, you must use a 'cross-bfd' library,
+#       i.e. you must configure and build binutils with the
+#       "--target=<target>" system and link 'xsyms' against
+#       the cross-bfd library (i.e. a BFD library that runs
+#       on the host but knows how to interpret the target format).
+##################################################################
+#     
 xsyms: xsyms.c xsyms-bfd.c
 	@($(CC) -o $@ -I/usr/include/libelf xsyms.c -lelf && echo $@ built with libelf ) || ( echo 'build using libelf failed; trying libbfd' &&  $(CC) -o $@ xsyms-bfd.c -lbfd -liberty && echo $@ built with libbfd )
 

@@ -19,8 +19,6 @@ AC_CHECK_PROGS(HOSTCC, gcc cc)
 AC_PROG_RANLIB
 AC_PROG_INSTALL
 
-AC_INCLUDES_DEFAULT
-
 AC_ARG_ENABLE(YYDEBUG,
 	AC_HELP_STRING([--enable-YYDEBUG],
 		[whether to enable YYDEBUG; this adds a CEXP cmdline switch for enabling runtime parser state messages]),

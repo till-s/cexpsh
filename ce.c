@@ -18,10 +18,15 @@
 #include "elfsyms.h"
 #include "vars.h"
 
+#ifndef __rtems
+#define HAS_GETOPT
+#endif
+
 #ifdef YYDEBUG
 extern int cexpdebug;
 #endif
 
+#ifdef HAS_GETOPT
 static void
 usage(char *nm)
 {
@@ -37,7 +42,14 @@ usage(char *nm)
 #endif
 	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@TU-Berlin.de>\n");
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
+	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
+#endif
 
 #ifdef DEBUG
 #include <math.h>
@@ -113,10 +125,10 @@ lkaddr(void *addr)
 int
 main(int argc, char **argv)
 {
-char				*line;
+char				*line,*prompt,*tmp;
 CexpParserCtx		ctx;
 
-#ifndef __rtems
+#ifdef HAS_GETOPT
 int					opt;
 char				optstr[]={
 						'h',
@@ -145,12 +157,17 @@ if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(argc>optind?argv[optind]:0)))) {
 
 fprintf(stderr,"main is at 0x%08lx\n",(unsigned long)main);
 
-while ((line=readline("Cexpr>"))) {
+tmp = argc>0 ? argv[0] : "Cexp";
+prompt=malloc(strlen(tmp)+2);
+strcpy(prompt,tmp);
+strcat(prompt,">");
+while ((line=readline(prompt))) {
 	cexpResetParserCtx(ctx,line);
 	cexpparse((void*)ctx);
 	add_history(line);
 	free(line);
 }
+free(prompt);
 
 cexpFreeParserCtx(ctx);
 

@@ -160,8 +160,12 @@ lkup(char *pattern);
 int
 lkaddr(void *addr);
 
-#define YYDEBUG	1
-
-#define DEBUG 1
+#ifdef __rtems
+/* the main interpreter loop, it can be registered
+ * with a shell...
+ */
+int
+cexp_main(int argc, char **argv);
+#endif
 
 #endif

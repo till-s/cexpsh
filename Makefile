@@ -9,12 +9,10 @@ APP=cexp
 # APP_BSP = mvme2307
 APP_BSP = svgm5
 
-LIBELF_PATH=/home/till/rtems/libelf-0.8.0/
-LIBREADLINE_PATH=/home/till/rtems/apps/add_ons/readline-4.2/
 REGEXP_PATH=/home/till/slac/xfm/regexp
-LIBTERMCAP=/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
-#/home/till/rtems/apps/add_ons/ncurses-5.2/lib -lncurses
-#/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
+LIBTERMCAP=-L/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
+#-L/home/till/rtems/apps/add_ons/ncurses-5.2/lib -lncurses
+#-L/home/till/rtems/apps/termcap-1.3/build-powerpc-rtems -ltermcap
 
 
 RTEMS_MAKEFILE_PATH=$(PROJECT_ROOT)/powerpc-rtems/$(APP_BSP)/
@@ -22,7 +20,7 @@ RTMSLIBDIR=$(RTEMS_MAKEFILE_PATH)/lib
 
 
 # C source names, if any, go here -- minus the .c
-C_PIECES=init wrap cexp.tab elfsyms ce vars
+C_PIECES=init cexp.tab elfsyms ce vars ctyps
 C_FILES=$(C_PIECES:%=%.c)
 C_O_FILES=$(C_PIECES:%=${ARCH}/%.o)
 
@@ -61,10 +59,10 @@ include $(RTEMS_ROOT)/make/leaf.cfg
 # (OPTIONAL) Add local stuff here using +=
 #
 
-DEFINES  +=
-CPPFLAGS += -I$(LIBELF_PATH)/lib -I$(LIBELF_PATH)/build-powerpc-rtems/lib
-CPPFLAGS += -I$(REGEXP_PATH) -I$(LIBREADLINE_PATH)
-CFLAGS   += -O2 -Winline
+DEFINES  += -DCONFIG_STRINGS_LIVE_FOREVER
+CPPFLAGS += -I/usr/local/rtems/powerpc-rtems/include
+CPPFLAGS += -I$(REGEXP_PATH)
+CFLAGS   += -O2 -Winline -g
 
 #
 # CFLAGS_DEBUG_V are used when the `make debug' target is built.
@@ -74,12 +72,11 @@ CFLAGS   += -O2 -Winline
 #
 
 # TS: this didn't work :-( LD_PATHS  +=
-LD_LIBS   += -lm -L$(LIBELF_PATH)/build-powerpc-rtems/lib -lelf
+LD_LIBS   += -lm -lelf -lreadline
 LD_LIBS	  += -L$(REGEXP_PATH)/${ARCH} -lregexp
-LD_LIBS   += -L$(LIBREADLINE_PATH)/${ARCH} -lreadline
-LD_LIBS   += -L$(LIBTERMCAP)
+LD_LIBS   += $(LIBTERMCAP)
 # ../drivers/${ARCH}/libdrv.a
-LDFLAGS   +=
+LDFLAGS   += -L/usr/local/rtems/powerpc-rtems/lib
 #-Wl,--wrap=lseek -Wl,--wrap=mmap -Wl,--wrap=munmap -Wl,--wrap=ftruncate
 
 #
@@ -109,7 +106,7 @@ ${ARCH}/${APP}.bootimg: ${ARCH}/${APP} ${ARCH}/rtems.gz
 	(cd ${ARCH} ; $(LD) -o $(APP).bootimg $(RTMSLIBDIR)/bootloader.o --just-symbols=${APP} -bbinary rtems.gz -T$(RTMSLIBDIR)/ppcboot.lds -Map ${APP}.map)
 
 %.tab.c %.tab.h: %.y
-	bison -d $^
+	bison -d -p $(^:%.y=%) $^
 
 # Install the program(s), appending _g or _p as appropriate.
 # for include files, just use $(INSTALL_CHANGE)

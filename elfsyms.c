@@ -173,12 +173,13 @@ regexp	*rc;
 CexpSymTbl
 cexpSlurpElf(int fd)
 {
-Elf		*elf=0;
+Elf			*elf=0;
 Elf32_Ehdr	*ehdr;
 Elf_Scn		*scn;
 Elf32_Shdr	*shdr=0;
 Elf_Data	*strs;
 PrivSymTbl	rval=0;
+CexpSym		sane;
 
 	elf_version(EV_CURRENT);
 	if (!(elf=elf_begin(fd,ELF_C_READ,0)))
@@ -272,12 +273,29 @@ PrivSymTbl	rval=0;
 	
 
 	elf_cntl(elf,ELF_C_FDDONE);
-	elf_end(elf);
+	elf_end(elf); elf=0;
+
+	/* do a couple of sanity checks */
+	if ((sane=cexpSymTblLookup("cexpSlurpElf",&rval->stab))) {
+		extern void *_edata, *_etext;
+		/* it must be the main symbol table */
+		if (sane->value.tv.p!=cexpSlurpElf)
+			goto bailout;
+		if (!(sane=cexpSymTblLookup("_etext",&rval->stab)) || sane->value.tv.p!=&_etext)
+			goto bailout;
+		if (!(sane=cexpSymTblLookup("_edata",&rval->stab)) || sane->value.tv.p!=&_edata)
+			goto bailout;
+
+		/* OK, sanity test passed */
+	}
 
 	return &rval->stab;
 
+bailout:
+	fprintf(stderr,"ELFSYMS SANITY CHECK FAILED: you possibly loaded the wrong symbol table\n");
+
 cleanup:
-	fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
+	if (elf_errno()) fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
 	if (elf) elf_end(elf);
 	if (rval) cexpFreeSymTbl((CexpSymTbl*)&rval);
 	return 0;

@@ -8,7 +8,7 @@ REGEXP_PATH=/home/till/slac/xfm/regexp
 #NOTE: must be bison, because we want a reentrant
 #      parser (%pure_parser)
 YACC=bison
-YFLAGS=-d -p cexp
+YFLAGS=-v -d -p cexp
 INCS=-I$(LIBELF_PATH)/lib -I $(LIBELF_PATH)/build-$(ARCH)/lib -I$(REGEXP_PATH) 
 DEFS=-DNO_THREAD_PROTECTION -DDEBUG
 

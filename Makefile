@@ -6,8 +6,12 @@
 #       useful info
 #
 
-prep \
-all: src bootstrap
+# if this is checked out for the 'xsyms' module,
+# most of the files are missing and we just use
+# the trivial rule for 'xsyms'
+
+all \
+prep: $(if $(wildcard Makefile.am),src bootstrap,xsyms)
 
 
 YFLAGS=-v -d -p cexp
@@ -42,4 +46,8 @@ clean distclean:
 	$(RM) cexp.tab.h compile config.guess config.h.in config.sub configure
 	$(RM) depcomp gentab install-sh jumptab.c missing mkinstalldirs
 	$(RM) libtecla-1.4.1/configure
+	$(RM) xsyms
 
+# primitive rule to just make xsyms
+xsyms: xsyms.c
+	$(CC) -o $@ -I/usr/include/libelf $^ -lelf

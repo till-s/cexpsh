@@ -169,6 +169,10 @@ lkaddr(void *addr);
  */
 int
 cexp_main(int argc, char **argv);
+/* error return values: */
+#define CEXP_MAIN_INVAL_ARG	1	/* invalid option / argument */
+#define CEXP_MAIN_NO_SYMS	2	/* unable to open symbol table */
+#define CEXP_MAIN_NO_SCRIPT	3	/* unable to open script file */
 
 #ifdef __cplusplus
 };

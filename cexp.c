@@ -177,7 +177,7 @@ char	*argv[10]; /* limit to 10 arguments */
 			if (argc >= sizeof(argv)/sizeof(argv[0])) {
 				fprintf(stderr,"cexp: too many arguments\n");
 				va_end(ap);
-				return -1;
+				return CEXP_MAIN_INVAL_ARG;
 			}
 		}
 		argc--; /* strip 0 terminator */
@@ -193,7 +193,7 @@ cexp_main(int argc, char **argv)
 char				*line,*prompt=0,*tmp;
 char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
-int					rval=1;
+int					rval=CEXP_MAIN_INVAL_ARG;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
 char				optstr[]={
@@ -209,7 +209,7 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 	switch (opt) {
 		default:  fprintf(stderr,"Unknown Option %c\n",opt);
 		case 'h': usage(argv[0]);
-		return(1);
+		return 0;
 
 #ifdef YYDEBUG
 		case 'd': cexpdebug=1;
@@ -226,7 +226,7 @@ if (argc>oc.optind)
 if (!(ctx=cexpCreateParserCtx(cexpCreateSymTbl(symfile)))) {
 	fprintf(stderr,"Need an elf symbol table file arg\n");
 	usage(argv[0]);
-	return 1;
+	return CEXP_MAIN_NO_SYMS;
 }
 
 tmp = argc>0 ? argv[0] : "Cexp";
@@ -235,6 +235,7 @@ if (script) {
 	char buf[500]; /* limit line length to 500 chars :-( */
 	if (!(scr=fopen(script,"r"))) {
 		perror("opening scriptfile");
+		rval=CEXP_MAIN_NO_SCRIPT;
 		goto cleanup;
 	}
 	while (fgets(buf,sizeof(buf),scr)) {

@@ -1,3 +1,18 @@
+/* $Id$ */
+
+/* Utility to create a (elf) core file from a raw memory image.
+ * For selected architectures (currently ppc32, i386 and m68k),
+ * recording registers in the core file (netbsd layout) is supported.
+ *
+ * The netbsd layout was chosen because it is always supported by
+ * libbfd.
+ *
+ * Author: Till Straumann <strauman@slac.stanford.edu>, 2004
+ *
+ * LICENSE: GPL -- this program makes extensive use of the BFD library.
+ *          For details about the GPL, consult www.gnu.org.
+ */
+
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -89,24 +104,37 @@ typedef union fpregs_ {
 	I386_fpreg  f_i386;
 } fpregs;
 
-static void usage(char *n,int code)
+static char *progn = "gencore";
+
+static void usage(int code)
 {
+const bfd_arch_info_type *arch = bfd_scan_arch("");
+
 	fprintf(stderr,
-		"Usage: %s [-r registers] [-p pc] [-s sp] [-f fp] [-a vma] [-e register_block_offset] memory_image_file [core_file_name]\n",
-		n);
+		"Usage: %s [-h] [-r registers] [-p pc] [-s sp] [-f fp] [-e register_block_offset] [-a vma] memory_image_file [core_file_name]\n\n",
+		progn);
 	fprintf(stderr,
-		"       registers must be supplied in netbsd (ptregs) layout\n");
+		"       Generate a core file from a raw memory image.\n");
 	fprintf(stderr,
-		"       There are three methods to supply register values:\n");
+		"       Built for a '%s' target; $Revision$\n",
+		bfd_printable_arch_mach(arch->arch, arch->mach));
+	fprintf(stderr,
+		"       Author: Till Straumann, 2004; License: GPL\n");
+	fputc('\n', stderr);
+	fprintf(stderr,
+		"       -a image_base     : base address of the memory image\n");
+	fprintf(stderr,
+		"       -h                : this message\n\n");
+	fprintf(stderr,
+		"       There are three methods to supply register values (optional):\n");
 	fprintf(stderr,
 		"       -r reg0[,reg1]... : supply registers in netbsd (ptregs) layout\n");
 	fprintf(stderr,
-		"                           (not all registers need to be specifiec)\n");
+		"                           (not all registers need to be specified)\n");
 	fprintf(stderr,
 		"       -p pc/-s sp/-f fp : just supply PC, SP and the frame pointer\n"); 
 	fprintf(stderr,
 		"       -e offset         : registers are read at 'offset' in the memory image\n");
-
 	if (code)
 		exit( code < 0 ? 1:0);
 }
@@ -131,13 +159,13 @@ static int checkopt(int old, int opt)
 	return opt;
 }
 
-static unsigned long getn(char *pre, char *msg, char *ptr)
+static unsigned long getn(char *msg, char *ptr)
 {
 char *chpt;
 unsigned long rval;
 	if ( !ptr || (rval=strtoul(ptr,&chpt,0), ptr==chpt) ) {
 		fprintf(stderr,msg);
-		usage(pre,-1);
+		usage(-1);
 	}
 	return rval;
 }
@@ -161,7 +189,11 @@ unsigned					regsz = 0;
 regs						gregs;
 Reg_t						*preg;
 int							nreg = 0;
+int							machinc = 1;
 
+		progn = argv[0];
+		if ( chpt = strrchr(progn, '/') )
+			progn = chpt + 1;
 		memset(&gregs, 0, sizeof(gregs));
 
 		bfd_init();
@@ -170,12 +202,12 @@ int							nreg = 0;
 			i = 0;
 			switch ( opt ) {
 			default:	fprintf(stderr,"Invalid option\n");
-			case 'h':	usage(argv[0],1);
+			case 'h':	usage(1);
 
 			case 'r':	nreg = 0;
 						preg = (Reg_t*)&gregs;
 						if ( !(chpt = optarg) ) {
-							usage(argv[0],-1);
+							usage(-1);
 						}
 						do {
 							if ( nreg >= sizeof(gregs)/sizeof(Reg_t) ) {
@@ -185,7 +217,7 @@ int							nreg = 0;
 							*preg = strtoul(chpt, &nchpt, 0);
 							if ( chpt == nchpt ) {
 								fprintf(stderr,"Invalid number\n");
-								usage(argv[0],-1);
+								usage(-1);
 							}
 							preg++; nreg++;
 						} while ( (chpt = nchpt) && *chpt++==',' );
@@ -194,15 +226,15 @@ int							nreg = 0;
 
 			case 'f':	i++;
 			case 's':	i++;
-			case 'p':   pcspfp[i] = getn(argv[0], "Invalid PC/SP/FP argument\n", optarg);
+			case 'p':   pcspfp[i] = getn("Invalid PC/SP/FP argument\n", optarg);
 						hasRegs = checkopt(hasRegs,REGS_OPT);
 						break;
 
-			case 'e':	regblock_addr = getn(argv[0], "Invalid -e argument\n", optarg);
+			case 'e':	regblock_addr = getn("Invalid -e argument\n", optarg);
 						hasRegs = checkopt(hasRegs,REGS_E);
 						break;
 
-			case 'a':	vma = getn(argv[0], "Invalid -a argument\n", optarg);
+			case 'a':	vma = getn("Invalid -a argument\n", optarg);
 						break;
 			}
 		}
@@ -210,9 +242,8 @@ int							nreg = 0;
 		argc -= optind;
 		argv += optind;
 		if ( argc < 1 ) {
-			usage(argv[0],-1);
+			usage(-1);
 		}
-
 
 		if ( (fd=open( argv[0], O_RDONLY )) < 0 ) {
 			perror("Opening memory image file");
@@ -255,10 +286,17 @@ int							nreg = 0;
 			goto cleanup;
 		}
 
-		printf("Generating core file for arch: %s ...",bfd_printable_name(obfd));
+		printf("Generating core file for target: %s ...",
+				bfd_printable_arch_mach(arch->arch, arch->mach));
 
 		switch ( bfd_get_arch(obfd) ) {
 /*
+ 			case bfd_arch_alpha:
+				machinc = 0;
+			break;
+ 			case bfd_arch_sparc:
+				machinc = 0;
+			break;
 			case bfd_arch_powerpc:
 				regsz = sizeof(gregs.r_ppc32); break;
 				if ( REGS_OPT == hasRegs ) {
@@ -306,7 +344,7 @@ int							nreg = 0;
 				}
 				preg = (Reg_t*)(data + (regblock_addr - vma));
 			}
-			note = elfcore_write_note(obfd, 0, &note_size, "NetBSD-CORE", NT_NETBSDCORE_FIRSTMACH + 1, preg, regsz);
+			note = elfcore_write_note(obfd, 0, &note_size, "NetBSD-CORE", NT_NETBSDCORE_FIRSTMACH + machinc, preg, regsz);
 			if ( !(note_s = bfd_make_section(obfd,".note"))
 				 || ! bfd_set_section_flags(obfd, note_s, SEC_HAS_CONTENTS | SEC_READONLY | SEC_ALLOC)
 				 || ! bfd_set_section_size(obfd, note_s, note_size)

@@ -14,6 +14,8 @@
 #include <string.h>
 #include <ctype.h>
 #include <setjmp.h>
+#include <termios.h>
+#include <sys/ioctl.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -22,6 +24,9 @@
 #ifdef MDBG
 #include <mdbg.h>
 #endif
+
+/* on RTEMS, this is not always 0, due to strange redirection */
+#define STDIN_FD fileno(stdin)
 
 #if defined(USE_GNU_READLINE) /* (recommended, but not reentrant :-() */
 #include <readline/readline.h>
@@ -166,28 +171,46 @@ int
 lkup(char *re)
 {
 extern	CexpSym _cexpSymLookupRegex();
-regexp		*rc=0;
-CexpSym 	s;
-CexpModule	m;
-int			ch=0;
-int			nl=tgetnum("li");
-
-	if (nl<=0)
-		nl=25;
+regexp			*rc=0;
+CexpSym 		s;
+CexpModule		m;
+int				ch=0,tsaved=0;
+int				nl;
+struct termios	tatts,rawatts;
+struct winsize	win;
 
 	if (!(rc=regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return -1;
 	}
 
-	/* TODO should acquire the module readlock around this ?? */
+	nl = ioctl(STDIN_FD, TIOCGWINSZ,&win) ? tgetnum("li") : win.ws_row;
 
-	for (s=0,m=0; !ch && (s=_cexpSymLookupRegex(rc,nl,s,0,&m));) {
+	if (nl<=0)
+		nl=24;
+
+	/* TODO should acquire the module readlock around this ?? */
+	for (s=0,m=0; !ch && (s=_cexpSymLookupRegex(rc,nl-1,s,0,&m));) {
 		unsigned char ans;
+		if (!tsaved) {
+			tsaved=1;
+			if (tcgetattr(STDIN_FD,&tatts)) {
+				tsaved=-1;
+			} else {
+				rawatts=tatts;
+				rawatts.c_lflag    &= ~ICANON;
+				rawatts.c_cc[VMIN] =  1;
+			}
+		}
 		printf("More (Y/n)?:"); fflush(stdout);
-		read(0,&ans,1);
+		if (tsaved>0)
+			tcsetattr(STDIN_FD,TCSANOW,&rawatts);
+		read(STDIN_FD,&ans,1);
 		ch=ans;
-		if ('Y'==toupper(ch)) ch=0;
+		if ('Y'==toupper(ch) || '\n'==ch || '\r'==ch)
+			ch=0;
+		if (tsaved>0)
+			tcsetattr(STDIN_FD,TCSANOW,&tatts);
 	}
 	printf("\nUSER VARIABLES:\n");
 	cexpVarWalk(varprint,(void*)rc);
@@ -412,4 +435,10 @@ if (gl)
 #endif
 
 return rval;
+}
+
+int
+main_ends_here(void)
+{
+return 0;
 }

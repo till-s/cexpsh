@@ -23,26 +23,74 @@
 #include <mdbg.h>
 #endif
 
-#ifdef USE_GNU_READLINE /* (recommended) */
+#if defined(USE_GNU_READLINE) /* (recommended, but not reentrant :-() */
 #include <readline/readline.h>
 #include <readline/history.h>
 /* avoid reading curses or terminfo headers */
 extern int tgetnum();
+#define  readline_r(prompt,context) readline(prompt)
 #else  /* dont use READLINE  */
+
 #define tgetnum(arg) -1
 #define add_history(line) do {} while (0)
-#define readline my_readline
-static char *my_readline(char *prompt)
+
+#if defined(USE_RTEMS_SHELL) && defined(__rtems)
+
+extern shell_scanline(char *line, int size, FILE *in, FILE *out);
+
+static char *readline_r(char *prompt, void *context)
 {
-	char *rval=malloc(500);
+char *rval=malloc(500);
+int	 l;
 	if (prompt)
 		fputs(prompt,stdout);
-	if (!fgets(rval,500,stdin)) {
-		free(rval);
+	*rval=0;
+	if (!shell_scanline(rval,500,stdin,stdout)) {
+		free (rval);
 		rval=0;
+	}
+	return rval;
+}
+#elif defined(USE_TECLA)
+
+#include <libtecla.h>
+
+static char *readline_r(char *prompt, GetLine *gl)
+{
+char	*rval=0;
+char	*l;
+int		len;
+	if ((l=gl_get_line(gl,prompt,NULL,0)) && (len=strlen(l)) > 0) {
+		rval=strdup(l);
+	}
+	return rval;
+}
+
+#else
+static char *readline_r(char *prompt, void *context)
+{
+int ch;
+	char *rval=malloc(500),*cp;
+	if (prompt)
+		fputs(prompt,stdout);
+
+	for (cp=rval; cp<rval+500-1 && (ch=getchar())>=0;) {
+			switch (ch) {
+				case '\n': *cp=0; return rval;
+				case '\b':
+					if (cp>rval) {
+						cp--;
+						fputs("\b ",stdout);
+					}
+					break;
+				default:
+					*cp++=ch;
+					break;
+			}
 	}
 	return rval;	
 }
+#endif
 #endif
 
 #include <regexp.h>
@@ -118,10 +166,11 @@ int
 lkup(char *re)
 {
 extern	CexpSym _cexpSymLookupRegex();
-regexp	*rc=0;
-CexpSym s;
-int		ch=0;
-int		nl=tgetnum("li");
+regexp		*rc=0;
+CexpSym 	s;
+CexpModule	m;
+int			ch=0;
+int			nl=tgetnum("li");
 
 	if (nl<=0)
 		nl=25;
@@ -131,11 +180,13 @@ int		nl=tgetnum("li");
 		return -1;
 	}
 
-	for (s=0; !ch && (s=_cexpSymLookupRegex(rc,nl,s,0,0));) {
-		char *line;
-		line=readline("More (Y/n)?");
-		ch=line[0];
-		free(line);
+	/* TODO should acquire the module readlock around this ?? */
+
+	for (s=0,m=0; !ch && (s=_cexpSymLookupRegex(rc,nl,s,0,&m));) {
+		unsigned char ans;
+		printf("More (Y/n)?:"); fflush(stdout);
+		read(0,&ans,1);
+		ch=ans;
 		if ('Y'==toupper(ch)) ch=0;
 	}
 	printf("\nUSER VARIABLES:\n");
@@ -236,6 +287,12 @@ int					rval=CEXP_MAIN_INVAL_ARG;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt, doWhat;	
 jmp_buf				mainContext;
+#ifdef USE_TECLA
+GetLine				*gl=0;	/* line editor */
+#define	rl_context  gl
+#else
+#define rl_context  0
+#endif
 char				optstr[]={
 						'h',
 						'v',
@@ -280,11 +337,22 @@ if (!cexpSystemModule) {
 mdbgInit();
 #endif
 
+#ifdef USE_TECLA
+if (!script) {
+	gl = new_GetLine(200,2000);
+	if (!gl) {
+		fprintf(stderr,"Unable to create line editor\n");
+		return CEXP_MAIN_NO_MEM;
+	}
+}
+#endif
+
 do {
 	if (!(ctx=cexpCreateParserCtx())) {
 		fprintf(stderr,"Unable to create parser context\n");
 		usage(argv[0]);
-		return CEXP_MAIN_NO_MEM;
+		rval = CEXP_MAIN_NO_MEM;
+		goto cleanup;
 	}
 
 	if (!(rval=setjmp(mainContext))) {
@@ -310,7 +378,7 @@ do {
 			prompt=malloc(strlen(tmp)+2);
 			strcpy(prompt,tmp);
 			strcat(prompt,">");
-			while ((line=readline(prompt))) {
+			while ((line=readline_r(prompt,rl_context))) {
 				if (*line) {
 					/* skip empty lines */
 					cexpResetParserCtx(ctx,line);
@@ -337,6 +405,11 @@ cleanup:
 		if (scr) fclose(scr);	scr=0;
 	
 } while (-1==rval);
+
+#ifdef USE_TECLA
+if (gl)
+	del_GetLine(gl);
+#endif
 
 return rval;
 }

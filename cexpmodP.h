@@ -27,6 +27,7 @@ typedef struct CexpModuleRec_ {
 	ModuleId 			id;			/* unique ID */
 	void				*memSeg;	/* actual memory */
 	unsigned long		memSize;	/* size of the loaded stuff */
+	unsigned long		text_vma;	/* where the text segment was loaded */
 	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one */
 	BITMAP_DECLARE(needs);			/* bitmap of module ids this module depends on */
 	VoidFnPtr			*ctor_list;

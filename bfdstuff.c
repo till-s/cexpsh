@@ -25,7 +25,7 @@
 #include "elf-bfd.h"
 #endif
 
-#define  DEBUG 1
+#define  DEBUG 0
 
 #include "regexp.h"
 
@@ -34,6 +34,7 @@
 #define EH_FRAME_BEGIN_PATTERN	"__FRAME_BEGIN__"
 #define EH_FRAME_END_PATTERN	"__FRAME_END__"
 #define EH_SECTION_NAME			".eh_frame"
+#define TEXT_SECTION_NAME		".text"
 
 /* using one static variable for the pattern matcher is
  * OK since the entire cexpLoadFile() routine is called
@@ -82,6 +83,7 @@ typedef struct LinkDataRec_ {
 	int				nDtors;
 	asymbol			*eh_frame_b_sym;
 	asymbol			*eh_frame_e_sym;
+	unsigned long	text_vma;
 } LinkDataRec, *LinkData;
 
 /* forward declarations */
@@ -383,6 +385,8 @@ LinkData	ld=(LinkData)arg;
 			seg->vmacalc+=sizeof(long);
 		}
 		sect->output_section = sect;
+		if (!strcmp(TEXT_SECTION_NAME,bfd_get_section_name(abfd,sect)))
+			ld->text_vma=bfd_get_section_vma(abfd,sect);
 	}
 }
 
@@ -1022,6 +1026,7 @@ printf("TSILL registering EH_FRAME 0x%08x\n",
 
 	mod->symtbl  = ldr.cst;
 	mod->cleanup = bfdCleanupCallback;
+	mod->text_vma= ldr.text_vma;
 	ldr.cst=0;
 
 	rval=0;
@@ -1064,8 +1069,11 @@ int			nread,nwritten;
 struct stat	stbuf;
 
 	/* a hack (rtems) to make sure the /tmp dir is present */
-	if (stat("/tmp",&stbuf))
+	if (stat("/tmp",&stbuf)) {
+		mode_t old=umask(0);
 		mkdir("/tmp",0777);
+		umask(old);
+	}
 
 	/* open files; the tmpfile will be removed by the system
 	 * as soon as it's closed

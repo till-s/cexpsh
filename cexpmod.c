@@ -150,6 +150,7 @@ CexpModule m;
 		fprintf(f,"Module '%s' (0x%08x):\n",m->name,m);
 		fprintf(f,"  %i symbol table entries\n",m->symtbl->nentries);
 		fprintf(f,"  %i bytes of memory allocated to binary\n",m->memSize);
+		fprintf(f,"  Text starts at: 0x%08x\n",m->text_vma);
 		fprintf(f,"  Needs:"); bitmapInfo(f,m->needs); fputc('\n',f);
 		fprintf(f,"  Needed by:"); bitmapInfo(f,m->neededby); fputc('\n',f);
 		if (mod)

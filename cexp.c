@@ -4,7 +4,7 @@
  * and calls the parser (cexpparse()) on each of them...
  */
 
-/* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
+/* Author: Till Straumann <strauman@@slac.stanford.edu>, 2/2002 */
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -136,7 +136,7 @@ usage(char *nm)
 #ifdef YYDEBUG
 	fprintf(stderr, "       -d enable parser debugging messages\n");
 #endif
-	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@TU-Berlin.de>\n");
+	fprintf(stderr, "       Author: Till Straumann <Till.Straumann@@TU-Berlin.de>\n");
 	fprintf(stderr, "       Licensing: GPL (http://www.gnu.org)\n");
 }
 
@@ -196,21 +196,27 @@ struct winsize	win;
 		return -1;
 	}
 
+	/* TODO should acquire the module readlock around this ?? */
+	for (s=0,m=0; !ch ;) {
+		unsigned char ans;
+
 #ifdef USE_TECLA
-	{
-	GlTerminalSize ts=gl_terminal_size(cexpContextGetCurrent()->gl, 80, 24);
-	nl = ts.nline;
-	}
+		{
+		GlTerminalSize ts=gl_terminal_size(cexpContextGetCurrent()->gl, 80, 24);
+		nl = ts.nline;
+		}
 #else
-	nl = ioctl(STDIN_FD, TIOCGWINSZ,&win) ? tgetnum("li") : win.ws_row;
+		nl = ioctl(STDIN_FD, TIOCGWINSZ,&win) ? tgetnum("li") : win.ws_row;
 #endif
 
-	if (nl<=0)
-		nl=24;
+		if (nl<=0)
+			nl=24;
 
-	/* TODO should acquire the module readlock around this ?? */
-	for (s=0,m=0; !ch && (s=_cexpSymLookupRegex(rc,nl-1,s,0,&m));) {
-		unsigned char ans;
+		nl--;
+
+		if (!(s=_cexpSymLookupRegex(rc,&nl,s,stdout,&m)))
+			break;
+
 		if (!tsaved) {
 			tsaved=1;
 			if (tcgetattr(STDIN_FD,&tatts)) {
@@ -261,18 +267,33 @@ CexpModule		mod;
 }
 
 int
-lkaddr(void *addr)
+lkaddr(void *addr, int margin)
 {
-	cexpSymLkAddr(addr, 8, stdout, 0);
+if (!margin)
+	margin=5;
+	cexpSymLkAddr(addr, margin, stdout, 0);
 	return 0;
 }
 
+#ifdef HAVE_SIGNALS
+static void
+siginstall(void (*handler)(int))
+{
+	signal(SIGSEGV, handler);
+	signal(SIGBUS,  handler);
+}
+#endif
 /* This initialization code should be called exactly once */
 int
-cexpInit(void *arg)
+cexpInit(CexpSigHandlerInstallProc installer)
 {
 static int done=0;
 	if (!done) {
+#ifdef HAVE_SIGNALS
+		if (!installer)
+			installer=siginstall;
+#endif
+		cexpSigHandlerInstaller=installer;
 		cexpModuleInitOnce();
 		cexpVarInitOnce();
 		cexpContextInitOnce();
@@ -309,6 +330,8 @@ char	*argv[10]; /* limit to 10 arguments */
 	return cexp_main(++argc,argv);
 }
 
+CexpSigHandlerInstallProc cexpSigHandlerInstaller=0;
+
 /* This is meant to be called from low-level
  * exception handlers to abort execution.
  * If it is called while 'cexp_main' is not
@@ -322,13 +345,11 @@ cexp_kill(int doWhat)
 	longjmp(cexpContextGetCurrent()->jbuf,doWhat);
 }
 
-#ifdef HAVE_SIGNALS
 static void
-handler(int signum)
+sighandler(int signum)
 {
 	cexp_kill(0);
 }
-#endif
 
 int
 cexp_main(int argc, char **argv)
@@ -432,11 +453,13 @@ context.next=0;
 if (!cexpContextGetCurrent()) {
 	/* topmost frame */
 #ifdef USE_TECLA
+	CPL_MATCH_FN(cexpSymComplete);
 	context.gl = new_GetLine(200,2000);
 	if (!context.gl) {
 		fprintf(stderr,"Unable to create line editor\n");
 		return CEXP_MAIN_NO_MEM;
 	}
+	gl_customize_completion(context.gl, 0, cexpSymComplete);
 #endif
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();
@@ -459,10 +482,8 @@ do {
 		goto cleanup;
 	}
 
-#ifdef HAVE_SIGNALS
-	signal(SIGSEGV, handler);
-	signal(SIGBUS,  handler);
-#endif
+	if (cexpSigHandlerInstaller)
+		cexpSigHandlerInstaller(sighandler);
 
 	if (!(rval=setjmp(context.jbuf))) {
 		/* call them back to pass the jmpbuf */

@@ -39,7 +39,7 @@ cexpSymTblLkAddr(void *addr, int margin, FILE *f, CexpSymTbl t);
 
 /* lookup a regular expression */
 CexpSym
-cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t);
+cexpSymTblLookupRegex(char *re, int *pmax, CexpSym s, FILE *f, CexpSymTbl t);
 
 /* print info about a symbol to FILE */
 int

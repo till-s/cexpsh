@@ -32,8 +32,11 @@ extern "C" {
  * The routine returns 1 for convenience, so
  * it could be used in a C++ static constructor.
  */
+
+typedef void (*CexpSigHandlerInstallProc)(void (*handler)(int));
+
 int
-cexpInit(void *unused);
+cexpInit(CexpSigHandlerInstallProc sigHandlerInstaller);
 
 /* Managing modules (object code and symbols) */
 typedef struct CexpModuleRec_	*CexpModule;
@@ -163,7 +166,7 @@ lkup(char *pattern);
  */
 
 int
-lkaddr(void *addr);
+lkaddr(void *addr, int howmany);
 
 /* the main interpreter loop, it can be registered
  * with a shell...
@@ -193,6 +196,14 @@ cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpCo
  */
 void
 cexp_kill(int doWhat);
+
+/*
+ * If this pointer is non-null (can be set by
+ * the application; cexpInit() will automatically
+ * install 'signal' here on systems which do have
+ * 'signal()'
+ */
+extern CexpSigHandlerInstallProc cexpSigHandlerInstaller;
 
 /* error return values: */
 #define CEXP_MAIN_INVAL_ARG	1	/* invalid option / argument */

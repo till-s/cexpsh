@@ -214,18 +214,20 @@ cleanup:
  * implementation, i.e. which variant, which headers etc.
  */
 CexpSym
-_cexpSymTblLookupRegex(spencer_regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
+_cexpSymTblLookupRegex(spencer_regexp *rc, int *pmax, CexpSym s, FILE *f, CexpSymTbl t)
 {
 CexpSym	found=0;
+int		max=24;
 
-	if (max<1)	max=25;
-	if (!f)		f=stdout;
+	if (!pmax)
+		pmax=&max;
+
 	if (!s)		s=t->syms;
 
-	while (s->name && max) {
+	while (s->name && *pmax) {
 		if (spencer_regexec(rc,s->name)) {
-			cexpSymPrintInfo(s,f);
-			max--;
+			if (f) cexpSymPrintInfo(s,f);
+			(*pmax)--;
 			found=s;
 		}
 		s++;
@@ -235,16 +237,20 @@ CexpSym	found=0;
 }
 
 CexpSym
-cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
+cexpSymTblLookupRegex(char *re, int *pmax, CexpSym s, FILE *f, CexpSymTbl t)
 {
 CexpSym			found;
 spencer_regexp	*rc;
+int				max=24;
+
+	if (!pmax)
+		pmax=&max;
 
 	if (!(rc=spencer_regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return 0;
 	}
-	found=_cexpSymTblLookupRegex(rc,max,s,f,t);
+	found=_cexpSymTblLookupRegex(rc,pmax,s,f,t);
 
 	if (rc) free(rc);
 	return found;
@@ -357,7 +363,7 @@ CexpType	t=s->value.type;
 
 	if (!f) f=stdout;
 
-	i+=fprintf(f,"%p[%6d]: ",
+	i+=fprintf(f,"%010p[%6d]: ",
 			(void*)s->value.ptv,
 			s->size);
 	if (!CEXP_TYPE_FUNQ(t)) {
@@ -437,7 +443,7 @@ int  verbose=0;
 		sym->help=strdup(newhelp);
 		sym->flags |= CEXP_SYMFLG_MALLOC_HELP;
 	} else {
-		if (verbose)
+		if (verbose || !sym->help)
 			cexpSymPrintInfo(sym,stdout);
 		if (sym->help)
 			fprintf(stdout,"%s\n",sym->help);

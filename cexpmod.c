@@ -138,19 +138,24 @@ cexpModuleName(CexpModule mod)
  * here is just a wrapper for looping over modules
  */
 CexpSym
-_cexpSymLookupRegex(spencer_regexp *rc, int max, CexpSym s, FILE *f, CexpModule *pmod)
+_cexpSymLookupRegex(spencer_regexp *rc, int *pmax, CexpSym s, FILE *f, CexpModule *pmod)
 {
-CexpModule	m,mfound;
+CexpModule	m=0,mfound;
+int			max=24;
 
-    if (max<1)  max=24;
-    if (!f)     f=stdout;
+	if (!pmax)	pmax=&max;
 
 	if (pmod)	{
 		/* start at module/symbol passed in */
 		m=*pmod;
+		if (s && !(++s)->name) {
+			/* was the last one */
+			s=0;
+			if (!(m=m->next))
+				return 0;
+		}
 	} else  {
 		s=0;
-		m=0;
 	}
 	if (!m)	m=cexpSystemModule;
     
@@ -158,22 +163,22 @@ CexpModule	m,mfound;
 
 	if (modIsStale(m)) {
 		__RUNLOCK();
-		fprintf(f,"Got a stale module handle; giving up...\n");
+		fprintf(f ? f : stderr,"Got a stale module handle; giving up...\n");
 		return 0;
 	}
 
 	for (; m; m=m->next) {
     	if (!s) s=m->symtbl->syms;
 		mfound=0;
-		while (s->name && max) {
+		while (s->name && *pmax) {
       		if (spencer_regexec(rc,s->name)) {
 				if (!mfound) {
-					fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, (unsigned)m);
+					if (f) fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, (unsigned)m);
 					mfound=m; /* print module name only once */
-					max--;
+					(*pmax)--;
 				}
-				cexpSymPrintInfo(s,f);
-				if (--max <= 0) {
+				if (f) cexpSymPrintInfo(s,f);
+				if (--(*pmax) <= 0) {
 					if (pmod)
 						*pmod=m;
 

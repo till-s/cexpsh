@@ -2,7 +2,7 @@ HOSTCC=@HOSTCC@
 SUBDIRS=@subdirs@
 lib_LIBRARIES=libcexp.a
 ##BUILT_SOURCES = builddate.h
-SRCS = cexp.c ctyps.c bfdstuff.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h bfd-disas.c context.h
+SRCS = cexp.c ctyps.c bfdstuff.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h bfd-disas.c context.h teclastuff.c
 
 #MDBG=/home/till/slac/xfm/src/mdbg/mdbg.o
 #MDBGCFLAGS=-DUSE_MDBG -I$(dir $(MDBG))

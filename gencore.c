@@ -18,6 +18,7 @@
 #else
 #define HAVE_STDINT_H 1
 #define HAVE_SYS_TYPES_H 1
+#define HAVE_TYPE_UINT32_T 1
 #endif
 
 #include <sys/mman.h>
@@ -586,21 +587,23 @@ int							dumpSectionInfo = 0;
 			break;
 */
 			case bfd_arch_powerpc:
-				regsz = sizeof(gregs.r_ppc32); break;
+				regsz = sizeof(gregs.r_ppc32);
 				if ( REGS_OPT == hasRegs ) {
 					gregs.r_ppc32.pc     = pcspfp[0];
 					gregs.r_ppc32.gpr[1] = pcspfp[1];
 					gregs.r_ppc32.lr     = pcspfp[2];
 				}
-/*
+			break;
+
 			case bfd_arch_i386:
-				regsz = sizeof(gregs.r_i386);  break;
+				regsz = sizeof(gregs.r_i386);
 				if ( REGS_OPT == hasRegs ) {
 					gregs.r_i386.eip = pcspfp[0];
 					gregs.r_i386.esp = pcspfp[1];
 					gregs.r_i386.epc = pcspfp[2];
 				}
-*/
+			break;
+
 			case bfd_arch_m68k:
 				regsz = sizeof(gregs.r_m68k);
 				if ( REGS_OPT == hasRegs ) {

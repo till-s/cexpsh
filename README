@@ -24,6 +24,15 @@ However, linking against the BFD library is subject to
 the GPL (whereas libelf is under LGPL). See LICENSING
 below for more information.
 
+What is New?
+------------
+
+ - 2003/02/13: CEXP_1.1.beta is released. It fixes a bug
+   of the exception handler registration.
+   
+   Makefile.syms has been added and modularized copies
+   of the RTEMS 'cdtest' sample program.
+
 Description
 -----------
 
@@ -483,20 +492,26 @@ needed by CEXP and the OS itself during this process.
 Any library CEXP does _not_ depend on, directly or indirectly , can
 of course be dynamically loaded any time later.
 
-A special makefile is provided (but distributed separately)
+A special makefile is provided (Makefile.syms)
 to help you generating the system configuration (RTEMS).
 You can give the make process a list of libraries to work on.
-'make' then generates a set of files (one per library)
-containing lists of all symbols exported by a library - grouped
-by the object file where these symbols are defined.
+'make' then generates a file containing a list of all symbols
+exported by the libraries.
 
-You can then browse these lists and delete/comment symbols or
+You can then browse this lists and delete/comment symbols or
 chunks of symbols that you dont want to be present. In some
 cases it is very much necessary to exclude certain symbols
 from a link because an attempt to forcibly link them results
 in linker errors. This can happen, e.g. if you try to enforce
 linking a (under normal circumstances NEVER used) routine who 
 has unresolved dependencies.
+
+Makefile.syms can then be used to generate a special ELF
+object file 'syms.o' containing nothing but symbol
+references. 'syms.o' can then be linked with the application
+(just add it to the list of the application's objects)
+and will force the linker to pull in the referenced
+library objects.
 
 C++ Information
 - - - - - - - -

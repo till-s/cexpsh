@@ -1190,18 +1190,25 @@ char	*start, *end;
 int
 cexpLoadFile(char *filename, CexpModule mod)
 {
-LinkDataRec		ldr;
-int				rval=1,i;
-CexpSym			sane;
-FILE			*f=0;
-void			*ehFrame=0;
+LinkDataRec						ldr;
+int								rval=1,i;
+CexpSym							sane;
+FILE							*f=0;
+void							*ehFrame=0;
 #ifdef __rtems__
-char			tmpfname[30]={
+char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
-int				is_on_tftp, tftp_fd;
-struct stat		dummybuf;
+int								is_on_tftp, tftp_fd;
+struct stat						dummybuf;
 #endif
+
+enum bfd_architecture			arch;
+unsigned long					mach;
+char							*targ;
+static enum bfd_architecture	sysArch;
+static char						*sysTarg;
+static unsigned long			sysMach;
 
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
@@ -1260,6 +1267,25 @@ struct stat		dummybuf;
 	if (!bfd_check_format(ldr.abfd, bfd_object)) {
 		bfd_perror("Checking format");
 		goto cleanup;
+	}
+
+	arch = bfd_get_arch(ldr.abfd);
+	mach = bfd_get_mach(ldr.abfd);
+	targ = bfd_get_target(ldr.abfd);
+
+	if ( cexpSystemModule ) {
+		if ( sysArch != arch || sysMach != mach ) {
+			fprintf(stderr,"Architecture mismatch: this is a '%s/%s' system; refuse to load a '%s/%s' module\n",
+							sysTarg,
+							bfd_printable_arch_mach(sysArch,sysMach),
+							targ,
+							bfd_printable_arch_mach(arch,mach));
+			goto cleanup;
+		}
+	} else {
+		sysArch = arch;
+		sysTarg = strdup(targ);
+		sysMach = mach;
 	}
 
 	/* get basic section info and filter linkonce sections */

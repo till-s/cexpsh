@@ -92,8 +92,11 @@ dnl		AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
 	fi
 	if test "$we_have_native_libelf" != "yes" ; then
 dnl     AC_CONFIG_SUBDIRS needs a literal arg :-(
+		AC_CHECK_FILE(LIBELF,,AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY"))
 		AC_CONFIG_SUBDIRS(libelf-0.8.2)
 	fi
+else
+	AC_CHECK_FILE(binutils,,AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY))
 fi
 
 if test "$enable_bfd" != "no" ; then

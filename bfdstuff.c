@@ -34,7 +34,7 @@
 
 #define  DEBUG 0
 
-#include "regexp.h"
+#include "spencer_regexp.h"
 
 /* magic symbol names for C++ support; probably gcc specific */
 #define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
@@ -48,7 +48,7 @@
  * with the WRITE_LOCK held, so mutex is guaranteed for
  * the ctorCtorRegexp.
  */
-static  regexp	*ctorDtorRegexp=0;
+static  spencer_regexp	*ctorDtorRegexp=0;
 
 #ifdef HAVE_BFD_DISASSEMBLER
 /* as a side effect, this code gives access to a disassembler which
@@ -168,7 +168,7 @@ isCtorDtor(asymbol *asym, int quiet)
 	   character there, in case a new object file format
 	   comes along with even worse naming restrictions)."  */
 
-	if (regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
+	if (spencer_regexec(ctorDtorRegexp,bfd_asymbol_name(asym))) {
 		switch (*(ctorDtorRegexp->endp[0]-2)) {
 			case 'I':	return  1; /* constructor */
 			case 'D':	return -1; /* destructor  */
@@ -918,7 +918,7 @@ void			*ehFrame=0;
 	bfd_init();
 	/* lazy init of regexp pattern */
 	if (!ctorDtorRegexp)
-		ctorDtorRegexp=regcomp(CTOR_DTOR_PATTERN);
+		ctorDtorRegexp=spencer_regcomp(CTOR_DTOR_PATTERN);
 
 #if 0
 	if ( ! (abfd=bfd_openr(filename,0)) )

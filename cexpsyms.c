@@ -17,7 +17,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <regexp.h>
+#include <spencer_regexp.h>
 
 #include "cexpsymsP.h"
 #include "cexpmod.h"
@@ -214,7 +214,7 @@ cleanup:
  * implementation, i.e. which variant, which headers etc.
  */
 CexpSym
-_cexpSymTblLookupRegex(regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
+_cexpSymTblLookupRegex(spencer_regexp *rc, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
 CexpSym	found=0;
 
@@ -223,7 +223,7 @@ CexpSym	found=0;
 	if (!s)		s=t->syms;
 
 	while (s->name && max) {
-		if (regexec(rc,s->name)) {
+		if (spencer_regexec(rc,s->name)) {
 			cexpSymPrintInfo(s,f);
 			max--;
 			found=s;
@@ -237,10 +237,10 @@ CexpSym	found=0;
 CexpSym
 cexpSymTblLookupRegex(char *re, int max, CexpSym s, FILE *f, CexpSymTbl t)
 {
-CexpSym	found;
-regexp	*rc;
+CexpSym			found;
+spencer_regexp	*rc;
 
-	if (!(rc=regcomp(re))) {
+	if (!(rc=spencer_regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return 0;
 	}

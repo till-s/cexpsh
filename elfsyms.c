@@ -26,7 +26,6 @@
 #include <string.h>
 
 #include <libelf/libelf.h>
-#include <regexp.h>
 
 #include "cexpsymsP.h"
 #include "cexpmodP.h"

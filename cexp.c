@@ -103,7 +103,7 @@ int ch;
 #endif
 #endif
 
-#include <regexp.h>
+#include <spencer_regexp.h>
 #include "cexpmod.h"
 #include "vars.h"
 #include "context.h"
@@ -164,8 +164,8 @@ static void *
 varprint(char *name, CexpTypedAddr a, void *arg)
 {
 FILE	*f=stdout;
-regexp	*rc=arg;
-	if (regexec(rc,name)) {
+spencer_regexp	*rc=arg;
+	if (spencer_regexec(rc,name)) {
 		cexpTAPrintInfo(a,f);
 		fprintf(f,": %s\n",name);
 	}
@@ -177,7 +177,7 @@ int
 lkup(char *re)
 {
 extern	CexpSym _cexpSymLookupRegex();
-regexp			*rc=0;
+spencer_regexp	*rc=0;
 CexpSym 		s;
 CexpModule		m;
 int				ch=0,tsaved=0;
@@ -185,7 +185,7 @@ int				nl;
 struct termios	tatts,rawatts;
 struct winsize	win;
 
-	if (!(rc=regcomp(re))) {
+	if (!(rc=spencer_regcomp(re))) {
 		fprintf(stderr,"unable to compile regexp '%s'\n",re);
 		return -1;
 	}

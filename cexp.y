@@ -46,7 +46,7 @@ int  yylex();
 
 typedef struct CexpParserCtxRec_ {
 	CexpSymTbl		symtbl;
-	unsigned char	*chpt;
+	char			*chpt;
 	char			*lineStrTbl[10];	/* allow for 10 strings on one line of input */
 	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
@@ -83,6 +83,7 @@ CexpTypedAddr rval;
 	CexpTypedAddrRec			lval;
 	CexpSym						sym;	/* a symbol table entry */
 	CexpType					typ;
+	CexpBinOp					binop;
 	struct			{
 		CexpTypedAddr		plval;
 		char	        	*name;
@@ -103,7 +104,7 @@ CexpTypedAddr rval;
 %token			KW_SHORT	/* keyword 'short' */
 %token			KW_LONG		/* keyword 'long' */
 %token			KW_DOUBLE	/* keyword 'long' */
-%token <typ>	MODOP		/* +=, -= & friends */
+%token <binop>	MODOP		/* +=, -= & friends */
 
 %type  <val>	redef line
 %type  <val>	commaexp
@@ -492,10 +493,10 @@ call:
 /* add a string to the line string table returning its index
  * RETURNS a negative number on error
  */
-unsigned char *
+char *
 lstAddString(CexpParserCtx env, char *string)
 {
-unsigned char	*rval=0;
+char			*rval=0;
 char			**chppt;
 int				i;
 	for (i=0,chppt=env->lineStrTbl;
@@ -757,14 +758,14 @@ char *chpt;
 					case '!': rv=NE;	break;
 					case '<': rv=LE;	break;
 					case '>': rv=GE;	break;
-					case '+': rv=MODOP; rval->typ=OAdd;	break;
-					case '-': rv=MODOP; rval->typ=OSub;	break;
-					case '*': rv=MODOP; rval->typ=OMul;	break;
-					case '/': rv=MODOP; rval->typ=ODiv;	break;
-					case '%': rv=MODOP; rval->typ=OMod;	break;
-					case '&': rv=MODOP; rval->typ=OAnd;	break;
-					case '^': rv=MODOP; rval->typ=OXor;	break;
-					case '|': rv=MODOP; rval->typ=OOr;	break;
+					case '+': rv=MODOP; rval->binop=OAdd;	break;
+					case '-': rv=MODOP; rval->binop=OSub;	break;
+					case '*': rv=MODOP; rval->binop=OMul;	break;
+					case '/': rv=MODOP; rval->binop=ODiv;	break;
+					case '%': rv=MODOP; rval->binop=OMod;	break;
+					case '&': rv=MODOP; rval->binop=OAnd;	break;
+					case '^': rv=MODOP; rval->binop=OXor;	break;
+					case '|': rv=MODOP; rval->binop=OOr;	break;
 				}
 			break;
 		}
@@ -772,7 +773,7 @@ char *chpt;
 		/* yyparse cannot deal with '\0' chars, so we translate it back to '\n'...*/
 		if ((SHL==rv || SHR==rv) && '=' == ch) {
 			getch();
-			rval->typ = (SHL==rv ? OShL : OShR);
+			rval->binop = (SHL==rv ? OShL : OShR);
 			rv=MODOP;
 		}
 		return rv ? rv : '\n';

@@ -143,7 +143,7 @@ lh v,p;
 /* Cexp (static) strings and variable names */
 typedef struct CexpStrRec_ {
 	lhR				head;
-	char			str[0];	/* name space is allocated contiguous */
+	char			str[1];	/* actual name space is allocated contiguous */
 } CexpStrRec, *CexpStr;
 
 /* Cexp variables */
@@ -180,7 +180,7 @@ void
 cexpVarsFlush(void)
 {
 	lhrFlushN_LOCK(gblList.head.p);
-		gblList.head=(lhR){0};
+	memset(&gblList.head,0,sizeof(gblList.head));
 	__UNLOCK;
 }
 
@@ -235,8 +235,8 @@ CexpStr s;
 		/* (avoid calling malloc from locked section) */
 		n=(CexpVar)malloc(sizeof(*n));
 		s=(CexpStr)malloc(sizeof(*s) + strlen(name)+1);
-		n->head=(lhR){0};
-		s->head=(lhR){0};
+		memset(&n->head,0,sizeof(n->head));
+		memset(&s->head,0,sizeof(s->head));
 	} else {
 		n=0;
 		s=0;
@@ -274,7 +274,7 @@ CexpStr s,t,q;
 	if (creat) {
 		/* (avoid calling malloc from locked section) */
 		s=(CexpStr)malloc(sizeof(*s) + strlen(name)+1);
-		s->head=(lhR){0};
+		memset(&s->head,0,sizeof(s->head));
 	} else {
 		s=0;
 	}

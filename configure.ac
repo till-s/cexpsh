@@ -24,6 +24,8 @@ if test "$ac_cv_header_readline_readline_h" = "yes" ; then
 	AC_CHECK_LIB(readline,readline)
 fi
 
+AC_HAVE_FUNCS(rcmd)
+
 AM_CONDITIONAL(ISRTEMS, test "$host_os" = "rtems")
 
 

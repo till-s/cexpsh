@@ -90,7 +90,7 @@
 #define DEBUG_RELOC		(1<<2)
 #define DEBUG_SYM		(1<<3)
 
-#define	DEBUG			0
+#define	DEBUG			(0)
 
 #include "spencer_regexp.h"
 
@@ -145,6 +145,7 @@ typedef struct LinkDataRec_ {
 	SegmentRec		segs[NUM_SEGS];
 	asymbol			**st;
 	asymbol			***new_commons;
+	char			*dummy_section_name;
 	CexpSymTbl		cst;
 	int				errors;
 	int				num_alloc_sections;
@@ -837,14 +838,15 @@ int			i,num_new_commons=0,errs=0;
  * RETURNS: 0 on failure, nonzero on success
  */
 static int
-make_new_commons(bfd *abfd, asymbol ***new_common_ps, int num_new_commons)
+make_new_commons(bfd *abfd, LinkData ld, int num_new_commons)
 {
 unsigned long	i,val;
 asection	*csect;
 
 	if (num_new_commons) {
 		/* make a dummy section for new common symbols */
-		csect=bfd_make_section(abfd,bfd_get_unique_section_name(abfd,".dummy",0));
+		ld->dummy_section_name = bfd_get_unique_section_name(abfd,".dummy",0);
+		csect=bfd_make_section(abfd, ld->dummy_section_name);
 		if (!csect) {
 			bfd_perror("Creating dummy section");
 			return -1;
@@ -855,7 +857,7 @@ asection	*csect;
 		 * found during the sorting process which is the alignment
 		 * of the first element...
 		 */
-		bfd_section_alignment(abfd,csect) = get_align_pwr(abfd,*new_common_ps[0]);
+		bfd_section_alignment(abfd,csect) = get_align_pwr(abfd,*ld->new_commons[0]);
 
 		/* set new common symbol values */
 		for (val=0,i=0; i<num_new_commons; i++) {
@@ -870,17 +872,17 @@ asection	*csect;
 			 */
 			val=align_power(val,(
 							apwr=
-							get_align_pwr(abfd,*new_common_ps[i])));
+							get_align_pwr(abfd, *ld->new_commons[i])));
 #if DEBUG & DEBUG_COMMON
 			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(sp),apwr);
 #endif
 			/* copy pointer to old name */
-			bfd_asymbol_name(sp) = bfd_asymbol_name(*new_common_ps[i]);
+			bfd_asymbol_name(sp) = bfd_asymbol_name(*ld->new_commons[i]);
 			sp->value=val;
 			sp->section=csect;
-			sp->flags=(*new_common_ps[i])->flags;
-			val+=(*new_common_ps[i])->value;
-			*new_common_ps[i] = sp;
+			sp->flags=(*ld->new_commons[i])->flags;
+			val+=(*ld->new_commons[i])->value;
+			*ld->new_commons[i] = sp;
 		}
 		
 		bfd_set_section_size(abfd, csect, val);
@@ -964,7 +966,7 @@ long				num_new_commons;
 							 nsyms,
 							 filter, assign, ld);
 
-	if (0!=make_new_commons(abfd,ld->new_commons,num_new_commons))
+	if (0!=make_new_commons(abfd,ld, num_new_commons))
 		goto cleanup;
 
 	ld->st=asyms;
@@ -1234,7 +1236,6 @@ cleanup:
 		free(ldr.st);
 	if (ldr.new_commons)
 		free(ldr.new_commons);
-
 	if (ehFrame) {
 		assert(my__deregister_frame);
 		my__deregister_frame(ehFrame);
@@ -1254,6 +1255,8 @@ cleanup:
 		unlink(tmpfname);
 #endif
 
+	if (ldr.dummy_section_name)
+		free(ldr.dummy_section_name);
 
 	for (i=0; i<NUM_SEGS; i++)
 		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);

@@ -14,6 +14,10 @@
 #include <string.h>
 #include <ctype.h>
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #ifdef USE_GNU_READLINE /* (recommended) */
 #include <readline/readline.h>
 #include <readline/history.h>
@@ -248,9 +252,12 @@ if (script) {
 	strcpy(prompt,tmp);
 	strcat(prompt,">");
 	while ((line=readline(prompt))) {
-		cexpResetParserCtx(ctx,line);
-		cexpparse((void*)ctx);
-		add_history(line);
+		if (*line) {
+			/* skip empty lines */
+			cexpResetParserCtx(ctx,line);
+			cexpparse((void*)ctx);
+			add_history(line);
+		}
 		free(line);
 	}
 }

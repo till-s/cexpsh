@@ -523,3 +523,15 @@ va_list ap;
 	va_end(ap);
 	return rval;
 }
+
+const char *
+cexpSymName(CexpSym s)
+{
+	return s ? s->name : 0;
+}
+
+void *
+cexpSymValue(CexpSym s)
+{
+	return s ? (void*)s->value.ptv : 0;
+}

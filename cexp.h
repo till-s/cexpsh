@@ -81,6 +81,7 @@ cexpInit(CexpSigHandlerInstallProc sigHandlerInstaller);
 
 /* Managing modules (object code and symbols) */
 typedef struct CexpModuleRec_	*CexpModule;
+typedef struct CexpSymRec_	*CexpSym;
 
 /* you may use this to check if the system module
  * (i.e. system symbol table) has been loaded
@@ -102,9 +103,60 @@ cexpModuleLoad(char *file_name, char *module_name);
 int
 cexpModuleUnload(CexpModule moduleHandle);
 
-typedef struct CexpParserCtxRec_	*CexpParserCtx;
+/* return a module's name (string owned by module code) */
+char *
+cexpModuleName(CexpModule mod);
+
+/* list the IDs of modules whose name matches a pattern
+ * to file 'f' (stdout if NULL).
+ *
+ * RETURNS: First module ID found, NULL on no match.
+ */
+CexpModule
+cexpModuleFindByName(char *pattern, FILE *f);
+
+/* Dump info about a module to 'f' (stdout if NULL)
+ * If NULL is passed for the module ID, info about
+ * all modules is given.
+ */
+int
+cexpModuleInfo(CexpModule mod, FILE *f);
+
+/* search for a name in all module's symbol tables
+ *
+ * RETURNS: opaque symbol handle / NULL if not found
+ *          A handle for the module defining the symbol
+ *          is returned in *pmod. It is OK to pass
+ *          pmod==NULL if the module handle is not needed.
+ *
+ * NOTE:    This routine looks for an exact match. If you
+ *          want to search for a regular expression, use the
+ *          "semi-public" _cexpSymLookupRegex() routine which
+ *          requires knowledge of the regex library implementation.
+ */
+CexpSym
+cexpSymLookup(const char *name, CexpModule *pmod);
+
+/* Search for an address in all modules. Symbol info is printed
+ * to file 'f' for +/- 'margin' symbols in the vicinity of 'addr'.
+ *
+ * It is OK to pass 'f'==NULL in which case no info is printed.
+ *
+ * RETURNS: symbol handle for the symbol closest to 'addr';
+ *          module handle in *pmod.
+ */
+CexpSym
+cexpSymLkAddr(void *addr, int margin, FILE *f, CexpModule *pmod);
+
+/* Symbol value/name access */
+const char *
+cexpSymName(CexpSym sym);
+
+void *
+cexpSymValue(CexpSym sym);
 
 /* The C expression parser */
+typedef struct CexpParserCtxRec_	*CexpParserCtx;
 
 /* create and initialize a parser context
  * 

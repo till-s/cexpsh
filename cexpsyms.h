@@ -57,7 +57,7 @@ typedef struct CexpSymRec_ {
 	int					size;
 	unsigned			flags;
 	char				*help;
-} CexpSymRec, *CexpSym;
+} CexpSymRec;
 
 /* flags associated with symbols */
 #define CEXP_SYMFLG_GLBL		(1<<0) /* a global symbol */

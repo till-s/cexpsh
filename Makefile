@@ -1,67 +1,32 @@
-TOP=../
-
-include $(TOP)/configure/CONFIG
-#----------------------------------------
-#  ADD MACRO DEFINITIONS AFTER THIS LINE
-#=============================
-
-GENINC = geninc
-
-
-USR_CFLAGS +=  -DUSE_EPICS_OSI -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
-
-BINUT = /home/till/gnu/binutils-2.11.1/
-
-USR_INCLUDES += -I$(BINUT)/include -I$(BINUT)/bfd -I$(BINUT)/O.$(T_A)/bfd -I/home/till/slac/cexp/regexp -I/home/till/rtems/apps/libtecla -I../getopt
-
-#USR_LDFLAGS += -Wl,-M
-
-INC +=
-
-#=============================
-
-# xxxRecord.h will be created from xxxRecord.dbd
-#DBDINC +=
-#DBD +=
+#
+# Makefile to bootstrap after a CVS checkout
+#
+# NOTE: look in the ATTIC for 'mf' - it was my
+#       original makefile and might contain
+#       useful info
+#
+all: src bootstrap
 
 
-# <name>.dbd will be created from <name>Include.dbd
-#DBD += ecdr814.dbd
+YFLAGS=-v -d -p cexp
 
-#=============================
+cexp.tab.c cexp.tab.h: cexp.y
+	bison $(YFLAGS) $^
 
-#PROD_RTEMS = ecdr814App
-LIBRARY += cexp
+# remove the default rule which tries to make cexp.c from cexp.y
+cexp.c: ;
 
-cexp_SRCS += bfd-disas.c bfdstuff.c cexp.c cexpmod.c cexpsyms.c ctyps.c vars.c cexp.tab.c mygetopt_r.c
-PROD_IOC += cexpTst
+gentab: gentab.c
+	$(CC) -O -o $@ $^
 
-cextTst_SRCS_DEFAULT = cexpTstMain.c
+jumptab.c: gentab
+	./$^ > $@
+	$(RM) $^
 
-cexpTst_LIBS += cexp
-cexpTst_LIBS += iocsh
-cexpTst_LIBS += miscIoc
-cexpTst_LIBS += rsrvIoc
-cexpTst_LIBS += recIoc
-cexpTst_LIBS += softDevIoc
-cexpTst_LIBS += testDevIoc
-cexpTst_LIBS += dbtoolsIoc
-cexpTst_LIBS += asIoc
-cexpTst_LIBS += dbIoc
-cexpTst_LIBS += registryIoc
-cexpTst_LIBS += dbStaticIoc
-cexpTst_LIBS += ca
-cexpTst_LIBS += Com
+src: cexp.tab.c cexp.tab.h jumptab.c
 
-cexpTst_LIBS += tecla_r bfd opcodes iberty regexp
-
-BINUTBIN = /home/till/gnu/binutils-2.11.1/O.$(T_A)
-REGEXPLIBS = /home/till/slac/cexp/O.$(T_A)/regexp
-
-cexpTst_LDFLAGS += -Wl,-Map,blahm -L$(TOP)/lib/$(T_A) -L. -L/home/till/rtems/apps/libtecla/O.$(T_A)/ -L$(BINUTBIN)/bfd/.libs -L$(BINUTBIN)/opcodes/.libs -L$(BINUTBIN)/libiberty/.libs  -L$(REGEXPLIBS)/  -Wl,-u,iocshRegister
-
-#=============================
-
-include $(TOP)/configure/RULES
-#----------------------------------------
-#  ADD RULES AFTER THIS LINE
+bootstrap:
+	aclocal
+	autoconf
+	autoheader
+	automake -a

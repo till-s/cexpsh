@@ -19,6 +19,9 @@ SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 xsyms_SOURCES=xsyms-bfd.c
 xsyms_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 xsyms_CPPFLAGS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+gencore_SOURCES=gencore.c
+gencore_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+gencore_CPPFLAGS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
 SYMF_SRCS = elfsyms.c
 SYMLIBP=-Llibelf-local/lib
@@ -75,7 +78,11 @@ bin_PROGRAMS=cexp xsyms
 endif
 else
 AM_CPPFLAGS = $(xsyms_CPPFLAGS)
+if USEBFD
+bin_PROGRAMS=xsyms gencore
+else
 bin_PROGRAMS=xsyms
+endif
 endif
 
 

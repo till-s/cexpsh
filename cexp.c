@@ -56,6 +56,7 @@
 #include <setjmp.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/param.h>
 #if defined(__rtems__) && !defined(RTEMS_TODO_DONE)
 #include "rtems-hackdefs.h"
 #else

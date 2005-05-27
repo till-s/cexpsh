@@ -61,6 +61,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 #include <string.h>
 #include <fcntl.h>
 #include <ctype.h>
@@ -1226,6 +1227,8 @@ void							*ehFrame=0;
 char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
+#else
+#define tmpfname 0
 #endif
 
 enum bfd_architecture			arch;

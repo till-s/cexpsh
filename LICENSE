@@ -14,7 +14,7 @@
 
        NOTE This license applies only to CEXP itself and _NOT_ to the
             libraries (found in the binutils, libtecla, regexp and
-            libelf subdirectories) who are distributed with CEXP for
+            libelf subdirectories) which are distributed with CEXP for
             convenience. If you decide to use one of those libraries
             you must read and agree to their respective licensing
             conditions)

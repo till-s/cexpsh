@@ -135,12 +135,14 @@ CexpSym	s;
 			(void*)s->value.ptv == (void*)addr;
 }
 
+#if 0 /* unused - why did I create that ?? */
 static int
 readMem(bfd_vma vma, bfd_byte *buf, unsigned int length, disassemble_info *di)
 {
 	/* memory is already holding the data we want to disassemble */
 	return 0;
 }
+#endif
 
 
 void

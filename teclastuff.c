@@ -49,6 +49,8 @@
 
 #include <libtecla.h>
 #include <cexp_regex.h>
+#include <ctype.h>
+#include <string.h>
 
 #include "cexpsyms.h"
 #include "cexpmod.h"

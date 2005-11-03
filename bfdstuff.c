@@ -285,7 +285,6 @@ asymbol			*spb=**(asymbol***)b;
 }
 #else
 #define get_align_pwr(abfd,sp)	0
-#define align_size_compare		0
 #endif
 
 /* determine if a given symbol is a constructor or destructor 
@@ -1153,15 +1152,17 @@ long				num_new_commons;
 		goto cleanup;
 	}
 
+#ifdef HAVE_ELF_BFD_H
 	/*
 	 *	sort the list of new_commons by alignment
 	 */
-	if (align_size_compare && num_new_commons)
+	if (num_new_commons)
 		qsort(
 			(void*)ld->new_commons,
 			num_new_commons,
 			sizeof(*ld->new_commons),
 			align_size_compare);
+#endif
 	
 	/* Now, everything is in place to build our internal symbol table
 	 * representation.

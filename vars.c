@@ -225,7 +225,8 @@ findN_LOCK(const char *name, lh *succ)
 CexpSym
 cexpVarLookup(const char *name, int creat)
 {
-CexpVar v,where;
+CexpVar v;
+lh		where;
 CexpVar n;
 CexpStr s;
 
@@ -238,17 +239,18 @@ CexpStr s;
 		s=0;
 	}
 
-	if (!(v=findN_LOCK(name,(lh*)&where)) && creat && n && s) {
-		CexpStr t,q;
+	if (!(v=findN_LOCK(name,&where)) && creat && n && s) {
+		CexpStr t;
+		lh		q;
 		/* create string */
-		if (!(t=strFindN_LOCK(name,(lh*)&q))) {
-			lhrAdd(s,(lh)q);
+		if (!(t=strFindN_LOCK(name,&q))) {
+			lhrAdd(s,q);
 			strcpy(&s->str[0],name);
 			t=s; s=0;
 		}
 		__UNLOCK;
 		/* create variable / add to list */
-		lhrAdd(n,(lh)where);
+		lhrAdd(n,where);
 		n->sym.value.type=TVoid;
 		n->sym.value.ptv=&n->val;
 		n->sym.name=&t->str[0];
@@ -267,7 +269,8 @@ CexpStr s;
 char *
 cexpStrLookup(char *name, int creat)
 {
-CexpStr s,t,q;
+CexpStr s,t;
+lh		q;
 
 	if (creat) {
 		/* (avoid calling malloc from locked section) */
@@ -278,8 +281,8 @@ CexpStr s,t,q;
 	}
 
 	/* create string ? */
-	if (!(t=strFindN_LOCK(name,(lh*)&q)) && creat && s) {
-		lhrAdd(s,(lh)q);
+	if (!(t=strFindN_LOCK(name,&q)) && creat && s) {
+		lhrAdd(s,q);
 		strcpy(&s->str[0],name);
 		t=s; s=0;
 	}
@@ -295,12 +298,13 @@ CexpStr s,t,q;
 void *
 cexpVarDelete(char *name)
 {
-CexpVar v,p;
-	if ((v=findN_LOCK(name,(lh*)&p))) {
+CexpVar v;
+lh		p;
+	if ((v=findN_LOCK(name,&p))) {
 #ifdef DOUBLE_LINKED
 		lhrDel(v);
 #else
-		p->head.p=v->head.p;
+		p->p=v->head.p;
 #endif
 	}
 	__UNLOCK;

@@ -176,7 +176,7 @@ int		i;
 		for ( i=cexpSymTblLkAddrIdx(h->addr,0,0,t);
 			  i>=0 && (found = t->aindex[i])->value.ptv == h->addr;
 		      i-- ) {
-			if (CEXP_SYMFLG_GLBL == found->flags & (CEXP_SYMFLG_GLBL|CEXP_SYMFLG_SECT)) {
+			if (CEXP_SYMFLG_GLBL == (found->flags & (CEXP_SYMFLG_GLBL|CEXP_SYMFLG_SECT))) {
 				found->help=h->info.text;
 				break;
 			}

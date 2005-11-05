@@ -1269,7 +1269,7 @@ char							*thename = 0;
 	f = cexpSearchFile(getenv("PATH"), &filename, thename, tmpfname);
 
 	if ( !f ) {
-		perror("opening object file");
+		perror("opening object file (check PATH)");
 		goto cleanup;
 	}
 

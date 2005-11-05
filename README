@@ -27,6 +27,8 @@ below for more information.
 What is New?
 ------------
 
+ - for later versions, consult the ChangeLog file.
+
  - 2003/02/14: CEXP_1.2.beta ("Valentine") released.
    It supports G++ prioritized execution of static
    constructors/destructors.
@@ -575,31 +577,6 @@ needed by CEXP and the OS itself during this process.
 Any library CEXP does _not_ depend on, directly or indirectly, can
 of course be dynamically loaded any time later.
 
-**************** SOMEHOW OBSOLETE BEGIN **********************
-
-A special makefile is provided (Makefile.syms)
-to help you generating the system configuration (RTEMS).
-You can give the make process a list of libraries to work on.
-'make' then generates a file containing a list of all symbols
-exported by the libraries.
-
-You can then browse this lists and delete/comment symbols or
-chunks of symbols that you dont want to be present. In some
-cases it is very much necessary to exclude certain symbols
-from a link because an attempt to forcibly link them results
-in linker errors. This can happen, e.g. if you try to enforce
-linking a (under normal circumstances NEVER used) routine which 
-has unresolved dependencies.
-
-Makefile.syms can then be used to generate a special ELF
-object file 'syms.o' containing nothing but symbol
-references. 'syms.o' can then be linked with the application
-(just add it to the list of the application's objects)
-and will force the linker to pull in the referenced
-library objects.
-
-**************** SOMEHOW OBSOLETE ELSE ***********************
-
 A new tool 'ldep' is available greatly alleviating the task
 of analyzing link file interdependency and generating symbol
 lists etc. It is available as part of the 'GeSys' package
@@ -607,7 +584,73 @@ lists etc. It is available as part of the 'GeSys' package
 more documentation. Some info is available here:
 http://www/~strauman/rtems/epics/README.config
 
-**************** SOMEHOW OBSOLETE END ************************
+Using the Parser from a Program
+- - - - - - - - - - - - - - - -
+
+In some cases, you might want to access/use symbols in loaded modules from 
+a program rather than through the cexp shell or a shell script. If the
+module providing the 'caller' is loaded after the module defining the 'callee'
+this is transparent. E.g., let a module 'A' define a function 'a()' and module
+'B' define a routine 'b()' which shall call 'a()'. If module 'A' was loaded
+before 'B' then cexp's linker will resolve the reference and no special
+treatment is required.
+
+If, however, module 'B' must for some reason be loaded before 'A' then
+'B' cannot simply call 'a()' since that would result in a linker error.
+
+Here's how you can load a module from a program and use symbols exported by
+that (or any other) module (no error checking shown):
+
+void (*p_a)();             /* declare function pointer to 'a()'              */
+	cexpModuleLoad("A",0); /* use file name as module name; PATH is searched */
+
+    /* lookup the symbol */
+	p_a = cexpSymValue(cexpSymLookup("a",0));
+	/* call function     */	
+	if ( !p_a )
+		/* error; symbol not found */
+	else
+		p_a();
+
+
+Another method is using the interpreter (slower, of course). Since the
+interpreter is re-entrant, this involves dragging around context information:
+
+CexpParserCtx c = cexpCreateParserCtx(0);
+
+	/* these two calls could/should be wrapped into 'cexpParseLine'... */
+	cexpResetParserCtx(c, "a()");
+	cexpparse(c);
+
+Note that more documentation about these calls can be found in 'cexp.h'.
+Note also that some of the cexp library calls require more arguments
+than apparent from the examples in other sections of this document where
+the shell is explained!  Most routines are geared for shell use and declare
+the most important arguments first, followed by optional arguments and they
+use defaults when these optional arguments are NULL. The shell implicitely
+sets extra arguments to zero so that when you type e.g.,
+
+  'cexpModuleLoad("file.o")'
+
+this effectively is expanded to 'cexpModuleLoad("file.o",NULL)' since
+cexpModuleLoad() expects two parameters. OTOH, if you code
+cexpModuleLoad("file.o") in a program then the compiler will warn you
+and the second argument will be undefined. Therefore, if you want to use
+library calls from a program you should consult 'cexp.h' for reference.
+
+Before you can use the Cexp library, it must be properly initialized:
+
+CEXP Liberary Initialization
+- - - - - - - - - - - - - - -
+When using the 'cexp_main()' AKA shell entry point, the library is initialized
+automatically (you might still want to use cexpInit() if you intend to use your
+own signal handler...).
+If you want to use cexp from a program as shown in the examples above, the library
+must be initialized before using it:
+
+	cexpInit(0);            /* initialize internal data; use default signal handling   */
+	cexpModuleLoad(0,0);	/* attach built-in symbol table. If you dont have a built- */
+	                        /* in table, you must pass a filename argument (see cexp.h)*/
 
 C++ Information
 - - - - - - - -

@@ -239,9 +239,9 @@ Tested Configurations:
 Installing Cexp:
 - - - - - - - - -
 Theoretically, 'make install' should do the job (provided that you specified
-the correct '--prefix' options during configuration - this is just one
-more example why GNU configure SUCKS - changing the install location after
-configuration [and spending LOTS of time] is difficult if not impossible).
+the correct '--prefix' options during configuration - changing the install
+location after configuration [and spending LOTS of time] is difficult if not
+impossible).
 
 However, as this is prone to missing the correct location and installing
 unwanted docs etc.  I prefer a manual install (I have 3 to 4 cross-gccs -

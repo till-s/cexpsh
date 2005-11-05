@@ -1,4 +1,6 @@
 Changes since CEXP-1.5
+ 2005/11/5:
+ - Updated README to explain how to use libcexp from a program.
  2005/11/4:
  - Created '--disable-opcodes' configure option. Updated README
    to give info about linker helper script generation with 

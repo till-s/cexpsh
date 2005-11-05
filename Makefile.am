@@ -5,35 +5,42 @@ SUBDIRS=@THESUBDIRS@
 
 ##BUILT_SOURCES = builddate.h
 
+MOSTLYCLEANFILES =
+
 if USETECLA
-TECLA_SRCS = teclastuff.c
-TECLALIBP=-L@LIBTECLA@
-TECLALIBS=-ltecla_r
-TECLAINCS=-I@srcdir@/@LIBTECLA@
+TECLA_SRCS       = teclastuff.c
+TECLALIBP        = -L@LIBTECLA@
+TECLALIBS        = -ltecla_r
+TECLAINCS        = -I@srcdir@/@LIBTECLA@
 endif
 
 if USEBFD
-SYMF_SRCS = bfdstuff.c bfd-disas.c
-SYMLIBP=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/opcodes/.libs -L@BINUTILS@/libiberty
-SYMLIBS=-lbfd -lopcodes -liberty
-SYMINCS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-xsyms_SOURCES=xsyms-bfd.c
-xsyms_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-xsyms_CPPFLAGS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-gencore_SOURCES=gencore.c
-gencore_LDADD=-L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-gencore_CPPFLAGS=-I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+SYMF_SRCS        = bfdstuff.c
+SYMLIBP          = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty
+SYMLIBS          = -lbfd -liberty
+if USEOPCODES
+SYMF_SRCS       += bfd-disas.c
+SYMLIBP         += -L@BINUTILS@/opcodes/.libs
+SYMLIBS         += -lopcodes
+endif
+SYMINCS          = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+xsyms_SOURCES    = xsyms-bfd.c
+xsyms_LDADD      = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+gencore_SOURCES  = gencore.c
+gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
-SYMF_SRCS = elfsyms.c
-SYMLIBP=-Llibelf-local/lib
-SYMLIBS=-lelf
-SYMINCS=-Ilibelf-local/include
-xsyms_SOURCES=xsyms.c
+SYMF_SRCS        = elfsyms.c
+SYMLIBP          = -Llibelf-local/lib
+SYMLIBS          = -lelf
+SYMINCS          = -Ilibelf-local/include
+xsyms_SOURCES    = xsyms.c
 if NATIVE_LIBELF
-xsyms_LDADD=-lelf
+xsyms_LDADD      = -lelf
 else
-xsyms_LDADD=-Llibelf-local/lib -lelf
-xsyms_CPPFLAGS=-Ilibelf-local/include
+xsyms_LDADD      = -Llibelf-local/lib -lelf
+xsyms_CPPFLAGS   = -Ilibelf-local/include
 endif
 endif
 
@@ -100,7 +107,7 @@ install-libelf-local:
 remove-libelf-local:
 	$(RM) -r libelf-local
 
-clean: remove-libelf-local	
+clean-local: remove-libelf-local
 
 #we can't use automake for this because
 # - we _need_ bison
@@ -125,6 +132,8 @@ cexp.c: builddate.c
 
 builddate.c: ALWAYS
 	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
+
+MOSTLYCLEANFILES+=builddate.c
 
 .PHONY: ALWAYS
 

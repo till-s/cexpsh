@@ -85,11 +85,12 @@ a symbol table in C-source form for subsequent compilation and
 linkage into the final executable. This usually involves linking
 the executable twice:
   1) compile and link all sources, libraries etc.; build an executable
-  2) xsyms -C executable  mysymtab.c
+  2) xsyms -C executable  mysymtab.c > link_helper
   3) compile mysymtab.c (set -I to Cexp source directory, since
      cexpsyms.h is included)
   4) link application again, but this time add 'mysymtab.c' to the
-     list of sources.
+     list of sources and 'link_helper' to the list of files to
+     be linked.
   NOTE: Step 1) linking succeeds without a symtab.o because there's
         a weak NULL-ptr alias for the builtin symtab.
 A similar source file can also be generated using the 'ldep' utility

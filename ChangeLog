@@ -1,4 +1,16 @@
 Changes since CEXP-1.5
+ 2005/11/4:
+ - Created '--disable-opcodes' configure option. Updated README
+   to give info about linker helper script generation with 
+   xsyms -C.
+ - Use clean-local: target to remove libelf local install dir.
+ - elfsyms.c fix; remove obsolete free_regexp leftover.
+ - updated tested configurations in INSTALL.
+ 2005/11/3:
+ - Silenced compiler warnings (vars.c) by using appropriate 'lh'
+   type. Use my_sigismember() to avoid conflict with declaration
+   in header. Silenced more warnings.
+ - Removed strncmp() from libiberty.
 
 Changes since CEXP-1.4.beta ("Helvetia")
  2004/10/29:

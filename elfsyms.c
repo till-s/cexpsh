@@ -327,7 +327,6 @@ int			rval=-1;
 	if ((new_module->symtbl=cexpSlurpElf(filename))) {
 		rval=0;
 	}
-	cexp_regfree(rc);
 	return rval;
 }
 

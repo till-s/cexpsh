@@ -64,6 +64,11 @@ AC_ARG_ENABLE(readline,
 		[disable using the readline library (used only if tecla is disabled)])
 )
 
+AC_ARG_ENABLE(opcodes,
+	AC_HELP_STRING([--disable-opcodes],
+		[disable using the opcodes library; removes disassembler support. (only if bfd is enabled)])
+)
+
 AC_ARG_WITH(rtems-notepad,
 	AC_HELP_STRING([--with-rtems-notepad=<notepad_number>],
 		[use an RTEMS notepad (0..14) to store context info instead of a task variable; NOTE: EPICS uses 11]),
@@ -116,7 +121,11 @@ if test "$enable_bfd" != "no" ; then
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
     AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
-	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
+	if test "$enable_opcodes" != "no"; then
+		AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
+	fi
+else
+	enable_opcodes=no;
 fi
 
 AC_HAVE_FUNCS(rcmd vsnprintf)
@@ -129,6 +138,7 @@ AM_CONDITIONAL(NATIVE_LIBELF, test "$we_have_native_libelf" = "yes" )
 AM_CONDITIONAL(ISRTEMS, test "$host_os" = "rtems")
 AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
+AM_CONDITIONAL(USEOPCODES,test "$enable_opcodes" != "no")
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)

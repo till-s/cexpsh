@@ -121,11 +121,11 @@ it will take):
 
 	../configure --host=powerpc-rtems --with-multisubdir=m750 --disable-nls
 
-this example restricts the build to PowerPC mPC750...
+this example restricts the build to PowerPC mpc750...
 
 The configure script recognizes several options:
 
-	--help		list known options
+	--help	list known options
 	--disable-nls	disable native language support.
 			You probably _must_ specify this as several
 			directories have been deleted from the distributed
@@ -138,6 +138,8 @@ The configure script recognizes several options:
                   didn't work for me) and install it into the CEXP
                   source directory. Tweaking of the configure/makefiles
                   required for versions other than 0.8.2.
+    --disable-opcodes don't use the opcodes library (opcodes is never
+            used if BFD is disabled). This removes the disassembler.
 	--disable-tecla	don't use the TECLA library (discouraged)
 	--disable-readline don't use GNU readline either (this option is only
 			effective if --disable-tecla is also specified)
@@ -200,9 +202,10 @@ RTEMS_NOTE:
 Cexp (and the patched tecla library) contain some hacks to avoid
 having to build for a specific BSP. Hence, one instance of the libraries
 per CPU architecture should be enough (at least for PowerPC - other RTEMS
-targets are untested). This also eliminates the need for
+targets are untested in this respect). This also eliminates the need for
 the RTEMS makefile system. The package can be built ignoring the BSP - just
-specify the correct cross compiler when configuring (setenv CC).
+specify the correct cross compiler when configuring (setenv CC) and
+compiler options (CFLAGS=xxx on configure cmdline or in environment).
 
 Running the Cexp Demo on a Host
 - - - - - - - - - - - - - - - -
@@ -227,7 +230,11 @@ Tested Configurations:
  - solaris-sparc
  - RTEMS-mvme23xx (PowerPC 604)
  - RTEMS-svgm     (PowerPC 750 and 7400)
-
+ - RTEMS-mvme5500
+ - RTEMS-mvme2100
+ - RTEMS-pc586
+ - RTEMS-mvme167
+ - RTEMS-uC5282
 
 Installing Cexp:
 - - - - - - - - -

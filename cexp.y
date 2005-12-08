@@ -96,6 +96,7 @@ typedef struct CexpParserCtxRec_ {
 	CexpTypedValRec	rval;
 	unsigned long	evalInhibit;
 	FILE			*f;				/* where to print evaluated value			*/
+	char            sbuf[1000];		/* scratch space for strings */
 } CexpParserCtxRec;
 
 static CexpSym
@@ -658,10 +659,10 @@ int hasE=0;
 int
 yylex(YYSTYPE *rval, void *arg)
 {
-unsigned long	num;
-CexpParserCtx 	pa=arg;
-char sbuf[80], limit=sizeof(sbuf)-1;
-char *chpt;
+unsigned long num;
+CexpParserCtx pa=arg;
+int           limit=sizeof(pa->sbuf)-1;
+char          *chpt;
 
 	while (' '==ch || '\t'==ch)
 		getch();
@@ -700,7 +701,7 @@ char *chpt;
 			rval->val.type=TUChar;
 			return NUMBER;
 		}
-		chpt=sbuf;
+		chpt=pa->sbuf;
 		if ('0'==ch) {
 			
 			/* hex, octal or fractional */
@@ -718,7 +719,7 @@ char *chpt;
 				}
 			} else if ('.'==ch) {
 				/* a decimal number */
-				return scanfrac(sbuf,chpt,limit,rval,pa);
+				return scanfrac(pa->sbuf,chpt,limit,rval,pa);
 			} else {
 				/* OK, it's octal */
 				while ('0'<=ch && ch<'8') {
@@ -739,7 +740,7 @@ char *chpt;
 			}
 			if ('.'==ch) {
 				/* it's a fractional number */
-				return scanfrac(sbuf,chpt,limit,rval,pa);
+				return scanfrac(pa->sbuf,chpt,limit,rval,pa);
 			}
 		}
 		rval->val.tv.l=num;
@@ -748,10 +749,10 @@ char *chpt;
 	} else if ('.'==ch) {
 		/* perhaps also a fractional number */
 		return
-			scanfrac(sbuf,sbuf,limit,rval,pa);
+			scanfrac(pa->sbuf,pa->sbuf,limit,rval,pa);
 	} else if (isalpha(ch) || ISIDENTCHAR(ch)) {
 		/* slurp in an identifier */
-		chpt=sbuf;
+		chpt=pa->sbuf;
 		do {
 			*(chpt++)=ch;
 			getch();
@@ -760,29 +761,29 @@ char *chpt;
 		if (!limit)
 			return prerr();
 		/* is it one of the type cast keywords? */
-		if (!strcmp(sbuf,"char"))
+		if (!strcmp(pa->sbuf,"char"))
 			return KW_CHAR;
-		else if (!strcmp(sbuf,"short"))
+		else if (!strcmp(pa->sbuf,"short"))
 			return KW_SHORT;
-		else if (!strcmp(sbuf,"long"))
+		else if (!strcmp(pa->sbuf,"long"))
 			return KW_LONG;
-		else if (!strcmp(sbuf,"float"))
+		else if (!strcmp(pa->sbuf,"float"))
 			return KW_FLOAT;
-		else if (!strcmp(sbuf,"double"))
+		else if (!strcmp(pa->sbuf,"double"))
 			return KW_DOUBLE;
-		else if ((rval->sym=cexpSymLookup(sbuf, 0)))
+		else if ((rval->sym=cexpSymLookup(pa->sbuf, 0)))
 			return CEXP_TYPE_FUNQ(rval->sym->value.type) ? FUNC : VAR;
-		else if ((rval->sym=cexpVarLookup(sbuf,0))) {
+		else if ((rval->sym=cexpVarLookup(pa->sbuf,0))) {
 			return UVAR;
 		}
 
 		/* it's a currently undefined symbol */
-		return (rval->lstr=lstAddString(pa,sbuf)) ? IDENT : LEXERR;
+		return (rval->lstr=lstAddString(pa,pa->sbuf)) ? IDENT : LEXERR;
 	} else if ('"'==ch) {
 		/* generate a string constant */
 		char *dst;
 		const char *strStart;
-		dst=sbuf-1;
+		dst=pa->sbuf-1;
 		strStart = pa->chpt+1;
 		do {
 		skipit:	
@@ -808,9 +809,9 @@ char *chpt;
 				getch();
 				rval->val.type=TUCharP;
 #ifdef CONFIG_STRINGS_LIVE_FOREVER
-				rval->val.tv.p=cexpStrLookup(sbuf,1);
+				rval->val.tv.p=cexpStrLookup(pa->sbuf,1);
 #else
-				rval->val.tv.p=lstAddString(pa,sbuf);
+				rval->val.tv.p=lstAddString(pa,pa->sbuf);
 #endif
 				return rval->val.tv.p ? STR_CONST : LEXERR;
 			}

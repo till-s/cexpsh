@@ -1,4 +1,14 @@
 Changes since CEXP-1.5
+ 2005/12/7:
+ - Renamed 'cexp()' to 'cexpsh()' to avoid the name clash with
+   POSIX cexp() (complex exponential). This is an API change -
+   all applications calling 'cexp()' need to call 'cexpsh()' now.
+ - Removed 'malloc()' declaration from spencer_regexp/regexp.c.
+   #include <stdlib.h> instead (silenced warning).
+ - Removed 80 char length limitation on string constants (was a
+   parser limit). Now use a 1000 char buffer that is part of the
+   parser context to assemble such strings (was 80 char buffer on
+   stack).
  2005/11/5:
  - Updated README to explain how to use libcexp from a program.
  2005/11/4:

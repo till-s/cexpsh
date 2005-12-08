@@ -309,7 +309,7 @@ cexpAddrFind(void **addr, char *buf, int size);
  *       'arg1' is the first 'real' argument.
  */
 int
-cexp(char *arg1,...);
+cexpsh(char *arg1,...);
 
 /* the main interpreter loop, it can be registered
  * with a shell...

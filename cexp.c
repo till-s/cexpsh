@@ -200,7 +200,7 @@ version(char *nm)
 static void
 hello(void)
 {
-	fprintf(stderr,"Type 'cexp.help()' for help (no quotes)\n");
+	fprintf(stderr,"Type 'cexpsh.help()' for help (no quotes)\n");
 }
 
 #ifdef DEBUG
@@ -366,7 +366,7 @@ static int done=0;
 
 /* a wrapper to call cexp main with a variable arglist */
 int
-cexp(char *arg0,...)
+cexpsh(char *arg0,...)
 {
 va_list ap;
 int		argc=0;
@@ -380,7 +380,7 @@ char	*argv[10]; /* limit to 10 arguments */
 
 		while ((argv[++argc]=va_arg(ap,char*))) {
 			if (argc >= sizeof(argv)/sizeof(argv[0])) {
-				fprintf(stderr,"cexp: too many arguments\n");
+				fprintf(stderr,"cexpsh: too many arguments\n");
 				va_end(ap);
 				return CEXP_MAIN_INVAL_ARG;
 			}

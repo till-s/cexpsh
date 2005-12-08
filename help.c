@@ -137,13 +137,13 @@ RETURNS: mod->next",
     cexpModuleFindByName - find a module given its name\n\
     cexpModuleInfo       - dump info about one or all modules\n"
 	DISAS_HELP
-"    cexp(\"commandline\")  - run cexp recursively - e.g. for evaluating a script\n\n\
+"    cexpsh(\"commandline\")  - run cexp recursively - e.g. for evaluating a script\n\n\
 Use 'symbol.help(level)' for getting info about a symbol:\n\n\
     lkup.help(1)\n\n\
 Type a C expression, e.g.\n\n\
         printf(\"hello %s\\n\",\"cruelworld\" + 5)\n",
 		int,
-		cexp,(char* cmdline)
+		cexpsh,(char* cmdline)
 	),
 #ifdef HAVE_BFD_DISASSEMBLER
 	HELP(

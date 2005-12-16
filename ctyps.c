@@ -450,7 +450,7 @@ const char *errmsg;
 							case TUShort: y->tv.s=(unsigned short)-(short)x->tv.s; break;
 							case TULong:  y->tv.l=(unsigned long)-(long)x->tv.l; break;
 							case TFloat:  y->tv.f=-x->tv.f; break;
-							case TDouble: y->tv.c=-x->tv.d; break;
+							case TDouble: y->tv.d=-x->tv.d; break;
 							default: return "invalid type for NEG operator";
 					}
 					return 0;

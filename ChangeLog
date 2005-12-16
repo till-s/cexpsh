@@ -1,4 +1,7 @@
 Changes since CEXP-1.5
+ 2005/12/16:
+ - Bugfix: unary '-' operator on 'double' numbers scrambled the
+   number's bit pattern (reported by Peter Dufault).
  2005/12/7:
  - Renamed 'cexp()' to 'cexpsh()' to avoid the name clash with
    POSIX cexp() (complex exponential). This is an API change -

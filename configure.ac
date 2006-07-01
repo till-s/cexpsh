@@ -19,6 +19,7 @@ AC_SUBST(LIBTECLA)
 AC_PROG_CC
 AC_PROG_CPP
 AC_CHECK_PROGS(HOSTCC, gcc cc)
+AC_CHECK_TOOL(AR,ar)
 AC_PROG_RANLIB
 AC_PROG_INSTALL
 
@@ -37,7 +38,7 @@ dnl or for a different one otherwise, we build 'xsyms' only...
 if test "$target-system" != "$host-system" ; then
 enable_cexp=no
 dnl gencore needs stdint.h
-AC_CHECK_HEADER(stdint.h, [AC_DEFINE([HAVE_STDINT_H])])
+AC_CHECK_HEADER([stdint.h])
 AH_TEMPLATE([HAVE_TYPE_UINT32_T])
 AC_CHECK_TYPE(uint32_t,[AC_DEFINE([HAVE_TYPE_UINT32_T])],[AC_CHECK_SIZEOF([unsigned int])])
 fi
@@ -48,6 +49,8 @@ if test ! -f $srcdir/cexp.y ; then
 fi
 
 if test "$enable_cexp" != "no" ; then
+
+AC_CHECK_HEADERS([sys/mman.h])
 
 AC_ARG_ENABLE(YYDEBUG,
 	AC_HELP_STRING([--enable-YYDEBUG],
@@ -119,7 +122,7 @@ fi
 
 if test "$enable_bfd" != "no" ; then
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
-    AC_CONFIG_SUBDIRS(binutils)
+	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
 	if test "$enable_opcodes" != "no"; then
 		AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])

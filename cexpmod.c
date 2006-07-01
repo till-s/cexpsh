@@ -42,6 +42,10 @@
  * copy or derivative of this software.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <assert.h>
 #include <cexp_regex.h>
@@ -53,6 +57,10 @@
 #include "cexplock.h"
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
+
+#ifdef HAVE_SYS_MMAN_H
+#include <sys/mman.h>
+#endif
 
 #ifdef HAVE_BFD_DISASSEMBLER
 #include <bfd.h>
@@ -463,6 +471,18 @@ CexpModule	pred,m;
 
 	__WUNLOCK();
 
+#ifdef HAVE_SYS_MMAN_H
+	{
+	unsigned long nsiz, pgbeg, pgmsk;
+		pgmsk  = getpagesize()-1;
+		pgbeg  = (unsigned long)mod->memSeg;
+		pgbeg &= ~pgmsk;
+		nsiz   = mod->memSize + (unsigned long)mod->memSeg - pgbeg; 
+		nsiz   = (nsiz + pgmsk) & ~pgmsk;
+		if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE) )
+			perror("ERROR -- mprotect(PROT_READ|PROT_WRITE)");
+	}
+#endif
 	memset(mod->memSeg, 0, mod->memSize);
 
 	/* could flush the caches here */
@@ -670,6 +690,20 @@ char       *slash = filename ? strrchr(filename,'/') : 0;
 		}
 		cexp_regfree(rc);
 	}
+
+#ifdef HAVE_SYS_MMAN_H
+	/* make executable */
+	if ( nmod->memSeg ) {
+	unsigned long nsiz, pgbeg, pgmsk;
+		pgmsk  = getpagesize()-1;
+		pgbeg  = (unsigned long)nmod->memSeg;
+		pgbeg &= ~pgmsk;
+		nsiz   = nmod->memSize + (unsigned long)nmod->memSeg - pgbeg; 
+		nsiz   = (nsiz + pgmsk) & ~pgmsk;
+		if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE | PROT_EXEC) )
+			perror("ERROR -- mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)");
+	}
+#endif
 
 	/* call the constructors */
 	{

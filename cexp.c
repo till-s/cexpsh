@@ -125,26 +125,39 @@ int		len;
 }
 
 #else
+#define LINEBUFSZ 500
 static char *readline_r(char *prompt, void *context)
 {
-int ch;
-	char *rval=malloc(500),*cp;
-	if (prompt)
-		fputs(prompt,stdout);
+int ch = -1;
 
-	for (cp=rval; cp<rval+500-1 && (ch=getchar())>=0;) {
+	char *rval,*cp;
+
+	if ( ! (rval=malloc(LINEBUFSZ)) )
+		return 0;
+
+	if (prompt) {
+		fputs(prompt,stdout);
+		fflush(stdout);
+	}
+
+	for (cp=rval; cp<rval+LINEBUFSZ-1 && (ch=getchar())>=0;) {
 			switch (ch) {
 				case '\n': *cp=0; return rval;
 				case '\b':
 					if (cp>rval) {
 						cp--;
 						fputs("\b ",stdout);
+						fflush(stdout);
 					}
 					break;
 				default:
 					*cp++=ch;
 					break;
 			}
+	}
+	if ( ch < 0 ) {
+		free(rval);
+		rval = 0;
 	}
 	return rval;	
 }

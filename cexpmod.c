@@ -604,7 +604,6 @@ CexpSym s;
 		}
 		if ( !ai ) {
 			cexpBuiltinCpuArch = 0;
-			fprintf(stderr,"Unable to determine target CPU architecture -- skipping disassembler installation");
 			goto cleanup;
 		}
 
@@ -612,9 +611,11 @@ CexpSym s;
 		cexpDisassemblerInstall(abfd);
 
 cleanup:
-		if (abfd)
+		if ( !ai )
+			fprintf(stderr,"Unable to determine target CPU architecture -- skipping disassembler installation\n");
+		if ( abfd )
 			bfd_close_all_done(abfd);
-		if (tn) {
+		if ( tn ) {
 			unlink(tn);
 			free(tn);
 		}

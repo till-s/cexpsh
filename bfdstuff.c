@@ -643,13 +643,14 @@ long		err;
 			asection	*symsect=bfd_get_section(*r->sym_ptr_ptr);
 			if (   bfd_is_und_section(symsect) ||					
 				   /* reloc references an undefined sym */
+/* FIXME: -- should we allow *any* absolute symbol here (e.g., created with --defsym=XXX) */
 				( !(SEC_ALLOC & bfd_get_section_flags(abfd,symsect)) &&
 				   /* reloc references a dropped linkonce */
 				  !( bfd_is_abs_section(symsect) && (ld->eh_section == sect) ) )
 				   /* it does reference a dropped linkonce but in the eh_frame
 					* this will be ignored by the frame unwinder (I hope - I did
 					* some digging through libgcc (gcc-3.2) sources and it seemed
-					* so althouth it's a very complicated issue)
+					* so although it's a very complicated issue)
 					* NOTE: the converse case - i.e. if an eh_frame section in the
 					*       object we are loading right now	references a 'linkonce'
 					*       section we have deleted - is probably OK. We relocate

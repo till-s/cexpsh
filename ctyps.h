@@ -180,7 +180,7 @@ CexpType cexpTypeGuessFromSize(int size);
  */
 #define CNV_FORCE	1
 /* cast a typed value to a new type, set CNV_FORCE if
- * you want to allow for loosing information
+ * you want to allow for losing information
  * (such as casting a TULong to a TUChar).
  */
 const char *

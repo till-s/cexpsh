@@ -220,5 +220,6 @@ struct termios {
 
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
+int tcflow(int,int);
 
 #endif

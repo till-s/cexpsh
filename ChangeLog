@@ -1,4 +1,6 @@
 Changes since CEXP-1.5
+ 2007/2/14:
+ - ported libtecla-1.6.1
  2005/12/16:
  - Bugfix: unary '-' operator on 'double' numbers scrambled the
    number's bit pattern (reported by Peter Dufault).

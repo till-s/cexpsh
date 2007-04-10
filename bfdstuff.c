@@ -151,7 +151,7 @@ extern void	cexpDisassemblerInstall(bfd *abfd);
 		::"r"(addr))
 /* enforce flush completion and discard preloaded instructions */
 #    define FLUSHFINISH() __asm__ __volatile__("sync; isync")
-#elif defined(__mc68000__) || defined(__mc68000) || defined(mc68000)
+#elif defined(__mc68000__) || defined(__mc68000) || defined(mc68000) || defined(__m68k__)
 #    define CACHE_LINE_SIZE 16
 #  if defined(__rtems__)
 extern void _CPU_cache_flush_1_data_line(void *addr);

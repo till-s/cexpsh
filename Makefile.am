@@ -79,8 +79,10 @@ if DO_DEMO
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 #cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
+# '-static' might not be recognized by other compilers
+cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
-cexp_LDFLAGS= $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
+cexp_LDFLAGS= $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=cexp xsyms
 endif

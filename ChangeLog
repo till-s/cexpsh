@@ -1,4 +1,7 @@
 Changes since CEXP-1.5
+ 2007/10/08:
+ - libtecla 'install' failed to create man3, man4, ... subdirs.
+ - add '-static' compiler flag when building the demo with gcc
  2007/2/14:
  - ported libtecla-1.6.1
  2005/12/16:

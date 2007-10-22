@@ -139,10 +139,16 @@ AM_CONDITIONAL(DO_CEXPLIB, test "$enable_cexp" != "no")
 dnl if host=target AND host=build, then to the demo
 AM_CONDITIONAL(DO_DEMO, 	test "$host-system" = "$build-system")
 AM_CONDITIONAL(NATIVE_LIBELF, test "$we_have_native_libelf" = "yes" )
-AM_CONDITIONAL(ISRTEMS, test "$host_os" = "rtems")
 AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
 AM_CONDITIONAL(USEOPCODES,test "$enable_opcodes" != "no")
+
+AH_VERBATIM(NO_THREAD_PROTECTION,[
+/* Disable thread protection on OS other than RTEMS */
+#ifndef __rtems__
+#define NO_THREAD_PROTECTION
+#endif
+])
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)

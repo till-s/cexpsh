@@ -59,10 +59,6 @@ SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmo
 
 #CONFIGHACKS=-DHAVE_ELF_BFD_H -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
 
-if !ISRTEMS
-CONFIG_THREADS=-DNO_THREAD_PROTECTION
-endif
-
 if DO_CEXPLIB
 
 lib_LIBRARIES=libcexp.a
@@ -136,6 +132,8 @@ builddate.c: ALWAYS
 	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
 
 MOSTLYCLEANFILES+=builddate.c
+
+install: all-recursive install-recursive
 
 .PHONY: ALWAYS
 

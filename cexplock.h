@@ -43,6 +43,10 @@
  * this notice affixed to any distribution by the recipient that contains a
  * copy or derivative of this software.
  */
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #ifdef USE_EPICS_OSI
 
 #include <epicsMutex.h>

@@ -138,7 +138,7 @@ cross-%:
 	@if [ ! -d build-$* ] ; then \
 		mkdir build-$*; \
 		echo CONFIGURING FOR CROSS BUILD TO ARCHITECTURE $*; \
-		( cd build-$*; ../configure CC=$*-gcc --host=$* $(TGT_CONFIG_OPTS) --disable-nls ); \
+		( cd build-$*; ../configure CC=$*-gcc --host=$* $(TGT_CONFIG_OPTS) --disable-nls --disable-multilib --with-newlib); \
 	fi
 	@echo MAKING CROSS BUILD TO ARCHITECTURE $*
 	$(MAKE) -C build-$*

@@ -1,4 +1,24 @@
 Changes since CEXP-1.5
+ 2007/10/16:
+ - more recent gcc/gas use ELF section 'COMDAT' groups for 'linkonce'
+   (rather than 'gnu.linkonce.xxx' sections).
+   We now handle these (and do not re-load such groups anymore).
+   Section symbols of group members now point to the instance first
+   loaded.
+   Note that prior to this change, 'linkonce groups' were loaded
+   multiple times (but relocs always used the first instance, i.e.,
+   we wasted memory but incurred no real problem).
+   The old behavior for sections named '.gnu.linkonce.xxx' is still
+   supported.
+ 2007/10/08:
+ - added --with-newlib, --disable-multilib to configure options
+   (when using top-level Makefile)
+ 2007/10/08:
+ - replaced autoconf check which defined NO_THREAD_PROTECTION by
+   simple #ifdef __rtems__ test.
+ 2007/10/08:
+ - cache some more BFD info for the disassembler to make binutils-2.18
+   work.
  2007/10/08:
  - libtecla 'install' failed to create man3, man4, ... subdirs.
  - add '-static' compiler flag when building the demo with gcc

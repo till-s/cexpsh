@@ -69,8 +69,12 @@
 
 #include "dis-asm.h"
 
-static disassembler_ftype	bfdDisassembler=0;
-enum bfd_endian				bfdEndian=BFD_ENDIAN_UNKNOWN;
+static disassembler_ftype	bfdDisassembler  = 0;
+enum bfd_endian				bfdEndian        = BFD_ENDIAN_UNKNOWN;
+enum bfd_flavour            bfdFlavour       = bfd_target_unknown_flavour;
+enum bfd_architecture       bfdArch          = bfd_arch_unknown;
+unsigned long               bfdMach          = 0;
+unsigned int                bfdOctetsPerByte = 1;
 
 typedef struct DAStreamRec_ {
 	char	buf[BUFMAX];	/* buffer to assemble the line 		*/
@@ -151,14 +155,32 @@ cexpDisassemblerInit(disassemble_info *di, PTR stream)
 DAStreamRec dummy;
 
 	dummy.p = 0;
+
+	/* newer versions don't export the BFD_VERSION macro anymore :0 */
+#ifdef BFD_VERSION
 	INIT_DISASSEMBLE_INFO((*di),(PTR)&dummy, (fprintf_ftype)daPrintf);
+#else
+	init_disassemble_info (di, &dummy, (fprintf_ftype) daPrintf);
+#endif
+
 	/* don't need the buffer_length; just set to a value high enough */
-	di->buffer_length			= 100;
+	di->buffer_length			  = 100;
 	
-	di->display_endian 			= di->endian = bfdEndian;
-	di->buffer 					= (bfd_byte *)cexpDisassemblerInit;
-	di->symbol_at_address_func	= symbolAtAddr;
-	di->print_address_func		= printAddr;
+	di->display_endian 			  = di->endian = bfdEndian;
+	di->buffer 					  = (bfd_byte *)cexpDisassemblerInit;
+	di->symbol_at_address_func	  = symbolAtAddr;
+	di->print_address_func		  = printAddr;
+
+	di->flavour                   = bfdFlavour;
+	di->arch                      = bfdArch;
+	di->mach                      = bfdMach;
+	di->octets_per_byte           = bfdOctetsPerByte;
+
+#ifndef BFD_VERSION
+	/* Allow the target to customize the info structure.  */
+	disassemble_init_for_target (di);
+#endif
+
 	/* disassemble one line to set the bytes_per_line field */
 	if (bfdDisassembler) {
 		bfdDisassembler((bfd_vma)di->buffer, di);
@@ -187,6 +209,10 @@ cexpDisassemblerInstall(bfd *abfd)
 			"UNKNOWN BFD ENDIANNESS; unable to install disassembler\n");
 		bfdDisassembler=0;
 	}
+	bfdFlavour       = bfd_get_flavour(abfd);
+	bfdArch          = bfd_get_arch(abfd);
+	bfdMach          = bfd_get_mach(abfd);
+	bfdOctetsPerByte = bfd_octets_per_byte(abfd);
 }
 
 static CexpSym	

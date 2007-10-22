@@ -121,6 +121,8 @@
 #define GOT2_SECTION_NAME		".got2"
 #endif
 
+#define ISELF(abfd)	(bfd_get_flavour((abfd)) == bfd_target_elf_flavour)
+
 /* using one static variable for the pattern matcher is
  * OK since the entire cexpLoadFile() routine is called
  * with the WRITE_LOCK held, so mutex is guaranteed for
@@ -355,8 +357,8 @@ asymbol		*asym=*(asymbol**)ext_sym;
 int			s;
 CexpType	t=TVoid;
 #ifdef HAVE_ELF_BFD_H
-elf_symbol_type *elfsp=elf_symbol_from(ld->abfd, asym);
-#define ELFSIZE(elfsp)	((elfsp)->internal_elf_sym.st_size)
+elf_symbol_type *elfsp= ISELF(ld->abfd) ? elf_symbol_from(ld->abfd, asym) : 0;
+#define ELFSIZE(elfsp)	( (elfsp) ? ((elfsp)->internal_elf_sym.st_size) : 0 )
 #else
 #define		elfsp 0
 #define	ELFSIZE(elfsp)	(0)
@@ -367,7 +369,7 @@ elf_symbol_type *elfsp=elf_symbol_from(ld->abfd, asym);
 #endif
 
 
-		s = elfsp ? ELFSIZE(elfsp) : 0;
+		s = ELFSIZE(elfsp);
 
 		if (BSF_FUNCTION & asym->flags) {
 			t=TFuncP;
@@ -476,7 +478,7 @@ const char	*secn = bfd_get_section_name(abfd,sect);
 				seg->size+=sizeof(long);
 			}
 #ifdef HAVE_ELF_BFD_H
-			/* filter dangerous sections; we do ont support shared objects
+			/* filter dangerous sections; we do not support shared objects
 			 * do this in s_count and not earlier because we allow a got
 			 * in the main system to support linux/solaris & friends...
 			 */
@@ -558,21 +560,69 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 
 		/* temporarily store a pointer to the name */
 		ld->module->section_syms[ld->num_section_names++] = (CexpSym)secn;
-
-		if (SEC_LINK_ONCE & flags) {
-			if (cexpSymLookup(secn, 0)) {
-				/* a linkonce section with this name had been loaded already;
-				 * discard this one...
-				 */
-				if ( DEBUG || (SEC_LINK_DUPLICATES & flags))
-					fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
-				/* discard this section */
-				sect->flags &= ~SEC_ALLOC;
-				return;
-			}
-		}
-		ld->num_alloc_sections++;
 	}
+}
+
+static void
+s_eliminate_linkonce(bfd *abfd, asection *sect, PTR arg)
+{
+LinkData	ld=(LinkData)arg;
+flagword	flags=bfd_get_section_flags(ld->abfd, sect);
+
+	if ( SEC_LINK_ONCE & flags ) {
+		const char *secn=bfd_get_section_name(ld->abfd,sect);
+
+		if (cexpSymLookup(secn, 0)) {
+			/* a linkonce section with this name had been loaded already;
+			 * discard this one...
+			 */
+			if ( (SEC_LINK_DUPLICATES & flags) )
+				fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
+
+			/* discard this section (older gcc creating .gnu.linkonce.xxx sections) */
+#if DEBUG & DEBUG_SECT
+			if ( SEC_ALLOC & flags ) {
+				printf("Removing linkonce section '%s'\n", secn);
+			}
+#endif
+			sect->flags &= ~SEC_ALLOC;
+
+			if ( (SEC_GROUP & flags) ) {
+				/* more recent gcc using ELF section groups:
+				 * remove the entire group; this relies on the fact
+				 * that group sections must occur first, i.e., before
+				 * the group contents
+				 */
+#if 0			/* bfd_discard_group() unfortunately not implemented; generic version
+                   does nothing */
+				bfd_discard_group(abfd, sect);
+				
+#else
+#ifdef HAVE_ELF_BFD_H
+				if ( ISELF(ld->abfd) ) {
+					asection *s,*frst;
+
+					/* group seems to be a circular list pointed to
+					 * by the group section
+					 */
+					frst = s = elf_next_in_group(sect);
+					while ( s ) {
+#if DEBUG & DEBUG_SECT
+						printf("Removing linkonce group member '%s'\n",bfd_get_section_name(ld->abfd, s));
+#endif
+						s->flags &= ~SEC_ALLOC;
+						if ( (s = elf_next_in_group(s)) == frst )
+							break;
+					}
+				}
+#endif
+#endif
+			}
+
+		}
+	}
+	if ( SEC_ALLOC & sect->flags )
+		ld->num_alloc_sections++;
 }
 
 /* Extracted from bfd.h; unfortunately conversion of relocation error
@@ -1157,7 +1207,7 @@ long				num_new_commons;
 	/*
 	 *	sort the list of new_commons by alignment
 	 */
-	if (num_new_commons)
+	if (ISELF(abfd) && num_new_commons)
 		qsort(
 			(void*)ld->new_commons,
 			num_new_commons,
@@ -1299,7 +1349,7 @@ char							*thename = 0;
 		goto cleanup;
 	}
 
-	/* get number of all ALLOC sections to compute the
+	/* Get number of all ALLOC sections to compute the
 	 * number of all section names we remember (for debugger
 	 * support).
 	 */
@@ -1313,10 +1363,16 @@ char							*thename = 0;
 	ldr.num_section_names = 0; /* reset index to be reused in s_basic */
 	
 
-	/* get basic section info and filter linkonce sections */
+	/* Get basic section info and filter linkonce sections */
 	bfd_map_over_sections(ldr.abfd, s_basic, &ldr);
 	ldr.module->section_syms[ldr.num_section_names]=0;
 
+	/* Eliminate linkonce sections that had already been linked as part
+	 * of previous modules.
+	 * This also counts the final number of sections to allocate/load
+	 * (after elimination of linkonce-s).
+	 */
+	bfd_map_over_sections(ldr.abfd, s_eliminate_linkonce, &ldr);
 
 	if (slurp_symtab(ldr.abfd,&ldr)) {
 		fprintf(stderr,"Error creating symbol table\n");

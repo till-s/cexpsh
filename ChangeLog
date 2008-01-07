@@ -1,4 +1,12 @@
 Changes since CEXP-1.5
+ 2008/1/6:
+ - (xsyms/libelf) when cloning sections we should not just copy
+	Elf_Data objects; the BSD libelf implementation has private
+	fields beyond the public ones and these private fields.
+	in particular, the 'data is malloced' flag) must not be
+	blindly. Hence, we just copy the public (and relevant)
+	explicitly.
+
  2007/10/16:
  - more recent gcc/gas use ELF section 'COMDAT' groups for 'linkonce'
    (rather than 'gnu.linkonce.xxx' sections).

@@ -120,7 +120,14 @@ Elf32_Shdr  *nshdr, *shdr=elf32_getshdr(from);
 
 	for (s=0; (s=elf_getdata(from,s)); ) {
 		d=elf_newdata(to);
-		*d=*s;
+
+		d->d_align   = s->d_align;
+		d->d_buf     = s->d_buf;
+		d->d_off     = s->d_off;
+		d->d_size    = s->d_size;
+		d->d_type    = s->d_type;
+		d->d_version = s->d_version;
+
 		elf_flagdata(d,ELF_C_SET,ELF_F_DIRTY);
 	}
 	return to;
@@ -255,8 +262,10 @@ int            dumparch=0;
 #if 0
 	nehdr->e_ident[5]=2;
 #endif
-	elf_update(eout,ELF_C_WRITE);
-	elf_end(eout);
+	if ( eout ) {
+		elf_update(eout,ELF_C_WRITE);
+		elf_end(eout);
+	}
 	elf_end(elf);
 	return 0;
 }         /* end main */

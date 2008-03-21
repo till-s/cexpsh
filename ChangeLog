@@ -1,12 +1,15 @@
 Changes since CEXP-1.5
+ 2008/3/20:
+ - (build system): added --disable-libelf configure option
+   which allows for building a system completely w/o loader
+   -- needs a built-in symbol table, however.
  2008/1/6:
  - (xsyms/libelf) when cloning sections we should not just copy
 	Elf_Data objects; the BSD libelf implementation has private
 	fields beyond the public ones and these private fields.
 	in particular, the 'data is malloced' flag) must not be
-	blindly. Hence, we just copy the public (and relevant)
-	explicitly.
-
+	copied blindly. Hence, we just copy the public (and relevant)
+	fields explicitly.
  2007/10/16:
  - more recent gcc/gas use ELF section 'COMDAT' groups for 'linkonce'
    (rather than 'gnu.linkonce.xxx' sections).

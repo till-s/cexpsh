@@ -92,8 +92,18 @@ the executable twice:
      cexpsyms.h is included)
   4) link application again, but this time add 'mysymtab.c' to the
      list of sources.
-  NOTE: Step 1) linking succeeds without a symtab.o because there's
-        a weak NULL-ptr alias for the builtin symtab.
+  NOTES: Step 1) linking succeeds without a symtab.o because there's
+         a weak NULL-ptr alias for the builtin symtab.
+		 When building the demo program you can use a builtin symbol
+		 table:
+		   a) build demo the normal way (corresponds to step 1 above)
+		   b) type 'make builtin-symtab'
+		      this extracts symbol table info from the executable
+			  created in step a) and creates an object file
+			  'cexp-builtin-symtab.o' (steps 2+3 above).
+		   c) type 'make' again. This re-links the demo program
+		      now using the 'cexp-builtin-symtab.o' object
+			  (corresponds to step 4 above).
 A similar source file can also be generated using the 'ldep' utility
 (discussed elsewhere, it is part of RTEMS-GeSys).
 

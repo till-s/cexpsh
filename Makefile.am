@@ -7,6 +7,8 @@ SUBDIRS=@THESUBDIRS@
 
 MOSTLYCLEANFILES =
 
+XSYMS=xsyms
+
 if USETECLA
 TECLA_SRCS       = teclastuff.c
 TECLALIBP        = -L@LIBTECLA@
@@ -31,10 +33,14 @@ gencore_SOURCES  = gencore.c
 gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
+if USELIBELF
 SYMF_SRCS        = elfsyms.c
 SYMLIBP          = -Llibelf-local/lib
 SYMLIBS          = -lelf
 SYMINCS          = -Ilibelf-local/include
+else
+SYMF_SRCS        = noloader.c
+endif
 xsyms_SOURCES    = xsyms.c
 if NATIVE_LIBELF
 xsyms_LDADD      = -lelf
@@ -77,7 +83,7 @@ cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_T
 #cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
-cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp
+cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_LDFLAGS= $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
 bin_PROGRAMS=cexp xsyms
@@ -134,6 +140,14 @@ builddate.c: ALWAYS
 MOSTLYCLEANFILES+=builddate.c
 
 install: all-recursive install-recursive
+
+builtin-symtab:	cexp-builtin-symtab.$(OBJEXT)
+
+cexp-builtin-symtab.c:	cexp
+	$(XSYMS) -C $^ $@
+
+cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
+	$(CC) -c -I$(srcdir) $(CFLAGS) -o $@ $^
 
 .PHONY: ALWAYS
 

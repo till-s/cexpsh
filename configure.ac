@@ -73,6 +73,11 @@ AC_ARG_ENABLE(opcodes,
 		[disable using the opcodes library; removes disassembler support. (only if bfd is enabled)])
 )
 
+AC_ARG_ENABLE(libelf,
+	AC_HELP_STRING([--disable-libelf],
+		[disable using the libelf library for symbol table reading; you must then create and link a 'built-in' symbol table])
+)
+
 AC_ARG_WITH(rtems-notepad,
 	AC_HELP_STRING([--with-rtems-notepad=<notepad_number>],
 		[use an RTEMS notepad (0..14) to store context info instead of a task variable; NOTE: EPICS uses 11]),
@@ -103,33 +108,39 @@ fi
 
 dnl we need libelf for the 'xsyms' tool
 if test "$enable_bfd" = "no" ; then
-	dnl can we use a locally installed lib?
-	if test "$host-system" = "$build-system" ; then
-		AC_CHECK_HEADER(libelf/libelf.h, AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes))
-dnl		AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
-	fi
-	if test "$we_have_native_libelf" != "yes" ; then
-dnl     AC_CONFIG_SUBDIRS needs a literal arg :-(
-		if test ! -d $srcdir/$LIBELF ; then
-			AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY")
+	enable_opcodes=no;
+
+	if test "$enable_libelf" = "no"; then
+		if test "$enable_cexp" = "no"; then
+			AC_MSG_ERROR([must not disable both, bfd and libelf when building xsyms])
 		fi
-		AC_CONFIG_SUBDIRS(libelf-0.8.2)
+	else
+		enable_libelf=yes	
+		dnl can we use a locally installed lib?
+		if test "$host-system" = "$build-system" ; then
+			AC_CHECK_HEADER(libelf/libelf.h, AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes))
+dnl			AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
+		fi
+		if test "$we_have_native_libelf" != "yes" ; then
+dnl	     AC_CONFIG_SUBDIRS needs a literal arg :-(
+			if test ! -d $srcdir/$LIBELF ; then
+				AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY")
+			fi
+			AC_CONFIG_SUBDIRS(libelf-0.8.2)
+		fi
+		AC_DEFINE(HAVE_LIBELF,1,[do we have (and use) libelf])
 	fi
 else
 	if test ! -d $srcdir/binutils ; then
 		AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY)
 	fi
-fi
-
-if test "$enable_bfd" != "no" ; then
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
 	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
 	if test "$enable_opcodes" != "no"; then
 		AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 	fi
-else
-	enable_opcodes=no;
+	enable_libelf=no
 fi
 
 AC_HAVE_FUNCS(rcmd vsnprintf)
@@ -142,6 +153,7 @@ AM_CONDITIONAL(NATIVE_LIBELF, test "$we_have_native_libelf" = "yes" )
 AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
 AM_CONDITIONAL(USEOPCODES,test "$enable_opcodes" != "no")
+AM_CONDITIONAL(USELIBELF,test "$enable_libelf" != "no")
 
 AH_VERBATIM(NO_THREAD_PROTECTION,[
 /* Disable thread protection on OS other than RTEMS */

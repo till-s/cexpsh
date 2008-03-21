@@ -384,25 +384,28 @@ cexpsh(char *arg0,...)
 va_list ap;
 int		argc=0;
 char	*argv[10]; /* limit to 10 arguments */
+char    *p;
 
 	va_start(ap,arg0);
 
-	argv[argc]="cexp_main";
+	argv[argc++]="cexp_main";
 	if (arg0) {
-		argv[++argc]=arg0;
+		argv[argc++]=arg0;
 
-		while ((argv[++argc]=va_arg(ap,char*))) {
+		while ( (p=va_arg(ap,char*)) ) {
+			
 			if (argc >= sizeof(argv)/sizeof(argv[0])) {
 				fprintf(stderr,"cexpsh: too many arguments\n");
 				va_end(ap);
 				return CEXP_MAIN_INVAL_ARG;
 			}
+
+			argv[argc++]=p;
 		}
-		argc--; /* strip 0 terminator */
 	}
 
 	va_end(ap);
-	return cexp_main(++argc,argv);
+	return cexp_main(argc,argv);
 }
 
 CexpSigHandlerInstallProc cexpSigHandlerInstaller=0;

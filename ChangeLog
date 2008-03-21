@@ -1,4 +1,7 @@
 Changes since CEXP-1.5
+ 2008/3/21:
+ - Fixed potential array overflow when composing cexp_main arglist.
+   Thanks to smart gcc-4.3.0 who issued a warning :-)
  2008/3/20:
  - (build system): added --disable-libelf configure option
    which allows for building a system completely w/o loader

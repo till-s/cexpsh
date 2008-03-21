@@ -89,7 +89,7 @@ class RtemsException
 {
 public:
     
-    RtemsException( char *module, int ln, int err = 0 )
+    RtemsException( const char *module, int ln, int err = 0 )
     : error( err ), line( ln ), file( module )
     {
       printf( "RtemsException raised=File:%s, Line:%d, Error=%X\n",
@@ -105,7 +105,7 @@ public:
 private:
    int  error;
    int  line;
-   char *file;
+   const char *file;
 
 };
 

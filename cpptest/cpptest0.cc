@@ -101,7 +101,10 @@ cdtest(void)
     BClass bleak;
 
 #ifdef RTEMS_TEST_IO_STREAM
+	printf("Starting C++ stream test:\n"); fflush(stdout);
     std::cout << "Testing a C++ I/O stream" << std::endl;
+	printf("If you don't see \"Testing a C++ I/O stream\" on the previous line\n");
+	printf("then this test FAILED\n"); fflush(stdout);
 #else
     printf("IO Stream not tested\n");
 #endif

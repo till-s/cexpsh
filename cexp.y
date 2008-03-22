@@ -85,7 +85,7 @@
 /* ugly hack; helper for word completion */
 #define LEXERR_INCOMPLETE_STRING	-100
 
-void yyerror();
+void yyerror(const char*msg);
 int  yylex();
 
 typedef char *LString;
@@ -929,7 +929,7 @@ cexpFreeParserCtx(CexpParserCtx ctx)
 }
 
 void
-yyerror(char*msg)
+yyerror(const char*msg)
 {
 /* unfortunately, even %pure_parser doesn't pass us the parser argument along.
  * hence, it is not possible for a reentrant parser to tell us where we

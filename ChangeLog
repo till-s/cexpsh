@@ -1,4 +1,8 @@
 Changes since CEXP-1.5
+ 2008/3/22:
+ - Fixed compiler warnings:
+   * yyerror() now takes a 'const char *' argument.
+   * declare 'ioctl' in rtems_hackdefs.h
  2008/3/21:
  - Fixed potential array overflow when composing cexp_main arglist.
    Thanks to smart gcc-4.3.0 who issued a warning :-)

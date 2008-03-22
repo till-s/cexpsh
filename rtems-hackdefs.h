@@ -46,6 +46,8 @@
 #ifndef	RTEMS_HACKDEFS_H
 #define RTEMS_HACKDEFS_H
 
+#include <stdint.h>
+
 struct winsize {
 	unsigned short	ws_row;		/* rows, in characters */
 	unsigned short	ws_col;		/* columns, in characters */
@@ -221,5 +223,7 @@ struct termios {
 int tcgetattr(int, struct termios *);
 int tcsetattr(int, int, struct termios *);
 int tcflow(int,int);
+
+extern int ioctl(int, uint32_t /* ioctl_command_t */, ...);
 
 #endif

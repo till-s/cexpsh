@@ -89,7 +89,7 @@ int              compat=0;
 		txx_dump_groups( stdout, s, shtab, symtab);
 
 	if ( doit & DO_SYMS )
-		txx_dump_symtab( stdout, symtab, compat ? 0 : shtab );
+		txx_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
 
 	rval = 0;
 bail:

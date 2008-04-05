@@ -26,14 +26,26 @@ struct bfd;
 typedef struct bfd bfd; 
 
 /* Symbol attributes */
-#define BSF_KEEP			0x00000020
-#define BSF_SECTION_SYM		0x00000100
-#define BSF_FUNCTION		0x00000010
-#define BSF_OLD_COMMON		0x00000200
-#define BSF_OBJECT			0x00010000
-#define BSF_GLOBAL			0x00000002
-#define BSF_LOCAL			0x00000001
-#define BSF_WEAK			0x00000080
+#define BSF_KEEP			0x0020
+#define BSF_SECTION_SYM		0x0100
+#define BSF_FUNCTION		0x0010
+#define BSF_OLD_COMMON		0x0200
+/* NOTE: BSF_OBJECT definition differs from BFD
+ *       so that we can store the flags in a
+ *       16-bit word.
+ *
+#define BSF_OBJECT			0x10000
+ */
+#define BSF_OBJECT			0x1000
+#define BSF_GLOBAL			0x0002
+#define BSF_LOCAL			0x0001
+#define BSF_WEAK			0x0080
+
+/* The following are not neede by cexp but
+ * exist for testing against objdump -t
+ */
+#define BSF_FILE			0x4000
+#define BSF_DEBUGGING		0x0008
 
 #define SEC_ALLOC			0x00000001
 #define SEC_RELOC			0x00000004
@@ -71,6 +83,7 @@ typedef struct {
 	/* ELF symbol extension */
 	struct {
 		unsigned long st_size;
+		unsigned long st_value;
 	} internal_elf_sym;
 } asymbol;
 
@@ -94,17 +107,23 @@ typedef struct {
 asection *
 elf_next_in_group(asection *);
 
-elf_symbol_type *
-elf_symbol_from(bfd *abfd, asymbol *sp);
+#define elf_symbol_from(abfd, s) (s)
 
 extern asection *bfd_abs_section_ptr;
 
-enum bfd_architecture { dumm1, dumm2 }; 
+#if 0
+enum bfd_architecture {
+	bfd_arch_unknown,
+	bfd_arch_obscure,
+	bfd_arch_m68k         =  2,
+	bfd_arch_i386         =  8,
+	bfd_arch_powerpc      = 20
+};
+#endif
 
 enum bfd_flavour {
 	bfd_target_elf_flavour = 5
 };
-
 
 typedef int bfd_boolean;
 
@@ -149,9 +168,6 @@ bfd_boolean
 bfd_discard_group(bfd *, asection *);
 #endif
 
-enum bfd_architecture
-bfd_get_arch(bfd *abfd);
-
 #define HAS_SYMS	0x10
 
 flagword
@@ -159,9 +175,6 @@ bfd_get_file_flags(bfd *abfd);
 
 enum bfd_flavour
 bfd_get_flavour(bfd *abfd);
-
-unsigned long
-bfd_get_mach(bfd *abfd);
 
 long
 bfd_get_reloc_upper_bound(bfd *abfd, asection *sect);
@@ -173,6 +186,7 @@ bfd_get_section(asymbol *sym);
 unsigned int
 bfd_get_section_alignment(bfd *abfd, asection *sect);
 
+/* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
 file_ptr
 bfd_get_section_filepos(bfd *abfd, asection *section);
 
@@ -232,9 +246,6 @@ bfd_perform_relocation(bfd *abfd, arelent *relent, void *data, asection *input_s
 
 void
 bfd_perror(const char *msg);
-
-const char *
-bfd_printable_arch_mach(enum bfd_architecture arch, unsigned long mach);
 
 const char *
 bfd_printable_name(bfd *abfd);

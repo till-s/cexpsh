@@ -192,6 +192,7 @@ typedef struct {
 	Elf32_Shdr	*shdrs;
 	uint32_t   	nshdrs;
 	const char 	*strtab;
+	uint32_t    strtablen;
 	uint32_t	idx;
 } *Txx_Elf32_Shtab;
 
@@ -205,6 +206,7 @@ typedef struct {
 	Elf32_Sym	*syms;
 	uint32_t    nsyms;
 	const char *strtab;
+	uint32_t    strtablen;
 	uint32_t	idx;
 } *Txx_Elf32_Symtab;
 
@@ -232,7 +234,7 @@ int
 txx_getsym(Elf_Stream s, Elf32_Sym *psym);
 
 void *
-txx_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data);
+txx_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len);
 
 Elf32_Word *
 txx_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data);
@@ -242,6 +244,12 @@ txx_delshtab(Txx_Elf32_Shtab sht);
 
 Txx_Elf32_Shtab
 txx_getshtab(Elf_Stream s, Elf32_Ehdr *pehdr);
+
+const char *
+txx_sec_name(Txx_Elf32_Shtab sht, Elf32_Shdr *shdr);
+
+const char *
+txx_sym_name(Txx_Elf32_Symtab symt, Elf32_Sym *sym);
 
 void
 txx_delsymtab(Txx_Elf32_Symtab symtab);
@@ -266,7 +274,7 @@ void
 txx_dump_shtab(FILE *f, Txx_Elf32_Shtab shtab, int format);
 
 void
-txx_dump_symtab(FILE *f, Txx_Elf32_Symtab symtab, Txx_Elf32_Shtab shtab);
+txx_dump_symtab(FILE *f, Txx_Elf32_Symtab symtab, Txx_Elf32_Shtab shtab, int format);
 
 int
 txx_dump_groups(FILE *f, Elf_Stream s, Txx_Elf32_Shtab shtab, Txx_Elf32_Symtab symtab);

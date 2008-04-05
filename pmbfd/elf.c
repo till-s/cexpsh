@@ -13,7 +13,7 @@ struct _Elf_Stream {
 	int  needswap;
 };
 
-#define TXX_PRE    "pmelf"
+#define TXX_PRE    "pmelf "
 #define TXX_PRINTF(f,a...) do { if (f) fprintf(f,a); } while (0)
 
 #define ElfNumberOf(a) (sizeof(a)/sizeof((a)[0]))
@@ -92,16 +92,16 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 		return -1;
 	}
 	if ( memcmp(magic, pehdr->e_ident+EI_MAG0, sizeof(magic)) ) {
-		TXX_PRINTF(txx_err, TXX_PRE" error: not an ELF file\n");
+		TXX_PRINTF(txx_err, TXX_PRE"error: not an ELF file\n");
 		return -1;
 	}
 	if ( pehdr->e_ident[EI_CLASS] != ELFCLASS32 ) {
-		TXX_PRINTF(txx_err, TXX_PRE" error: not an 32-bit ELF file\n");
+		TXX_PRINTF(txx_err, TXX_PRE"error: not an 32-bit ELF file\n");
 		return -1;
 	}
 
 	if ( pehdr->e_ident[EI_VERSION] != EV_CURRENT ) {
-		TXX_PRINTF(txx_err, TXX_PRE" error: not a version %i ELF file\n", EV_CURRENT);
+		TXX_PRINTF(txx_err, TXX_PRE"error: not a version %i ELF file\n", EV_CURRENT);
 		return -1;
 	}
 
@@ -122,13 +122,13 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 	}
 
 	if ( pehdr->e_shentsize != sizeof( Elf32_Shdr ) ) {
-		TXX_PRINTF(txx_err, TXX_PRE" error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
+		TXX_PRINTF(txx_err, TXX_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
 		return -1;
 	}
 
 	if ( pehdr->e_shnum > 0 ) {
 		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {
-			TXX_PRINTF(txx_err, TXX_PRE" error: shstrndx out of bounds\n");
+			TXX_PRINTF(txx_err, TXX_PRE"error: shstrndx out of bounds\n");
 			return -1;
 		}
 	}
@@ -197,17 +197,34 @@ int x;
 }
 
 void *
-txx_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data)
+txx_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len)
 {
-void *buf = 0;
+void       *buf = 0;
+Elf32_Word end;
 
-	if ( txx_seek(s, psect->sh_offset) ) {
+	if ( 0 == len )
+		len = psect->sh_size;
+
+	end = offset + len;
+
+	if ( end < offset || end < len ) {
+		/* wrap around 0 */
+		TXX_PRINTF( txx_err, TXX_PRE"txx_getscn invalid offset/length (too large)\n");
+		return 0;
+	}
+
+	if ( end > psect->sh_size ) {
+		TXX_PRINTF( txx_err, TXX_PRE"txx_getscn invalid offset/length (requested area not entirely within section)\n");
+		return 0;
+	}
+
+	if ( txx_seek(s, psect->sh_offset + offset) ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getscn unable to seek %s", strerror(errno));
 		return 0;
 	}
 
 	if ( !data ) {
-		buf = malloc(psect->sh_size);
+		buf = malloc(len);
 		if ( !buf ) {
 			TXX_PRINTF( txx_err, TXX_PRE"txx_getscn - no memory");
 			return 0;
@@ -215,7 +232,7 @@ void *buf = 0;
 		data = buf;
 	}
 
-	if ( psect->sh_size != fread( data, 1, psect->sh_size, s->f ) ) {
+	if ( len != fread( data, 1, len, s->f ) ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getscn unable to read %s", strerror(errno));
 		free(buf);
 		return 0;
@@ -245,7 +262,7 @@ int        ne,j;
 		return 0;
 	}
 
-	if ( ! (buf = txx_getscn(s, psect, data)) )
+	if ( ! (buf = txx_getscn(s, psect, data, 0, 0)) )
 		return 0;
 
 	if ( s->needswap ) {
@@ -296,10 +313,12 @@ Elf32_Shdr    *strsh;
 
 	/* slurp the string table    */
 	strsh = &rval->shdrs[pehdr->e_shstrndx];
-	if ( ! (rval->strtab = txx_getscn( s, strsh, 0 )) ) {
-		TXX_PRINTF( txx_err, TXX_PRE" (shstrtab)\n");
+	if ( ! (rval->strtab = txx_getscn( s, strsh, 0, 0, 0 )) ) {
+		TXX_PRINTF( txx_err, TXX_PRE"(shstrtab)\n");
 		goto bail;
 	}
+
+	rval->strtablen = strsh->sh_size;
 
 	return rval;
 
@@ -326,28 +345,47 @@ Elf32_Shdr   *shdr;
 uint32_t     i;
 Elf32_Shdr   *symsh  = 0;
 Elf32_Shdr   *strsh  = 0;
+const char   *name;
 
 	for ( i = 0, shdr = shtab->shdrs; i<shtab->nshdrs; i++, shdr++ ) {
-		if ( SHT_SYMTAB == shdr->sh_type && !strcmp(".symtab", &shtab->strtab[shdr->sh_name]) ) {
-			if ( symsh ) {
-				TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: multiple symtabs\n");
-				return -1;
-			}
-			symsh = shdr;
+		switch ( shdr->sh_type ) {
+			default:
+			break;
+
+			case SHT_SYMTAB:
+				if ( ! (name = txx_sec_name(shtab, shdr)) ) {
+					TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: symtab section name out of bounds\n");
+					return -1;
+				}
+				if ( !strcmp(".symtab", name) ) {
+					if ( symsh ) {
+						TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: multiple symtabs\n");
+						return -1;
+					}
+					symsh = shdr;
 #define USE_SYM_SH_LINK
 #ifdef USE_SYM_SH_LINK
-			strsh = shtab->shdrs + symsh->sh_link;
+					strsh = shtab->shdrs + symsh->sh_link;
 #endif
-		}
+				}
+			break;
+
 #ifndef USE_SYM_SH_LINK
-		else if ( SHT_STRTAB == shdr->sh_type && !strcmp(".strtab", &shtab->strtab[shdr->sh_name]) ) {
-			if ( strsh ) {
-				TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: multiple strtabs\n");
-				return -1;
-			}
-			strsh = shdr;
-		}
+			case SHT_STRTAB:
+				if ( ! (name = txx_sec_name(shtab, shdr)) ) {
+					TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: strtab section name out of bounds\n");
+					return -1;
+				}
+				if ( !strcmp(".strtab", name) ) {
+					if ( strsh ) {
+						TXX_PRINTF( txx_err, TXX_PRE"txx_find_symhdrs: multiple strtabs\n");
+						return -1;
+					}
+					strsh = shdr;
+				}
+			break;
 #endif
+		}
 	}
 
 	if ( !symsh ) {
@@ -423,10 +461,12 @@ Elf32_Shdr   *strsh  = 0;
 		}
 	}
 
-	if ( ! ( rval->strtab = txx_getscn( s, strsh,  0) ) ) {
-		TXX_PRINTF( txx_err, TXX_PRE" (strtab)\n" );
+	if ( ! ( rval->strtab = txx_getscn( s, strsh, 0, 0, 0 ) ) ) {
+		TXX_PRINTF( txx_err, TXX_PRE"(strtab)\n" );
 		goto bail;
 	}
+
+	rval->strtablen = strsh->sh_size;
 
 	return rval;
 
@@ -584,13 +624,21 @@ txx_dump_shtab(FILE *f, Txx_Elf32_Shtab shtab, int format)
 {
 uint32_t i;
 Elf32_Shdr *shdr;
+const char *name, *fmt;
 
 	fprintf(f,"Section Headers:\n");
 	fprintf(f,"  [Nr] %-18s%-16s%-9s%-7s%-7s%2s%4s%3s%4s%3s\n",
 		"Name", "Type", "Addr", "Off", "Size", "ES", "Flg", "Lk", "Inf", "Al");
 
 	for ( i = 0, shdr = shtab->shdrs; i<shtab->nshdrs; i++, shdr++ ) {
-		fprintf( f, "  [%2u] %-18s", i, &shtab->strtab[shdr->sh_name] );
+		if ( ! (name = txx_sec_name(shtab, shdr)) ) {
+			name = "<OUT-OF-BOUND>";
+		}
+		if ( FMT_COMPAT == format )
+			fmt = "  [%2u] %-18.17s";
+		else
+			fmt = "  [%2u] %-18s";
+		fprintf( f, fmt, i, name );
 		txx_dump_shdr( f, shdr, format );
 	}
 	fprintf(f,"Key to Flags:\n");
@@ -622,11 +670,12 @@ static const char *txx_st_vis_s[] = {
 	
 
 void
-txx_dump_symtab(FILE *f, Txx_Elf32_Symtab symtab, Txx_Elf32_Shtab shtab)
+txx_dump_symtab(FILE *f, Txx_Elf32_Symtab symtab, Txx_Elf32_Shtab shtab, int format)
 {
-uint32_t i;
-Elf32_Sym *sym;
-int      donestr;
+uint32_t   i;
+Elf32_Sym  *sym;
+int        donestr;
+const char *name;
 
 	fprintf(f,"%6s: %8s%6s %-8s%-7s%-9s",
 		"Num", "Value", "Size", "Type", "Bind", "Vis");
@@ -637,10 +686,15 @@ int      donestr;
 	fprintf(f," Name\n");
 	for ( i=0, sym = symtab->syms; i<symtab->nsyms; i++, sym++ ) {
 
-		fprintf(f,"%6u: %08"PRIx32"%6"PRIu32" %-8s%-7s%-9s",
+		fprintf(f,"%6u: %08"PRIx32,
 			i,
-			sym->st_value,
-			sym->st_size,
+			sym->st_value
+		);
+		if ( sym->st_size > 99999 )
+			fprintf(f," 0x%5"PRIx32, sym->st_size);
+		else
+			fprintf(f," %5"PRIu32, sym->st_size);
+		fprintf(f," %-8s%-7s%-8s",
 			ARRSTR(txx_st_type_s, ELF32_ST_TYPE(sym->st_info)),
 			ARRSTR(txx_st_bind_s, ELF32_ST_BIND(sym->st_info)),
 			ARRSTR(txx_st_vis_s,  ELF32_ST_VISIBILITY(sym->st_other))
@@ -649,15 +703,18 @@ int      donestr;
 		donestr = 0;
 
 		switch ( sym->st_shndx ) {
-			case SHN_UNDEF: fprintf(f, "UND"); break;
-			case SHN_ABS:	fprintf(f, "ABS"); break;
-			case SHN_COMMON:fprintf(f, "COM"); break;
+			case SHN_UNDEF: fprintf(f, " UND"); break;
+			case SHN_ABS:	fprintf(f, " ABS"); break;
+			case SHN_COMMON:fprintf(f, " COM"); break;
 			default:
-				if ( sym->st_shndx < SHN_LORESERVE && shtab ) {
-					fprintf(f,"%-13s", &shtab->strtab[shtab->shdrs[sym->st_shndx].sh_name]);
+				if ( sym->st_shndx < SHN_LORESERVE && shtab && sym->st_shndx < shtab->nshdrs ) {
+					if ( !(name = txx_sec_name(shtab, &shtab->shdrs[sym->st_shndx])) ) {
+						name = "<OUT-OF-BOUNDS>";
+					}
+					fprintf(f," %-13s", name);
 					donestr = 1;
 				} else {
-					fprintf(f, "%3"PRIu16, sym->st_shndx);
+					fprintf(f, "%4"PRIu16, sym->st_shndx);
 				}
 			break;
 		}
@@ -665,7 +722,10 @@ int      donestr;
 		if ( shtab && !donestr )
 			fprintf(f,"         ");
 
-		fprintf(f, " %s\n", &symtab->strtab[sym->st_name]);
+		if ( !(name = txx_sym_name(symtab, sym)) ) {
+			name = "<OUT-OF-BOUNDS>";
+		}
+		fprintf(f, FMT_COMPAT == format ? " %.25s\n" : " %s\n", name);
 	}
 }
 
@@ -678,6 +738,7 @@ Elf32_Shdr *shdr;
 int sz=0;
 Elf32_Word *buf = 0;
 Elf32_Word *nbuf;
+const char *name;
 
 	for ( ng = i = 0, shdr = shtab->shdrs; i < shtab->nshdrs; i++, shdr++ ) {
 
@@ -695,17 +756,29 @@ Elf32_Word *nbuf;
 
 			ne  = shdr->sh_size/sizeof(*buf);
 
+			if ( ! (name = txx_sec_name(shtab, shdr)) ) {
+				name = "<OUT-OF-BOUNDS>";
+			}
+
 			/* first entry holds flags */
 			fprintf(f,"\n%-7sgroup section [%5"PRIu32"] `%s' ",
 				buf[0] & GRP_COMDAT ? "COMDAT":"",
 				i,
-				&shtab->strtab[shdr->sh_name]
+				name
 			);
 			if ( symtab ) {
-				if ( symtab->idx == shdr->sh_link )
-					fprintf(f, "[%s]", &symtab->strtab[symtab->syms[shdr->sh_info].st_name]);
-				else
+				if ( symtab->idx == shdr->sh_link ) {
+					if ( shdr->sh_info >= symtab->nsyms ) {
+						TXX_PRINTF(txx_err, TXX_PRE"txx_dump_groups: group sig. symbol index out of bounds\n");
+						ng = -1;
+						goto cleanup;
+					}
+					if ( !(name = txx_sym_name(symtab, &symtab->syms[shdr->sh_info])) )
+						name = "<OUT-OF-BOUNDS>";
+					fprintf(f, "[%s]", name);
+				} else {
 					fprintf(f, "<unable to print group id symbol: symtab index mismatch>");
+				}
 			} else {
 				fprintf(f,"<unable to print group id symbol: no symbol table given");
 			}
@@ -714,13 +787,22 @@ Elf32_Word *nbuf;
 			fprintf(f,"   [Index]    Name\n");
 
 			for ( j=1; j < ne; j++ ) {
-				fprintf(f,"   [%5u]   %s\n", buf[j], &shtab->strtab[shtab->shdrs[buf[j]].sh_name]);
+				if ( buf[j] >= shtab->nshdrs ) {
+					TXX_PRINTF(txx_err, TXX_PRE"txx_dump_groups: group member index out of bounds\n");
+					ng = -1;
+					goto cleanup;
+				}
+				if ( ! (name = txx_sec_name(shtab, &shtab->shdrs[buf[j]])) ) {
+					name = "<OUT-OF-BOUNDS>";
+				}
+				fprintf(f,"   [%5u]   %s\n", buf[j], name);
 			}
 
 			ng++;
 		}
 	}
 
+cleanup:
 	free(buf);
 	return ng;
 }
@@ -731,3 +813,18 @@ txx_set_errstrm(FILE *f)
 	txx_err = f;
 }
 
+const char *
+txx_sec_name(Txx_Elf32_Shtab sht, Elf32_Shdr *shdr)
+{
+	if ( shdr->sh_name > sht->strtablen )
+		return 0;
+	return &sht->strtab[shdr->sh_name];
+}
+
+const char *
+txx_sym_name(Txx_Elf32_Symtab symt, Elf32_Sym *sym)
+{
+	if ( sym->st_name > symt->strtablen )
+		return 0;
+	return &symt->strtab[sym->st_name];
+}

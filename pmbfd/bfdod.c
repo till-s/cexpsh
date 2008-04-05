@@ -1,4 +1,5 @@
-#if 0
+#ifdef USE_REAL_BFD
+#include <sys/types.h>
 #include <bfd.h>
 #include <elf-bfd.h>
 #define bfd_get_section_filepos(abfd, sect) (sect)->filepos
@@ -6,9 +7,9 @@
 #include "pmbfd.h"
 #endif
 #include <stdio.h>
-/*
-#include "pmelf.h"
-*/
+#include <stdlib.h>
+
+#include <getopt.h>
 
 #define PFLG(tst,nm) \
 	if ( fl & tst ) { fl &= ~tst; printf("%s%s",sep,nm); sep=", "; }
@@ -124,6 +125,18 @@ char   *sep = "";
 #undef PFLG1
 #undef PDUP
 
+static void
+usage(char *nm)
+{
+	fprintf(stderr,"usage: %s [-thH]\n",nm);
+	fprintf(stderr,"       -t : print symbol table\n");
+	fprintf(stderr,"       -h : print section table\n");
+	fprintf(stderr,"       -H : this message\n");
+}
+
+#define DO_SECS 1
+#define DO_SYMS 2
+
 int
 main(int argc, char **argv)
 {
@@ -131,12 +144,36 @@ bfd *abfd;
 FILE *f;
 int  rval = 1;
 int  n;
+asymbol **syms;
+long     nsyms;
+flagword fl;
+asymbol  *s;
+int doit=0;
 
-	if ( argc < 2 ) {
+	while ( (n = getopt(argc, argv, "thH")) > 0 ) {
+		switch (n) {
+			case 'H':
+				usage(argv[0]);
+			return 0;
+
+			case 't': doit |= DO_SYMS;
+			break;
+
+			case 'h': doit |= DO_SECS;
+			break;
+		
+			default:
+				fprintf(stderr,"Unknown option %c\n",n);
+				usage(argv[0]);
+			return 1;
+		}
+	}
+
+	if ( optind >= argc ) {
 		fprintf(stderr,"Need filename arg\n");
 		return 1;
 	}
-	if ( !(f=fopen(argv[1],"r")) ) {
+	if ( !(f=fopen(argv[optind],"r")) ) {
 		perror("unable to open file for reading");
 		return 1;
 	}
@@ -158,8 +195,60 @@ int  n;
 
 	printf("Target: %s\n",bfd_get_target(abfd));
 
-	n = 0;
-	bfd_map_over_sections(abfd, dsects, &n);
+	if ( DO_SECS & doit ) {
+		printf("Sections:\n");
+		printf("Idx Name          Size      VMA       LMA       File off  Algn\n");
+
+		n = 0;
+		bfd_map_over_sections(abfd, dsects, &n);
+	}
+
+	if ( DO_SYMS & doit ) {
+		if ( ! (syms = malloc(bfd_get_symtab_upper_bound(abfd))) ) {
+			fprintf(stderr,"Unable to allocate memory for symbol table\n");
+			return 1;	
+		}
+
+		if ( (nsyms=bfd_canonicalize_symtab(abfd, syms)) < 0 ) {
+			fprintf(stderr,"Canonicalizing symtab failed\n");
+			return 1;
+		}
+
+		for ( n=0; n<nsyms; n++ ) {
+			s  = syms[n];
+			fl = s->flags;
+			if ( s->section )
+				printf("%08lx", s->value + bfd_get_section_vma(abfd, s->section));
+			else
+				printf("%08lx", s->value);
+#if 0
+			printf(" %c%c%c%c%c%c%c",
+					((fl & BSF_LOCAL) ? (fl & BSF_GLOBAL) ? '!' : 'l' : ( fl & BSF_GLOBAL ) ? 'g' : ' '),
+					(fl & BSF_WEAK)        ? 'w' : ' ',
+					(fl & BSF_CONSTRUCTOR) ? 'C' : ' ',
+					(fl & BSF_WARNING)     ? 'W' : ' ',
+					(fl & BSF_INDIRECT)    ? 'I' : ' ',
+					(fl & BSF_DEBUGGING)   ? 'd' : (fl & BSF_DYNAMIC) ? 'D' : ' ',
+					((fl & BSF_FUNCTION)   ? 'F' : ((fl & BSF_FILE)   ? 'f' : ((fl & BSF_OBJECT) ? 'O' : ' ')))
+				  );
+#else
+			printf(" %c%c   %c%c",
+					((fl & BSF_LOCAL) ? (fl & BSF_GLOBAL) ? '!' : 'l' : ( fl & BSF_GLOBAL ) ? 'g' : ' '),
+					(fl & BSF_WEAK)        ? 'w' : ' ',
+					(fl & BSF_DEBUGGING)   ? 'd' : ' ',
+					((fl & BSF_FUNCTION)   ? 'F' : ((fl & BSF_FILE)   ? 'f' : ((fl & BSF_OBJECT) ? 'O' : ' ')))
+				  );
+#endif
+			printf(" %s\t", s->section ? bfd_get_section_name(abfd,s->section) : "(*none*)");
+			if ( bfd_is_com_section(s->section ) )
+				printf("%08lx", elf_symbol_from(abfd, s)->internal_elf_sym.st_value);
+			else {
+				printf("%08lx", elf_symbol_from(abfd, s)->internal_elf_sym.st_size);
+			}
+			/* FIXME: print st_other */
+			printf(" %s\n", s->name);
+		}
+	}
 
 	rval = 0;
 

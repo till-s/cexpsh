@@ -1,4 +1,27 @@
 Changes since CEXP-1.5
+ 2008/4/7:
+ - (bfdstuff.c): 
+   o access members of asection struct only through bfd_get_section_xxx()
+     and bfd_set_section_xxx() macros.
+   o changed code to read ELF specific symbol parameters from macros
+     into inlines and renamed them.
+   o BUGFIX: I believe the alignment of new common symbols was not
+     determined correctly; the alignment is stored in the symbol value
+	 (not size). We now use internal_elf_sym->st_value as the alignment.
+   o silenced some compiler warnings (bad printf format string) by
+     using l modifier and explicit casts to long variants.
+   o NEW: Added test when loading common symbols to make sure that the
+     alignment and size of a common symbol with the same name defined
+	 in a new module matches the respective parameters of an existing
+	 definition (created by previously loaded module).
+   o BUGFIX: (bug triggered only if DEBUG & DEBUG_COMMON) when printing
+     name of a new common symbol we must not use the name field of
+	 the newly created empty symbol (which is NULL) but the name of
+	 the existing symbol which is about to be cloned.
+   o removed bfd_get_arch/bfd_get_mach and conversion to printable
+     string. Seems sets these to 'unknown' anyways if we don't explicitly
+	 tell it what arch/mach we are using (had hoped BFD tells us what
+	 it learns from info in the file to be loaded).
  2008/3/22:
  - Fixed compiler warnings:
    * yyerror() now takes a 'const char *' argument.

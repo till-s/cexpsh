@@ -82,11 +82,21 @@
  * We redefine bfd's boolean here
  */
 #define  boolean bfdddd_bbboolean
+#if 0
 #include <bfd.h>
 #include <libiberty.h>
 
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
+
+#define bfd_set_output_section(s, o) do { (s)->output_section = (o); } while (0) 
+
+#endif
+#else
+#include "pmbfd.h"
+#ifndef HAVE_ELF_BFD_H
+#define HAVE_ELF_BFD_H
+#endif
 #endif
 
 #define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -97,7 +107,7 @@
 #define DEBUG_SYM		(1<<3)
 #define DEBUG_CDPRI		(1<<4)
 
-#define DEBUG			(0)
+#define DEBUG			(-1)
 
 #include "cexp_regex.h"
 
@@ -260,15 +270,31 @@ segOf(LinkData ld, asection *sect)
  * (currently only works for ELF)
  */
 #ifdef HAVE_ELF_BFD_H
+static inline unsigned
+elf_get_align(bfd *abfd, asymbol *sp)
+{
+elf_symbol_type *esp;
+unsigned         rval;
+	if ( (esp = elf_symbol_from(abfd, sp)) && (rval = esp->internal_elf_sym.st_value) ) {
+		return rval;
+	}
+	return  1;
+}
+
 static inline int
-get_align_pwr(bfd *abfd, asymbol *sp)
+elf_get_align_pwr(bfd *abfd, asymbol *sp)
 {
 register unsigned long rval=0,tst;
-elf_symbol_type *esp;
-	if ( (esp=elf_symbol_from(abfd, sp)) )
-		for (tst=1; tst<esp->internal_elf_sym.st_size; rval++)
+	for (tst=1; tst < elf_get_align(abfd, sp); rval++)
 			tst<<=1;
 	return rval;
+}
+
+static inline int
+elf_get_size(bfd *abfd, asymbol *asym)
+{
+elf_symbol_type *elfsp= ISELF(abfd) ? elf_symbol_from(abfd, asym) : 0;
+	return elfsp ? elfsp->internal_elf_sym.st_size : 0 ;
 }
 
 /* we sort in descending order; hence the routine must return b-a */
@@ -282,11 +308,13 @@ asymbol			*spb=**(asymbol***)b;
 	return
 		((espa=elf_symbol_from(bfd_asymbol_bfd(spa),spa)) &&
 	     (espb=elf_symbol_from(bfd_asymbol_bfd(spb),spb)))
-		? (espb->internal_elf_sym.st_size - espa->internal_elf_sym.st_size)
+		? (espb->internal_elf_sym.st_value - espa->internal_elf_sym.st_value)
 		: 0;
 }
 #else
-#define get_align_pwr(abfd,sp)	0
+#define elf_get_align(abfd,sp)		1
+#define elf_get_align_pwr(abfd,sp)	0
+#define elf_get_size(abfd,sp)       0
 #endif
 
 /* determine if a given symbol is a constructor or destructor 
@@ -335,7 +363,7 @@ isCtorDtor(asymbol *asym, int quiet, int *pprio)
 static const char *
 filter(void *ext_sym, void *closure)
 {
-/* LinkData	ld=closure; */
+LinkData	ld   =closure;
 asymbol		*asym=*(asymbol**)ext_sym;
 
 		if ( !(BSF_KEEP & asym->flags) )
@@ -356,20 +384,12 @@ LinkData	ld=(LinkData)closure;
 asymbol		*asym=*(asymbol**)ext_sym;
 int			s;
 CexpType	t=TVoid;
-#ifdef HAVE_ELF_BFD_H
-elf_symbol_type *elfsp= ISELF(ld->abfd) ? elf_symbol_from(ld->abfd, asym) : 0;
-#define ELFSIZE(elfsp)	( (elfsp) ? ((elfsp)->internal_elf_sym.st_size) : 0 )
-#else
-#define		elfsp 0
-#define	ELFSIZE(elfsp)	(0)
-#endif
 
 #if DEBUG & DEBUG_SYM
 		printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
 #endif
 
-
-		s = ELFSIZE(elfsp);
+		s = elf_get_size(ld->abfd, asym);
 
 		if (BSF_FUNCTION & asym->flags) {
 			t=TFuncP;
@@ -448,9 +468,9 @@ flagword	flags = bfd_get_section_flags(abfd,sect);
 const char	*secn = bfd_get_section_name(abfd,sect);
 #if DEBUG & DEBUG_SECT
 	printf("Section %s, flags 0x%08x\n", secn, flags);
-	printf("size: %i, alignment %i\n",
-			bfd_section_size(abfd,sect),
-			(1<<bfd_section_alignment(abfd,sect)));
+	printf("size: %lu, alignment %i\n",
+			(unsigned long)bfd_section_size(abfd,sect),
+			(1<<bfd_get_section_alignment(abfd,sect)));
 #endif
 	if (SEC_ALLOC & flags) {
 		seg->size+=(1<<bfd_get_section_alignment(abfd,sect))-1;
@@ -507,12 +527,12 @@ s_setvma(bfd *abfd, asection *sect, PTR arg)
 Segment		seg=segOf((LinkData)arg, sect);
 LinkData	ld=(LinkData)arg;
 
-	if (SEC_ALLOC & sect->flags) {
+	if (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) {
 		seg->vmacalc=align_power(seg->vmacalc, bfd_get_section_alignment(abfd,sect));
 #if DEBUG & DEBUG_SECT
-		printf("%s allocated at 0x%08x\n",
+		printf("%s allocated at 0x%08lx\n",
 				bfd_get_section_name(abfd,sect),
-				seg->vmacalc);
+				(unsigned long)seg->vmacalc);
 #endif
 		bfd_set_section_vma(abfd,sect,seg->vmacalc);
 		seg->vmacalc+=bfd_section_size(abfd,sect);
@@ -526,7 +546,10 @@ LinkData	ld=(LinkData)arg;
 			/* allocate space for a terminating 0 */
 			seg->vmacalc+=sizeof(long);
 		}
-		sect->output_section = sect;
+#if defined bfd_set_output_section
+		/* Only needed with real BFD */
+		bfd_set_output_section(sect, sect);
+#endif
 		if (ld->text && sect == ld->text) {
 			ld->text_vma=bfd_get_section_vma(abfd,sect);
 		}
@@ -585,7 +608,7 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 				printf("Removing linkonce section '%s'\n", secn);
 			}
 #endif
-			sect->flags &= ~SEC_ALLOC;
+			bfd_set_section_flags( abfd, sect, bfd_get_section_flags( abfd, sect ) & ~SEC_ALLOC);
 
 			if ( (SEC_GROUP & flags) ) {
 				/* more recent gcc using ELF section groups:
@@ -610,7 +633,7 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 #if DEBUG & DEBUG_SECT
 						printf("Removing linkonce group member '%s'\n",bfd_get_section_name(ld->abfd, s));
 #endif
-						s->flags &= ~SEC_ALLOC;
+						bfd_set_section_flags( ld->abfd, s, bfd_get_section_flags( ld->abfd, s ) & ~SEC_ALLOC );
 						if ( (s = elf_next_in_group(s)) == frst )
 							break;
 					}
@@ -621,7 +644,7 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 
 		}
 	}
-	if ( SEC_ALLOC & sect->flags )
+	if ( SEC_ALLOC & bfd_get_section_flags(abfd, sect) )
 		ld->num_alloc_sections++;
 }
 
@@ -649,7 +672,7 @@ LinkData	ld=(LinkData)arg;
 int			i;
 long		err;
 
-	if ( ! (SEC_ALLOC & sect->flags) )
+	if ( ! (SEC_ALLOC & bfd_get_section_flags(abfd, sect) ) )
 		return;
 
 	/* read section contents to its memory segment
@@ -669,7 +692,7 @@ long		err;
 	}
 
 	/* if there are relocations, resolve them */
-	if ((SEC_RELOC & sect->flags)) {
+	if ( (SEC_RELOC & bfd_get_section_flags(abfd, sect)) ) {
 		arelent **cr=0;
 		long	sz;
 		sz=bfd_get_reloc_upper_bound(abfd,sect);
@@ -747,9 +770,9 @@ long		err;
 						sp = bfd_make_empty_symbol(abfd);
 						/* copy pointer to name */
 						bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
-						sp->value = (symvalue)ld->module;
-						sp->section=bfd_abs_section_ptr;
-						sp->flags=BSF_LOCAL;
+						sp->value   = (symvalue)ld->module;
+						bfd_set_section(sp, bfd_abs_section_ptr);
+						sp->flags   = BSF_LOCAL;
 					} else {
 						/* Resolved reference; replace the symbol pointer
 						 * in this slot with a new asymbol holding the
@@ -768,10 +791,10 @@ long		err;
 			printf("relocating (%s=",
 					bfd_asymbol_name(*(r->sym_ptr_ptr))
 					);
-			printf("0x%08x)->0x%08x [sym_ptr_ptr = 0x%08x]\n",
-			bfd_asymbol_value(*(r->sym_ptr_ptr)),
-			r->address,
-			r->sym_ptr_ptr);
+			printf("0x%08lx)->0x%08lx [sym_ptr_ptr = 0x%08lx]\n",
+			(unsigned long)bfd_asymbol_value(*(r->sym_ptr_ptr)),
+			(unsigned long)r->address,
+			(unsigned long)r->sym_ptr_ptr);
 #endif
 			if ((err=bfd_perform_relocation(
 				abfd,
@@ -902,7 +925,7 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 	/* copy pointer to name */
 	bfd_asymbol_name(sp) = csym->name;
 	sp->value=(symvalue)csym->value.ptv;
-	sp->section=bfd_abs_section_ptr;
+	bfd_set_section(sp, bfd_abs_section_ptr);
 	sp->flags=BSF_GLOBAL;
 	/* mark the referenced module in the bitmap */
 	assert(mod->id < MAX_NUM_MODULES);
@@ -944,12 +967,12 @@ int			i,num_new_commons=0,errs=0;
 		const char	*symname;
 
 #if DEBUG  & DEBUG_SYM
-		printf("scanning SYM (flags 0x%08x, value 0x%08x) '%s'\n",
-						sp->flags,
-						bfd_asymbol_value(sp),
+		printf("scanning SYM (flags 0x%08lx, value 0x%08lx) '%s'\n",
+						(unsigned long)sp->flags,
+						(unsigned long)bfd_asymbol_value(sp),
 						bfd_asymbol_name(sp));
-		printf("         section vma 0x%08x in %s\n",
-						bfd_get_section_vma(abfd,sect),
+		printf("         section vma 0x%08lx in %s\n",
+						(unsigned long)bfd_get_section_vma(abfd,sect),
 						bfd_get_section_name(abfd,sect));
 #endif
 		/* count constructors/destructors */
@@ -1043,6 +1066,22 @@ int			i,num_new_commons=0,errs=0;
 		}
 		else if (bfd_is_com_section(sect)) {
 			if (ts) {
+				int newsz;
+				/* make sure existing symbol meets size and alignment requirements
+				 * of new one.
+				 */
+				if ( ts->size != (newsz = elf_get_size(abfd, sp)) ) {
+					if ( ts->size > newsz ) {
+						fprintf(stderr,"Warning: Existing COMMON symbol %s larger than space requested by loadee\n", ts->name);
+					} else {
+						fprintf(stderr,"Error: Existing COMMON symbol %s smaller than space requested by loadee\n", ts->name);
+						errs ++;
+					}
+				}
+				if ( (unsigned long)ts->value.ptv & (elf_get_align(abfd, sp) -1 ) ) {
+					fprintf(stderr,"Existing COMMON symbol %s doesn't meet alignment requirement of the loadee\n", ts->name); 
+					errs++;
+				}
 				/* use existing value of common sym */
 				sp = asymFromCexpSym(abfd,ts,ld->depend,mod);
 			} else {
@@ -1111,13 +1150,12 @@ asection	*csect;
 			bfd_perror("Creating dummy section");
 			return -1;
 		}
-		csect->flags |= SEC_ALLOC;
-
+		bfd_set_section_flags( abfd, csect, bfd_get_section_flags( abfd, csect ) | SEC_ALLOC );
 		/* our common section alignment is the maximal alignment
 		 * found during the sorting process which is the alignment
 		 * of the first element...
 		 */
-		bfd_section_alignment(abfd,csect) = get_align_pwr(abfd,*ld->new_commons[0]);
+		bfd_set_section_alignment(abfd, csect, elf_get_align_pwr(abfd,*ld->new_commons[0]));
 
 		/* set new common symbol values */
 		for (val=0,i=0; i<num_new_commons; i++) {
@@ -1130,15 +1168,15 @@ asection	*csect;
 			 * in decreasing order according to their alignment requirements
 			 * (probably not supported on formats other than ELF)
 			 */
-			apwr = get_align_pwr(abfd, *ld->new_commons[i]);
+			apwr = elf_get_align_pwr(abfd, *ld->new_commons[i]);
 			val=align_power(val,apwr);
 #if DEBUG & DEBUG_COMMON
-			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(sp),apwr);
+			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(*ld->new_commons[i]),apwr);
 #endif
 			/* copy pointer to old name */
 			bfd_asymbol_name(sp) = bfd_asymbol_name(*ld->new_commons[i]);
 			sp->value=val;
-			sp->section=csect;
+			bfd_set_section(sp, csect);
 			sp->flags=(*ld->new_commons[i])->flags;
 			val+=(*ld->new_commons[i])->value;
 			*ld->new_commons[i] = sp;
@@ -1192,12 +1230,10 @@ long				num_new_commons;
 	if (i) {
 		asyms=(asymbol**)xmalloc((i));
 	}
-	nsyms= i ? i/sizeof(asymbol*) - 1 : 0;
-	if (bfd_canonicalize_symtab(abfd,asyms) <= 0) {
+	if ( (nsyms = bfd_canonicalize_symtab(abfd,asyms)) <= 0) {
 		bfd_perror("Canonicalizing symtab");
 		goto cleanup;
 	}
-
 
 	if ( (num_new_commons=resolve_syms(abfd,asyms,ld)) <0 ) {
 		goto cleanup;
@@ -1283,8 +1319,6 @@ char							tmpfname[30]={
 #define tmpfname 0
 #endif
 
-enum bfd_architecture			arch;
-unsigned long					mach;
 char							*targ;
 char							*thename = 0;
 
@@ -1338,14 +1372,12 @@ char							*thename = 0;
 		goto cleanup;
 	}
 
-	arch = bfd_get_arch(ldr.abfd);
-	mach = bfd_get_mach(ldr.abfd);
 	targ = bfd_get_target(ldr.abfd);
 
 	if ( !bfd_scan_arch(bfd_printable_name(ldr.abfd)) ) {
 		fprintf(stderr,"Architecture mismatch: refuse to load a '%s/%s' module\n",
 							targ,
-							bfd_printable_arch_mach(arch,mach));
+							bfd_printable_name(ldr.abfd));
 		goto cleanup;
 	}
 
@@ -1489,9 +1521,9 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		}
 #else
 		if (ldr.eh_section) {
-			ehFrame = (void*)bfd_get_section_vma(abfd,ldr.eh_section);
+			ehFrame = (void*)bfd_get_section_vma(ldr.abfd,ldr.eh_section);
 			/* write terminating 0 to eh_frame */
-			*(long*)( ((unsigned long)ehFrame) + bfd_section_size(abfd, ldr.eh_section) ) = 0;
+			*(long*)( ((unsigned long)ehFrame) + bfd_section_size(ldr.abfd, ldr.eh_section) ) = 0;
 			assert(my__register_frame);
 			my__register_frame(ehFrame);
 		}

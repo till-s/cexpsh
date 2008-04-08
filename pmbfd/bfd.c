@@ -16,6 +16,9 @@ struct bfd_arch_info_type {
 
 #define SEC_BOGUS (-1)
 
+/* Assume we have < 64k sections */
+typedef uint16_t	Secndx;
+
 struct sec {
 	const char   *name;
 	bfd_size_type size;
@@ -23,7 +26,10 @@ struct sec {
 	unsigned      align_power;
 	flagword      flags;
 	Elf32_Shdr   *shdr;
-	asection     *grp_next;
+#define GRP_NULL	0
+	Secndx       grp_next;
+#define RELS_NULL	0
+	Secndx       rels;
 };
 
 static void
@@ -33,13 +39,26 @@ bfd_set_section_name(asection *sect, const char *name)
 }
 
 
-#define SECCHUNKSZ	20
+#define SECCHUNKSZ       0
+#define MAX_USR_SECTS    5
+#define STRCHUNKSZ	   504
+#define SYMCHUNKSZ      50
 
+#if SECCHUNKSZ > 0
 struct secchunk {
 	asection	secs[SECCHUNKSZ];
 	int         avail;
 	struct secchunk *next;
 };
+#endif
+
+#if SYMCHUNKSZ > 0
+struct symchunk {
+	asymbol	syms[SYMCHUNKSZ];
+	int     avail;
+	struct symchunk *next;
+};
+#endif
 
 static const bfd_arch_info_type myarch = {
 	arch_name:
@@ -86,17 +105,25 @@ struct bfd {
 	Elf_Stream      s;
 	Elf32_Ehdr      ehdr;
 	const char      *arch;
+#if SECCHUNKSZ == 0
 	asection        *sects;
 	uint32_t        nsects;
+	uint32_t		maxsects;
+#endif
 	asymbol         *syms;
 	long            nsyms;
 	const char      **strtabs;
 	uint32_t        nstrtabs;
+	uint32_t		str_avail;
 	Txx_Elf32_Shtab	shtab;
 	Elf32_Shdr      *symsh;	    /* sh of symbol table           */
 	Elf32_Shdr		*symstrs;	/* sh of symbol table stringtab */
+#if SECCHUNKSZ > 0
 	struct secchunk	*secmemh;
 	struct secchunk *secmemt;
+#endif
+	struct symchunk	*symmemh;
+	struct symchunk *symmemt;
 };
 
 const char *
@@ -132,6 +159,29 @@ elf_sym_name(bfd *abfd, Elf32_Sym *sym)
 	return sym->st_name >= abfd->symstrs->sh_size ? 0 : &abfd->strtabs[SYMSTRTAB][sym->st_name];
 }
 
+static char *stralloc(bfd *abfd, uint32_t len)
+{
+char       *rval;
+const char **nst;
+	if ( len > STRCHUNKSZ ) {
+		ERRPR("String table implementation limits string length to %u bytes\n", STRCHUNKSZ);
+		return 0;
+	}
+	if (abfd->str_avail < len) {
+		if ( ! (nst = realloc(abfd->strtabs, (abfd->nstrtabs+1) * sizeof(*abfd->strtabs))) ) {
+			ERRPR("Memory allocation for string table failed\n");
+			return 0;
+		}
+		abfd->strtabs = nst;
+		abfd->nstrtabs++;
+		abfd->str_avail = STRCHUNKSZ;
+	}
+	rval = (char *)&abfd->strtabs[abfd->nstrtabs-1][STRCHUNKSZ - abfd->str_avail];
+	abfd->str_avail -= len;
+	return rval;
+}
+
+#if SECCHUNKSZ > 0
 static asection *
 secget(bfd *abfd)
 {
@@ -174,10 +224,51 @@ struct secchunk *c;
 	return 0;
 }
 
+#else 
+
+static asection *
+secget(bfd *abfd)
+{
+	return abfd->nsects < abfd->maxsects ? &abfd->sects[abfd->nsects++] : 0;
+}
+
+
+static int
+secinit(bfd *abfd, unsigned n)
+{
+	if ( ! (abfd->sects = calloc( n + MAX_USR_SECTS , sizeof(asection) )) ) {
+		return -1;
+	}
+	abfd->nsects   = n;
+	abfd->maxsects = n + MAX_USR_SECTS;
+	return 0;
+}
+
+#endif
+
+static asymbol *
+symget(bfd *abfd)
+{
+struct symchunk *c;
+
+	if ( !abfd->symmemt || abfd->symmemt->avail >= SYMCHUNKSZ ) {
+		if ( ! (c=calloc(1,sizeof(*c))) ) 
+			return 0;
+		c->avail = 0;
+		c->next  = 0;
+		if ( abfd->symmemt )
+			abfd->symmemt->next = c;
+		abfd->symmemt       = c;
+		if ( !abfd->symmemh )
+			abfd->symmemh = c;
+	}
+	return &abfd->symmemt->syms[abfd->symmemt->avail++];
+}
+
+
 static asection *
 shdr2sec(bfd *abfd, Elf32_Word ndex, int return_bogus)
 {
-struct secchunk *c;
 asection        *sec;
 	switch ( ndex ) {
 		case SHN_ABS:    return bfd_abs_section_ptr;
@@ -185,6 +276,10 @@ asection        *sec;
 		case SHN_COMMON: return bfd_com_section_ptr;
 		default: break;
 	}
+
+#if SECCHUNKSZ > 0
+	{
+	struct secchunk *c;
 	c = abfd->secmemh;
 
 	while ( c ) {
@@ -197,6 +292,14 @@ asection        *sec;
 		ndex -= c->avail;
 		c     = c->next;
 	}
+	}
+#else
+	if ( ndex >= abfd->nsects )
+		return 0;
+	sec = &abfd->sects[ndex];
+	if ( return_bogus || SEC_BOGUS != bfd_get_section_flags(abfd, sec) )
+		return sec;
+#endif
 
 	return 0;
 }
@@ -204,7 +307,7 @@ asection        *sec;
 asection *
 elf_next_in_group(asection *sec)
 {
-	return sec->grp_next;
+	return shdr2sec(&thebfd, sec->grp_next, 0);
 }
 
 bfd*
@@ -216,7 +319,8 @@ bfd_asymbol_bfd(asymbol *sym)
 bfd_vma
 bfd_asymbol_value(asymbol *sym)
 {
-	return sym->value;
+symvalue base = sym->section ? bfd_get_section_vma(&thebfd, sym->section) : 0;
+	return base + sym->value;
 }
 
 long
@@ -228,10 +332,11 @@ asymbol   *asym;
 long      rval = -1;
 
 	if ( !abfd->syms ) {
-		if ( ! (abfd->syms = malloc(sizeof(asymbol)*abfd->nsyms)) ) {
+		if ( ! (abfd->syms = malloc(sizeof(asymbol)*(abfd->nsyms))) ) {
 			ERRPR("No memory for symbol table\n");
 			return -1;
 		}
+		/* seek skipping ELF symbol #0 */
 		if ( txx_seek(abfd->s, abfd->symsh->sh_offset + sizeof(esym)) ) {
 			bfd_perror("unable to seek to symbol table");
 			goto bail;
@@ -248,12 +353,16 @@ long      rval = -1;
 			asym->value                     = 
 			asym->internal_elf_sym.st_value = esym.st_value;
 			asym->internal_elf_sym.st_size  = esym.st_size;
+			asym->flags                     = 0;
 
 			if ( ! (asym->section = shdr2sec(abfd, esym.st_shndx, 1)) ) {
 				ERRPR("Symbol %s pointing to NO section (idx %"PRIu16")\n",
 						asym->name, esym.st_shndx);
 				goto bail;
 			}
+
+			/* if the section already has a vma recalculate the offset */
+			asym->value -= asym->section->vma;
 
 			switch ( ELF32_ST_BIND( esym.st_info ) ) {
 				default:
@@ -325,7 +434,9 @@ bfd_check_format(bfd *abfd, bfd_format format)
 {
 	switch ( format ) {
 		case bfd_object:
-			if ( ET_REL == abfd->ehdr.e_type )
+			if ( ET_REL == abfd->ehdr.e_type
+				/* also accept ET_EXEC for linux test program ... */
+				|| ET_EXEC == abfd->ehdr.e_type )
 				return BFD_TRUE;
 			break;
 		case bfd_core:
@@ -338,13 +449,11 @@ bfd_check_format(bfd *abfd, bfd_format format)
 	return BFD_FALSE;
 }
 
-bfd_boolean
-bfd_close_all_done(bfd *abfd)
+static void bfd_cleanup(bfd *abfd, int noclose)
 {
-struct secchunk   *c,*cn;
 
 	if ( abfd->s ) {
-		txx_delstrm(abfd->s);
+		txx_delstrm(abfd->s, noclose);
 		abfd->s = 0;
 	}
 	if ( abfd->shtab ) {
@@ -356,21 +465,51 @@ struct secchunk   *c,*cn;
 		free( (void*)abfd->strtabs[ abfd->nstrtabs ] );
 	}
 	free( abfd->strtabs );
-	abfd->strtabs = 0;
+	abfd->strtabs   = 0;
+	abfd->str_avail = 0;
+
+#if SECCHUNKSZ > 0
+	{
+	struct secchunk   *c,*cn;
+
 	for ( c=abfd->secmemh; c;  ) {
 		cn = c->next;
 		free(c);
 		c  = cn;
 	}
-	abfd->secmemh = thebfd.secmemt = 0;
+	abfd->secmemh = abfd->secmemt = 0;
+	}
+#else
+	free( abfd->sects );
+	abfd->sects    = 0;
+	abfd->nsects   = 0;
+	abfd->maxsects = 0;
+#endif
+	{
+	struct symchunk   *c,*cn;
+
+	for ( c=abfd->symmemh; c;  ) {
+		cn = c->next;
+		free(c);
+		c  = cn;
+	}
+	abfd->symmemh = abfd->symmemt = 0;
+	}
 
 	free(abfd->syms);
 	abfd->syms    = 0;
 
 	abfd->nsyms   = 0;
 
+}
+
+bfd_boolean
+bfd_close_all_done(bfd *abfd)
+{
+	bfd_cleanup(abfd, 0);
 	return BFD_TRUE;
 }
+
 
 #if 0
 bfd_boolean
@@ -401,7 +540,7 @@ bfd_get_section(asymbol *sym)
 
 /* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
 file_ptr
-bfd_get_section_filepos(bfd *abfd, asection *section)
+pmbfd_get_section_filepos(bfd *abfd, asection *section)
 {
 	return section->shdr ? section->shdr->sh_offset : -1;
 }
@@ -446,7 +585,7 @@ bfd_get_section_alignment(bfd *bfd, asection *sect)
 long
 bfd_get_symtab_upper_bound(bfd *abfd)
 {
-	/* BFD returns 1 entry more than needed */
+	/* BFD returns 1 entry more than needed (terminating NULL) */
 	return (abfd->nsyms + 1) * sizeof(asymbol *);
 }
 
@@ -543,14 +682,22 @@ asection *rval;
 void
 bfd_map_over_sections(bfd *abfd, void (*f)(bfd *abfd, asection *sect, void *closure), void *closure)
 {
-struct secchunk *c;
 int              i;
+#if SECCHUNKSZ > 0
+struct secchunk *c;
 	for ( c = abfd->secmemh; c; c=c->next ) {
 		for ( i=0; i<c->avail; i++ ) {
 			if ( bfd_get_section_flags(abfd, &c->secs[i]) != SEC_BOGUS )
 				f(abfd, c->secs+i, closure);
 		}
 	}
+#else
+asection *sec;
+	for ( i = 0, sec = abfd->sects; i < abfd->nsects; i++, sec++ ) {
+		if ( bfd_get_section_flags(abfd, sec) != SEC_BOGUS )
+			f(abfd, sec, closure);
+	}
+#endif
 }
 
 struct elf2bfddat {
@@ -561,7 +708,8 @@ struct elf2bfddat {
 static void elf2bfdsec(bfd *abfd, asection *sec, void *closure)
 {
 struct elf2bfddat *p    = closure;
-Elf32_Shdr        *shdr = &abfd->shtab->shdrs[p->idx];
+Secndx            idx   = p->idx;
+Elf32_Shdr        *shdr = &abfd->shtab->shdrs[idx];
 asection          *s;
 Elf32_Word        *grp;
 Elf32_Word        n;
@@ -591,8 +739,14 @@ const char        *sname;
 	/* must not touch grp_next since setting up groups
 	 * doesn't follow the order in which we scan the array
 	 * of sections.
-	sec->grp_next    = 0;
+	sec->grp_next    = GRP_NULL;
 	 */
+
+
+	/* initializing rels is OK since relocs are marked
+	 * during a second pass anyways
+	 */
+	sec->rels        = RELS_NULL;
 
 	p->idx++;
 
@@ -631,7 +785,7 @@ const char        *sname;
 						break;
 
 		case SHT_REL:
-		case SHT_RELA: /* TODO: deal with relocations */
+		case SHT_RELA:
 						return;
 
 		case SHT_GROUP:
@@ -642,15 +796,25 @@ const char        *sname;
 						}
 						if ( GRP_COMDAT & grp[0] ) {
 							n = shdr->sh_size / sizeof(grp[0]);
-							for (i=1, s=sec; i<n; i++, s=s->grp_next) {
-								if ( ! (s->grp_next = shdr2sec(abfd, grp[i], 0)) ) {
+							for (i=1, s=sec; i<n; i++) {
+								/* assume groups do not include 'special' sections
+								 * (like UND/ABS etc.)
+								 */
+								if ( 0 == grp[i] || grp[i] >= abfd->shtab->nshdrs ) {
 									ERRPR("Group member section index possibly out of bounds\n");
-									p->err = 1;
+									s->grp_next = GRP_NULL;
+									p->err      = 1;
+									return;
+								}
+								s->grp_next = grp[i];
+								if ( ! (s = elf_next_in_group(s)) ) {
+									ERRPR("Fatal error; should never get here\n");
+									p->err      = 1;
 									return;
 								}
 							}
 							/* BFD provides a closed 'loop' */
-							s->grp_next = sec;
+							s->grp_next = idx;
 							flags |= SEC_LINK_ONCE | SEC_LINK_DUPLICATES_DISCARD;
 						}
 						free(grp);
@@ -735,7 +899,7 @@ const char        *sname;
 	 * don't raise the LINK_ONCE flag even if the section
 	 * name matches...
 	 */
-	if ( ! sec->grp_next
+	if ( GRP_NULL == sec->grp_next
 		 && !strncmp(sname, ".gnu.linkonce", 13) )
 		flags |= SEC_LINK_ONCE | SEC_LINK_DUPLICATES_DISCARD;
 
@@ -749,6 +913,7 @@ uint32_t   n;
 asection   *tsec;
 Elf32_Shdr *shdr;
 const char *name;
+int        rval = 0;
 
 	for ( n = 1, shdr = abfd->shtab->shdrs + n; n<abfd->shtab->nshdrs; n++, shdr++ ) {
 		switch ( shdr->sh_type ) {
@@ -765,7 +930,8 @@ const char *name;
 				name = "<OUT-OF-BOUNDS>";
 			ERRPR("pmbfd: no asection found associated with REL/RELA section %s (sh_info: %d)\n",
 				name,
-				shdr->sh_info);
+				shdr->sh_info
+			);
 			return -1;
 		}
 		if ( SEC_BOGUS == bfd_get_section_flags(abfd, tsec) ) {
@@ -774,12 +940,21 @@ const char *name;
 			ERRPR("pmbfd: REL/RELA section %s (sh_info: %d) targeting BOGUS section %s\n",
 				name,
 				shdr->sh_info,
-				bfd_get_section_name(abfd, tsec));
+				bfd_get_section_name(abfd, tsec)
+			);
 			return -1;
 		}
+		if ( RELS_NULL != tsec->rels ) {
+			ERRPR("pmbfd: section %s has more than 1 associated sections with relocations -- currently unsupported, sorry\n",
+				bfd_get_section_name(abfd, tsec)
+			);
+			return -1;	      
+		}
+		tsec->rels = n;
 		bfd_set_section_flags(abfd, tsec, bfd_get_section_flags(abfd, tsec) | SEC_RELOC);
+		rval++;
 	}
-	return 0;
+	return rval;
 }
 
 
@@ -789,6 +964,7 @@ bfd_openstreamr(const char *fname, const char *target, FILE *f)
 const char        *strs;
 struct elf2bfddat d;
 struct bfd        *abfd = &thebfd;
+int               nrels;
 
 	if ( ! inited ) {
 		ERRPR("pmbfd: not initialized\n");
@@ -851,15 +1027,14 @@ struct bfd        *abfd = &thebfd;
 	if ( d.err )
 		goto cleanup;
 
-	if ( mark_relocs(abfd) )
+	if ( (nrels = mark_relocs(abfd)) < 0 )
 		goto cleanup;
-
 
 	return abfd;
 
 cleanup:
 
-	bfd_close_all_done(abfd);
+	bfd_cleanup(abfd, 1);
 	return 0;
 }
 
@@ -918,6 +1093,18 @@ bfd_set_section(asymbol *sym, asection *sect)
 bfd_boolean
 bfd_get_section_contents(bfd *abfd, asection *section, void *location, file_ptr offset, bfd_size_type count)
 {
+	if ( 0 == count )
+		return BFD_TRUE;
+
+	if ( ! (bfd_get_section_flags(abfd, section) & SEC_HAS_CONTENTS) ) {
+		memset(location, 0, count);
+		return BFD_TRUE;
+	}
+
+	/* test for shdr presence after checking HAS_CONTENTS so we can clear
+	 * out a new common section (which has no shdr)
+	 */
+
 	if ( !section->shdr )
 		return BFD_FALSE;
 
@@ -925,27 +1112,174 @@ bfd_get_section_contents(bfd *abfd, asection *section, void *location, file_ptr 
 }
 
 asymbol *
-bfd_make_empty_symbol(bfd *bfd)
+bfd_make_empty_symbol(bfd *abfd)
 {
-	abort();
-	return 0;
+	return symget(abfd);
+}
+
+struct pmbfd_areltab {
+	Elf32_Word	entsz;
+	Elf32_Shdr  *shdr;
+	uint8_t		data[];
+};
+
+union pmbfd_arelent {
+	Elf32_Rel	rel;
+	Elf32_Rela	rela;
+	char        raw[sizeof(Elf32_Rela)];
+};
+
+static asection *
+get_reloc_sec(bfd *abfd, asection *sect)
+{
+asection *rels;
+uint32_t sz;
+	if ( RELS_NULL == sect->rels  ||  ! (rels = shdr2sec(abfd, sect->rels, 1)) ) {
+		ERRPR("pmbfd: section (%s) has no relocs\n", bfd_get_section_name(abfd, sect));
+		return 0;
+	}
+	switch ( rels->shdr->sh_type ) {
+		case SHT_REL:  sz = sizeof(Elf32_Rel); break;
+		case SHT_RELA: sz = sizeof(Elf32_Rela); break;
+
+		default:
+		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %u)\n", rels->shdr->sh_type);
+		return 0;
+	}
+	if ( sz != rels->shdr->sh_entsize ) {
+		ERRPR("pmbfd: reloc section entry size mismatch\n");
+		return 0;
+	}
+	return rels;
 }
 
 long
-bfd_canonicalize_reloc(bfd *abfd, asection *sec, arelent **loc, asymbol **syms)
+bfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms)
 {
-	return -1;
+asection *rels;
+long     nrels;
+
+	if ( !(rels = get_reloc_sec(abfd, sec)) ) {
+		return -1;
+	}
+
+	/* sh_entsize was checked by get_reloc_sec() */
+	nrels = rels->shdr->sh_size / rels->shdr->sh_entsize;
+
+	/* read relocations */
+	if ( nrels > 0 ) {
+		if ( ! (txx_getscn(abfd->s, rels->shdr, tab->data, 0, 0)) ) {
+			bfd_perror("Unable to read relocations\n");	
+			return -1;
+		}
+	}
+
+	tab->entsz = rels->shdr->sh_entsize;
+	tab->shdr  = rels->shdr;
+		
+	return nrels;
 }
 
 long
 bfd_get_reloc_upper_bound(bfd *abfd, asection *sect)
 {
-	return 0;
+asection *rels = get_reloc_sec(abfd, sect);
+	if ( !rels ) 
+		return -1;
+	return sizeof(pmbfd_areltab) + rels->shdr->sh_size;
 }
+
+/*
+ * SysvR4 relocation types for i386. Statically linked objects
+ * just use R_386_32 and R_386_PC32 which makes our job really easy...
+ */
+
+#define R_386_NONE         0
+#define R_386_32	       1
+#define R_386_PC32	       2
+#define R_386_GOT32        3
+#define R_386_PLT32        4
+#define R_386_COPY         5
+#define R_386_GLOB_DAT     6
+#define R_386_JMP_SLOT     7
+#define R_386_RELATIVE     8
+#define R_386_GOTOFF       9
+#define R_386_GOTPC       10
+
 
 bfd_reloc_status_type
-bfd_perform_relocation(bfd *abfd, arelent *relent, void *data, asection *input_section, bfd *output_bfd, char **p_err_msg)
+pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
-	return bfd_reloc_other;
+Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
+Elf32_Word     val, add;
+
+	if ( r->rel.r_offset + sizeof(Elf32_Word) > bfd_get_section_size(input_section) )
+		return bfd_reloc_outofrange;
+
+	pc += r->rel.r_offset;
+
+	if ( bfd_is_und_section(psym->section) )
+		return bfd_reloc_undefined;
+
+
+	val = 0;
+	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+		default:
+		return bfd_reloc_notsupported;
+
+		case R_386_PC32: val = -(Elf32_Word)pc;
+
+		case R_386_32:	 memcpy(&add, (char*)pc, sizeof(add));
+
+						 val += add + bfd_asymbol_value(psym);
+						 memcpy((char*)pc, &val, sizeof(val));
+		break;
+	}
+
+	return bfd_reloc_ok;
 }
 
+pmbfd_arelent *
+pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev)
+{
+	return (pmbfd_arelent *) (prev ? (uint8_t*)prev + tab->entsz : tab->data);
+}
+
+int
+pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *r)
+{
+Elf32_Word idx;
+
+	idx = ELF32_R_SYM(r->rel.r_info);
+	if ( idx == 0 || idx > abfd->nsyms )
+		return -1;
+	return idx-1;
+}
+
+bfd_size_type
+pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
+{
+	return r->rel.r_offset;
+}
+
+const char *
+pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
+{
+	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+		case R_386_NONE:		return "none";
+		case R_386_32:			return "R_386_32";
+		case R_386_PC32:		return "R_386_PC32";
+		case R_386_GOT32:		return "R_386_GOT32";
+		case R_386_PLT32:		return "R_386_PLT32";
+		case R_386_COPY:		return "R_386_COPY";
+		case R_386_GLOB_DAT:	return "R_386_GLOB_DAT";
+		case R_386_JMP_SLOT:	return "R_386_JMP_SLOT";
+		case R_386_RELATIVE:	return "R_386_RELATIVE";
+		case R_386_GOTOFF:		return "R_386_GOTOFF";
+		case R_386_GOTPC:		return "R_386_GOTPC";
+
+		default:
+		break;
+	}
+	return "UNKNOWN";
+}

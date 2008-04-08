@@ -7,6 +7,7 @@
 #include "pmelf.h"
 
 #define PARANOIA_ON 0
+#undef PARANOIA_ON
 
 struct _Elf_Stream {
 	FILE *f;
@@ -74,9 +75,10 @@ txx_seek(Elf_Stream s, Elf32_Off where)
 }
 
 void
-txx_delstrm(Elf_Stream s)
+txx_delstrm(Elf_Stream s, int noclose)
 {
-	fclose(s->f);
+	if ( !noclose && s->f )
+		fclose(s->f);
 	free(s);
 }
 
@@ -139,7 +141,6 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 int
 txx_getshdr(Elf_Stream s, Elf32_Shdr *pshdr)
 {
-unsigned long x;
 	if ( 1 != fread(pshdr, sizeof(*pshdr), 1, s->f) ) {
 		return -1;
 	}
@@ -156,16 +157,21 @@ unsigned long x;
 		e32_swap32( &pshdr->sh_entsize);
 	}
 #ifdef PARANOIA_ON
+	{
+	unsigned long x;
+#if PARANOIA_ON > 0
 	if ( (x = pshdr->sh_flags) & SHF_MSKSUP ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getshdr - paranoia: unsupported flags 0x%08lx\n", x);
 		return -1;
 	}
-#if PARANOIA_ON > 0
+#if PARANOIA_ON > 1
 	if ( (x = pshdr->sh_type) > SHT_MAXSUP ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getshdr - paranoia: unsupported type  0x%08lu\n", x);
 		return -1;
 	}
 #endif
+#endif
+	}
 #endif
 	return 0;
 }
@@ -173,7 +179,6 @@ unsigned long x;
 int
 txx_getsym(Elf_Stream s, Elf32_Sym *psym)
 {
-int x;
 	if ( 1 != fread(psym, sizeof(*psym), 1, s->f) ) {
 		return -1;
 	}
@@ -184,6 +189,8 @@ int x;
 		e32_swap16( &psym->st_shndx);
 	}
 #ifdef PARANOIA_ON
+	{
+	int x;
 	if ( (x = ELF32_ST_TYPE( psym->st_info )) > STT_MAXSUP ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getsym - paranoia: unsupported type %i\n", x);
 		return -1;
@@ -191,6 +198,7 @@ int x;
 	if ( (x = ELF32_ST_BIND( psym->st_info )) > STB_MAXSUP ) {
 		TXX_PRINTF( txx_err, TXX_PRE"txx_getsym - paranoia: unsupported binding %i\n", x);
 		return -1;
+	}
 	}
 #endif
 	return 0;

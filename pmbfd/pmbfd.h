@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#define _PMBFD_
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,17 +94,18 @@ typedef asymbol elf_symbol_type;
 #define bfd_asymbol_name(s) ((s)->name)
 
 
-/* type of relocation */
-typedef struct {
-	char *name;
-} reloc_howto_type;
+/* The code where relocations are dealt with in bfdstuff is
+ * very concentrated.
+ * We can be more efficient and save memory if we don't emulate
+ * the BFD API.
+ * Hence we provide an alternative.
+ */
 
-typedef struct {
-	asymbol          **sym_ptr_ptr;
-	reloc_howto_type *howto;
-	bfd_size_type     address;
-	int dummy;
-} arelent;
+/* Table with relocations */
+typedef struct pmbfd_areltab pmbfd_areltab;
+
+typedef union  pmbfd_arelent pmbfd_arelent;
+
 
 asection *
 elf_next_in_group(asection *);
@@ -152,9 +155,6 @@ bfd_vma
 bfd_asymbol_value(asymbol *sym);
 
 long
-bfd_canonicalize_reloc(bfd *abfd, asection *sec, arelent **loc, asymbol **syms);
-
-long
 bfd_canonicalize_symtab(bfd *abfd, asymbol**);
 
 bfd_boolean
@@ -185,10 +185,6 @@ bfd_get_section(asymbol *sym);
 /* Note: this actually returns ld(alignment)! */
 unsigned int
 bfd_get_section_alignment(bfd *abfd, asection *sect);
-
-/* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
-file_ptr
-bfd_get_section_filepos(bfd *abfd, asection *section);
 
 bfd_size_type
 bfd_get_section_size(asection *section);
@@ -241,8 +237,27 @@ bfd_map_over_sections(bfd *abfd, void (*f)(bfd *abfd, asection *sect, void *clos
 bfd *
 bfd_openstreamr(const char *fname, const char *target, FILE *f);
 
+
+/* generate reloc table */
+long
+pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms);
+
+/* iterator over reloc table */
+pmbfd_arelent *
+pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev);
+
+
 bfd_reloc_status_type
-bfd_perform_relocation(bfd *abfd, arelent *relent, void *data, asection *input_section, bfd *output_bfd, char **p_err_msg);
+pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *reloc, asymbol *sym, asection *input_section);
+
+int
+pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *reloc);
+
+bfd_size_type
+pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *reloc);
+
+const char *
+pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *reloc);
 
 void
 bfd_perror(const char *msg);
@@ -270,6 +285,14 @@ bfd_set_section_vma(bfd *abfd, asection *sect, bfd_vma vma);
 
 asection *
 bfd_set_section(asymbol *sym, asection *sect);
+
+/* The following routines are NOT in BFD -- they are added for ease of
+ * portability
+ */
+
+/* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
+file_ptr
+pmbfd_get_section_filepos(bfd *abfd, asection *section);
 
 #define xmalloc  malloc
 #define xrealloc realloc

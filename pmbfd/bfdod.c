@@ -2,9 +2,10 @@
 #include <sys/types.h>
 #include <bfd.h>
 #include <elf-bfd.h>
-#define bfd_get_section_filepos(abfd, sect) (sect)->filepos
+#define get_section_filepos(abfd, sect) (sect)->filepos
 #else
 #include "pmbfd.h"
+#define get_section_filepos(abfd, sect) pmbfd_get_section_filepos(abfd,sect)
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +34,7 @@ char   *sep = "";
 		bfd_get_section_lma(abfd, sect)
 	);
 
-	printf("  %08lx", bfd_get_section_filepos(abfd, sect));
+	printf("  %08lx", get_section_filepos(abfd, sect));
 
 	/* WEIRDNESS (bug ?) if I tried a single printf statement the alignment
 	 * was always printed as 0

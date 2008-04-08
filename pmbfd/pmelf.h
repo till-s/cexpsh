@@ -222,7 +222,7 @@ int
 txx_seek(Elf_Stream s, Elf32_Off where);
 
 void
-txx_delstrm(Elf_Stream s);
+txx_delstrm(Elf_Stream s, int noclose);
 
 int
 txx_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr);

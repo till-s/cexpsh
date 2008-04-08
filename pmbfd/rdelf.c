@@ -95,6 +95,6 @@ int              compat=0;
 bail:
 	txx_delsymtab(symtab);
 	txx_delshtab(shtab);
-	txx_delstrm(s);
+	txx_delstrm(s,0);
 	return rval;
 }

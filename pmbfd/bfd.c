@@ -17,6 +17,10 @@ struct bfd_arch_info_type {
 
 #define SEC_BOGUS (-1)
 
+#define DEBUG_RELOC (1)
+
+#undef DEBUG
+
 /* Assume we have less than 64k sections */
 typedef uint16_t	Secndx;
 
@@ -985,7 +989,7 @@ int        rval = 0;
 		if ( ! (tsec = shdr2sec(abfd, shdr->sh_info, 0)) ) {
 			if ( !(name = txx_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
-			ERRPR("pmbfd: no asection found associated with REL/RELA section %s (sh_info: %d)\n",
+			ERRPR("pmbfd: no asection found associated with REL/RELA section %s (sh_info: %"PRId32")\n",
 				name,
 				shdr->sh_info
 			);
@@ -994,7 +998,7 @@ int        rval = 0;
 		if ( SEC_BOGUS == bfd_get_section_flags(abfd, tsec) ) {
 			if ( !(name = txx_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
-			ERRPR("pmbfd: REL/RELA section %s (sh_info: %d) targeting BOGUS section %s\n",
+			ERRPR("pmbfd: REL/RELA section %s (sh_info: %"PRId32") targeting BOGUS section %s\n",
 				name,
 				shdr->sh_info,
 				bfd_get_section_name(abfd, tsec)
@@ -1201,7 +1205,7 @@ uint32_t sz;
 		case SHT_RELA: sz = sizeof(Elf32_Rela); break;
 
 		default:
-		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %u)\n", rels->shdr->sh_type);
+		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %"PRIu32")\n", rels->shdr->sh_type);
 		return 0;
 	}
 	if ( sz != rels->shdr->sh_entsize ) {
@@ -1251,50 +1255,101 @@ asection *rels = get_reloc_sec(abfd, sect);
  * SysvR4 relocation types for i386. Statically linked objects
  * just use R_386_32 and R_386_PC32 which makes our job really easy...
  */
-
-#define R_386_NONE         0
-#define R_386_32	       1
-#define R_386_PC32	       2
-#define R_386_GOT32        3
-#define R_386_PLT32        4
-#define R_386_COPY         5
-#define R_386_GLOB_DAT     6
-#define R_386_JMP_SLOT     7
-#define R_386_RELATIVE     8
-#define R_386_GOTOFF       9
-#define R_386_GOTPC       10
+#define R_386_NONE                0
+#define R_386_32                  1
+#define R_386_PC32                2
+#define R_386_GOT32               3
+#define R_386_PLT32               4
+#define R_386_COPY                5
+#define R_386_GLOB_DAT            6
+#define R_386_JMP_SLOT            7
+#define R_386_RELATIVE            8
+#define R_386_GOTOFF              9
+#define R_386_GOTPC              10
 
 /*
  * 68k relocation types
  */
+#define R_68K_NONE                0
+#define R_68K_32                  1
+#define R_68K_16                  2
+#define R_68K_8                   3
+#define R_68K_PC32                4
+#define R_68K_PC16                5
+#define R_68K_PC8                 6
+#define R_68K_GOT32               7
+#define R_68K_GOT16               8
+#define R_68K_GOT8                9
+#define R_68K_GOT320             10
+#define R_68K_GOT160             11
+#define R_68K_GOT80              12
+#define R_68K_PLT32              13
+#define R_68K_PLT16              14
+#define R_68K_PLT8               15
+#define R_68K_PLT320             16
+#define R_68K_PLT160             17
+#define R_68K_PLT80              18
+#define R_68K_COPY               19
+#define R_68K_GLOB_DAT           20
+#define R_68K_JMP_SLOT           21
+#define R_68K_RELATIVE           22
 
-#define R_68K_NONE         0
-#define R_68K_32           1
-#define R_68K_16           2
-#define R_68K_8            3
-#define R_68K_PC32         4
-#define R_68K_PC16         5
-#define R_68K_PC8          6
-#define R_68K_GOT32        7
-#define R_68K_GOT16        8
-#define R_68K_GOT8         9
-#define R_68K_GOT320      10
-#define R_68K_GOT160      11
-#define R_68K_GOT80       12
-#define R_68K_PLT32       13
-#define R_68K_PLT16       14
-#define R_68K_PLT8        15
-#define R_68K_PLT320      16
-#define R_68K_PLT160      17
-#define R_68K_PLT80       18
-#define R_68K_COPY        19
-#define R_68K_GLOB_DAT    20
-#define R_68K_JMP_SLOT    21
-#define R_68K_RELATIVE    22
 
+/* PPC relocation types */
+#define R_PPC_NONE                0
+#define R_PPC_ADDR32              1
+#define R_PPC_ADDR24              2
+#define R_PPC_ADDR16              3
+#define R_PPC_ADDR16_LO           4
+#define R_PPC_ADDR16_HI           5
+#define R_PPC_ADDR16_HA           6
+#define R_PPC_ADDR14              7
+#define R_PPC_ADDR14_BRTAKEN      8
+#define R_PPC_ADDR14_BRNTAKEN     9
+#define R_PPC_REL24              10
+#define R_PPC_REL14              11
+#define R_PPC_REL14_BRTAKEN      12
+#define R_PPC_REL14_BRNTAKEN     13
+#define R_PPC_GOT16              14
+#define R_PPC_GOT16_LO           15
+#define R_PPC_GOT16_HI           16
+#define R_PPC_GOT16_HA           17
+#define R_PPC_PLTREL24           18
+#define R_PPC_COPY               19
+#define R_PPC_GLOB_DAT           20
+#define R_PPC_JMP_SLOT           21
+#define R_PPC_RELATIVE           22
+#define R_PPC_LOCAL24PC          23
+#define R_PPC_UADDR32            24
+#define R_PPC_UADDR16            25
+#define R_PPC_REL32              26
+#define R_PPC_PLT32              27
+#define R_PPC_PLTREL32           28
+#define R_PPC_PLT16_LO           29
+#define R_PPC_PLT16_HI           30
+#define R_PPC_PLT16_HA           31
+#define R_PPC_SDAREL16           32
+#define R_PPC_SECTOFF            33
+#define R_PPC_SECTOFF_LO         34
+#define R_PPC_SECTOFF_HI         35
+#define R_PPC_SECTOFF_HA         36
+#define R_PPC_ADDR30             37
+
+#if   defined(__i386__)
+#define pmbfd_perform_relocation_i386 pmbfd_perform_relocation
+#define pmbfd_reloc_get_name_i386     pmbfd_reloc_get_name
+#elif defined(__m68k__)
+#define pmbfd_perform_relocation_m68k pmbfd_perform_relocation
+#define pmbfd_reloc_get_name_m68k     pmbfd_reloc_get_name
+#elif defined(__PPC__)
+#define pmbfd_perform_relocation_ppc  pmbfd_perform_relocation
+#define pmbfd_reloc_get_name_ppc      pmbfd_reloc_get_name
+#else
+#error "relocation not implemented for this CPU"
+#endif
 
 bfd_reloc_status_type
-pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
+pmbfd_perform_relocation_i386(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
 Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
 Elf32_Word     val, add;
@@ -1383,7 +1438,7 @@ int32_t        lim;
 		break;
 	}
 
-	val = val + r->rela.r_addend - pcadd;
+	val = val + bfd_asymbol_value(psym) + r->rela.r_addend - pcadd;
 
 	if ( lim && (val < lim || val > -lim - 1) )
 		return bfd_reloc_overflow;
@@ -1402,6 +1457,125 @@ int32_t        lim;
 		case 4:
 			memcpy((void*)pc, &val, sizeof(val));
 		break;
+	}
+
+	return bfd_reloc_ok;
+}
+
+bfd_reloc_status_type
+pmbfd_perform_relocation_ppc(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
+{
+Elf32_Word     pc;
+unsigned       sz, algn;
+int32_t        val,oval;
+int16_t        sval;
+int32_t        lim;
+uint32_t       msk,lomsk;
+uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
+
+	if ( bfd_is_und_section(bfd_get_section(psym)) )
+		return bfd_reloc_undefined;
+
+	pc  = bfd_get_section_vma(abfd, input_section) + r->rela.r_offset;
+
+	val = bfd_asymbol_value(psym) + r->rela.r_addend;
+
+	/* gcc seems to only use these...
+	 *
+	 * R_PPC_ADDR16_HA
+	 * R_PPC_ADDR16_HI
+	 * R_PPC_ADDR16_LO
+	 * R_PPC_ADDR24
+	 * R_PPC_ADDR32
+	 * R_PPC_REL24
+	 * R_PPC_REL32
+	 */
+
+	msk   = ~0;
+	lim   =  0;
+	lomsk =  0;
+
+	algn  =  1;
+	sz    =  4;
+
+	switch ( type ) {
+
+		default:
+		return bfd_reloc_notsupported;
+
+		case R_PPC_ADDR16_HA:
+		case R_PPC_ADDR16_HI:
+		case R_PPC_ADDR16_LO: sz = algn = 2;
+		break;
+	 
+	 	case R_PPC_ADDR24:
+	 	case R_PPC_REL24:
+							  lim = - (1<<(27-1));
+		                      if ( R_PPC_REL24 == type )
+							  	lim >>= 1;
+							  msk   =  0x03fffffc;
+							  lomsk =  0x00000003;
+	 	case R_PPC_REL32:     sz = algn = 4;
+		break;
+
+		/* This is used by gcc to put data at unaligned addresses, too */
+	 	case R_PPC_ADDR32:    sz = 4; algn = 1;
+		break;
+	}
+
+	if ( pc & (algn-1)) {
+		ERRPR("pmbfd_perform_relocation_ppc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
+		return bfd_reloc_other;
+	}
+
+
+	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+		case R_PPC_REL24:
+		case R_PPC_REL32:
+			val -= pc;
+		break;
+		default:
+		break;
+	}
+
+	if ( lim && (val < lim || val > -lim - 1) )
+		return bfd_reloc_overflow;
+
+	if ( lomsk & val ) {
+		ERRPR("pmbfd_perform_relocation_ppc(): value (0x%08"PRIx32") not properly aligned\n", val);
+		return bfd_reloc_other;
+	}
+
+#if DEBUG & DEBUG_RELOC
+	fprintf(stderr,"Relocating val: 0x%08"PRIx32", lim: 0x%08"PRIx32", pc: 0x%08"PRIx32"\n",
+		val, lim, pc);
+#endif
+
+	if ( 2 == sz ) {
+		memcpy(&sval, (void*)pc, sizeof(sval));
+		oval = sval;
+	} else {
+		memcpy(&oval, (void*)pc, sizeof(oval));
+	}
+	val = ( oval & ~msk ) | (val & msk);
+
+	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+		case R_PPC_ADDR16_HA:
+			if ( val & 0x8000 )
+				val+=0x10000;
+		case R_PPC_ADDR16_HI:
+			val >>= 16;
+		break;
+		default:
+		break;
+	}
+
+	/* patch back */
+	if ( 2 == sz ) {
+		sval = val;
+		memcpy((void*)pc, &sval, sizeof(sval));
+	} else {
+		memcpy((void*)pc, &val,  sizeof(val) );
 	}
 
 	return bfd_reloc_ok;
@@ -1434,7 +1608,7 @@ pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 #define namecase(rel)	case rel: return #rel;
 
 const char *
-pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
+pmbfd_reloc_get_name_i386(bfd *abfd, pmbfd_arelent *r)
 {
 	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
 		namecase( R_386_NONE     )
@@ -1485,6 +1659,55 @@ pmbfd_reloc_get_name_m68k(bfd *abfd, pmbfd_arelent *r)
 
 		default:
 		break;
+	}
+	return "UNKNOWN";
+}
+
+const char *
+pmbfd_reloc_get_name_ppc(bfd *abfd, pmbfd_arelent *r)
+{
+	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+		namecase( R_PPC_NONE                )
+		namecase( R_PPC_ADDR32              )
+		namecase( R_PPC_ADDR24              )
+		namecase( R_PPC_ADDR16              )
+		namecase( R_PPC_ADDR16_LO           )
+		namecase( R_PPC_ADDR16_HI           )
+		namecase( R_PPC_ADDR16_HA           )
+		namecase( R_PPC_ADDR14              )
+		namecase( R_PPC_ADDR14_BRTAKEN      )
+		namecase( R_PPC_ADDR14_BRNTAKEN     )
+		namecase( R_PPC_REL24               )
+		namecase( R_PPC_REL14               )
+		namecase( R_PPC_REL14_BRTAKEN       )
+		namecase( R_PPC_REL14_BRNTAKEN      )
+		namecase( R_PPC_GOT16               )
+		namecase( R_PPC_GOT16_LO            )
+		namecase( R_PPC_GOT16_HI            )
+		namecase( R_PPC_GOT16_HA            )
+		namecase( R_PPC_PLTREL24            )
+		namecase( R_PPC_COPY                )
+		namecase( R_PPC_GLOB_DAT            )
+		namecase( R_PPC_JMP_SLOT            )
+		namecase( R_PPC_RELATIVE            )
+		namecase( R_PPC_LOCAL24PC           )
+		namecase( R_PPC_UADDR32             )
+		namecase( R_PPC_UADDR16             )
+		namecase( R_PPC_REL32               )
+		namecase( R_PPC_PLT32               )
+		namecase( R_PPC_PLTREL32            )
+		namecase( R_PPC_PLT16_LO            )
+		namecase( R_PPC_PLT16_HI            )
+		namecase( R_PPC_PLT16_HA            )
+		namecase( R_PPC_SDAREL16            )
+		namecase( R_PPC_SECTOFF             )
+		namecase( R_PPC_SECTOFF_LO          )
+		namecase( R_PPC_SECTOFF_HI          )
+		namecase( R_PPC_SECTOFF_HA          )
+		namecase( R_PPC_ADDR30              )
+
+		default:
+			break;
 	}
 	return "UNKNOWN";
 }

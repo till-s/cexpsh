@@ -583,7 +583,7 @@ char fbuf[4*sizeof(pshdr->sh_flags)+1];
 const char *fmt;
 
 	if ( FMT_COMPAT != format ) {
-		fprintf( f, "(%1x) ", pshdr->sh_type );
+		fprintf( f, "(%1"PRIx32") ", pshdr->sh_type );
 		fmt = "%-12s";
 	} else {
 		fmt = "%-16s";
@@ -694,7 +694,7 @@ const char *name;
 	fprintf(f," Name\n");
 	for ( i=0, sym = symtab->syms; i<symtab->nsyms; i++, sym++ ) {
 
-		fprintf(f,"%6u: %08"PRIx32,
+		fprintf(f,"%6"PRIu32": %08"PRIx32,
 			i,
 			sym->st_value
 		);
@@ -769,7 +769,7 @@ const char *name;
 			}
 
 			/* first entry holds flags */
-			fprintf(f,"\n%-7sgroup section [%5"PRIu32"] `%s' ",
+			fprintf(f,"\n%-7sgroup section [%5u] `%s' ",
 				buf[0] & GRP_COMDAT ? "COMDAT":"",
 				i,
 				name
@@ -803,7 +803,7 @@ const char *name;
 				if ( ! (name = txx_sec_name(shtab, &shtab->shdrs[buf[j]])) ) {
 					name = "<OUT-OF-BOUNDS>";
 				}
-				fprintf(f,"   [%5u]   %s\n", buf[j], name);
+				fprintf(f,"   [%5"PRIu32"]   %s\n", buf[j], name);
 			}
 
 			ng++;

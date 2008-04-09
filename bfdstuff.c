@@ -90,13 +90,15 @@
 #include "elf-bfd.h"
 
 #define bfd_set_output_section(s, o) do { (s)->output_section = (o); } while (0) 
-
+#define reloc_get_address(abfd, r) ((r)->address)
+#define reloc_get_name(abfd,r)     ((r)->howto->name)
+#define bfd_asymbol_set_value(s,v) ((s)->value = (v))
 #endif
 #else
 #include "pmbfd.h"
-#ifndef HAVE_ELF_BFD_H
-#define HAVE_ELF_BFD_H
-#endif
+#define reloc_get_address(abfd, r) pmbfd_reloc_get_address(abfd, r)
+#define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
+#undef HAVE_ELF_BFD_H
 #endif
 
 #define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -124,7 +126,7 @@
 #define DSO_HANDLE_NAME			"__dso_handle"
 
 /* this probably only makes sense on ELF */
-#ifdef HAVE_ELF_BFD_H
+#if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
 /* filter dangerous sections; we do ont support shared objects */
 #define FIXUP_SECTION_NAME		".fixup"
 #define GOT_SECTION_NAME		".got"
@@ -269,7 +271,7 @@ segOf(LinkData ld, asection *sect)
 /* determine the alignment power of a common symbol
  * (currently only works for ELF)
  */
-#ifdef HAVE_ELF_BFD_H
+#if defined(HAVE_ELF_BFD_H)
 static inline unsigned
 elf_get_align(bfd *abfd, asymbol *sp)
 {
@@ -282,6 +284,37 @@ unsigned         rval;
 }
 
 static inline int
+elf_get_size(bfd *abfd, asymbol *asym)
+{
+elf_symbol_type *elfsp= ISELF(abfd) ? elf_symbol_from(abfd, asym) : 0;
+	return elfsp ? elfsp->internal_elf_sym.st_size : 0 ;
+}
+
+#elif defined(_PMBFD_)
+/* exported by pmbfd.h */
+#else
+#define elf_get_align(abfd,sp)		1
+#define elf_get_size(abfd,sp)       0
+#endif
+
+#if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
+/* we sort in descending order; hence the routine must return b-a */
+static int
+align_size_compare(const void *a, const void *b)
+{
+asymbol			*spa=**(asymbol***)a;
+asymbol			*spb=**(asymbol***)b;
+
+unsigned algn_a, algn_b;
+
+	algn_a = elf_get_align(bfd_asymbol_bfd(spa), spa);
+	algn_b = elf_get_align(bfd_asymbol_bfd(spb), spb);
+
+	return algn_b - algn_a;
+}
+#endif
+
+static inline int
 elf_get_align_pwr(bfd *abfd, asymbol *sp)
 {
 register unsigned long rval=0,tst;
@@ -290,32 +323,6 @@ register unsigned long rval=0,tst;
 	return rval;
 }
 
-static inline int
-elf_get_size(bfd *abfd, asymbol *asym)
-{
-elf_symbol_type *elfsp= ISELF(abfd) ? elf_symbol_from(abfd, asym) : 0;
-	return elfsp ? elfsp->internal_elf_sym.st_size : 0 ;
-}
-
-/* we sort in descending order; hence the routine must return b-a */
-static int
-align_size_compare(const void *a, const void *b)
-{
-elf_symbol_type *espa, *espb;
-asymbol			*spa=**(asymbol***)a;
-asymbol			*spb=**(asymbol***)b;
-
-	return
-		((espa=elf_symbol_from(bfd_asymbol_bfd(spa),spa)) &&
-	     (espb=elf_symbol_from(bfd_asymbol_bfd(spb),spb)))
-		? (espb->internal_elf_sym.st_value - espa->internal_elf_sym.st_value)
-		: 0;
-}
-#else
-#define elf_get_align(abfd,sp)		1
-#define elf_get_align_pwr(abfd,sp)	0
-#define elf_get_size(abfd,sp)       0
-#endif
 
 /* determine if a given symbol is a constructor or destructor 
  * by matching to a magic pattern.
@@ -497,7 +504,7 @@ const char	*secn = bfd_get_section_name(abfd,sect);
 				/* allocate space for a terminating 0 */
 				seg->size+=sizeof(long);
 			}
-#ifdef HAVE_ELF_BFD_H
+#if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
 			/* filter dangerous sections; we do not support shared objects
 			 * do this in s_count and not earlier because we allow a got
 			 * in the main system to support linux/solaris & friends...
@@ -621,7 +628,7 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 				bfd_discard_group(abfd, sect);
 				
 #else
-#ifdef HAVE_ELF_BFD_H
+#if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
 				if ( ISELF(ld->abfd) ) {
 					asection *s,*frst;
 
@@ -693,7 +700,14 @@ long		err;
 
 	/* if there are relocations, resolve them */
 	if ( (SEC_RELOC & bfd_get_section_flags(abfd, sect)) ) {
+		asection *symsect;
+#ifndef _PMBFD_
 		arelent **cr=0;
+		arelent *r;
+#else
+		pmbfd_areltab *cr=0;
+		pmbfd_arelent *r;
+#endif
 		long	sz;
 		sz=bfd_get_reloc_upper_bound(abfd,sect);
 		if (sz<=0) {
@@ -703,7 +717,7 @@ long		err;
 			return;
 		}
 		/* slurp the relocation records; build a list */
-		cr=(arelent**)xmalloc(sz);
+		cr=xmalloc(sz);
 		sz=bfd_canonicalize_reloc(abfd,sect,cr,ld->st);
 		if (sz<=0) {
 			fprintf(stderr,"ERROR: unable to canonicalize relocs\n");
@@ -711,9 +725,16 @@ long		err;
 			ld->errors++;
 			return;
 		}
-		for (i=0; i<sz; i++) {
-			arelent 	*r=cr[i];
-			asection	*symsect=bfd_get_section(*r->sym_ptr_ptr);
+		for (i=0, r=0; i<sz; i++) {
+			asymbol **ppsym;
+#ifndef _PMBFD_
+			r=cr[i];
+			ppsym = r->sym_ptr_ptr;
+#else
+			r=pmbfd_reloc_next(abfd, cr, r);
+			ppsym = ld->st + pmbfd_reloc_get_sym_idx(abfd, r);
+#endif
+			symsect=bfd_get_section(*ppsym);
 			if (   bfd_is_und_section(symsect) ||					
 				   /* reloc references an undefined sym */
 /* FIXME: -- should we allow *any* absolute symbol here (e.g., created with --defsym=XXX) */
@@ -736,7 +757,7 @@ long		err;
 				asymbol		*sp;
 				CexpSym		ts;
 
-				ts=cexpSymLookup(bfd_asymbol_name((sp=*(r->sym_ptr_ptr))),&mod);
+				ts=cexpSymLookup(bfd_asymbol_name((sp=*ppsym)),&mod);
 				if (ts) {
 					if (my__dso_handle == ts) {
 						/* they are looking for __dso_handle; give them
@@ -770,7 +791,7 @@ long		err;
 						sp = bfd_make_empty_symbol(abfd);
 						/* copy pointer to name */
 						bfd_asymbol_name(sp) = bfd_asymbol_name(ts);
-						sp->value   = (symvalue)ld->module;
+						bfd_asymbol_set_value(sp, (symvalue)ld->module);
 						bfd_set_section(sp, bfd_abs_section_ptr);
 						sp->flags   = BSF_LOCAL;
 					} else {
@@ -780,7 +801,7 @@ long		err;
 						 */
 						sp=asymFromCexpSym(abfd,ts,ld->depend,mod);
 					}
-					*r->sym_ptr_ptr = sp;
+					*ppsym = sp;
 				} else {
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
@@ -789,23 +810,34 @@ long		err;
 			}
 #if DEBUG & DEBUG_RELOC
 			printf("relocating (%s=",
-					bfd_asymbol_name(*(r->sym_ptr_ptr))
+					bfd_asymbol_name(*ppsym)
 					);
 			printf("0x%08lx)->0x%08lx [sym_ptr_ptr = 0x%08lx]\n",
-			(unsigned long)bfd_asymbol_value(*(r->sym_ptr_ptr)),
-			(unsigned long)r->address,
-			(unsigned long)r->sym_ptr_ptr);
+			(unsigned long)bfd_asymbol_value(*ppsym),
+			(unsigned long)reloc_get_address(abfd, r),
+			(unsigned long)ppsym);
 #endif
-			if ((err=bfd_perform_relocation(
+#ifndef _PMBFD_
+			err=bfd_perform_relocation(
 				abfd,
 				r,
 				(PTR)bfd_get_section_vma(abfd,sect),
 				sect,
 				0 /* output bfd */,
-				0))) {
+				0
+				);
+#else
+			err=pmbfd_perform_relocation(
+				abfd,
+				r,
+				*ppsym,
+				sect
+				);
+#endif
+			if ( err ) {
 				fprintf(stderr,
 					"Relocation of type '%s' failed: %s (check compiler flags!)\n",
-					r->howto->name,
+					reloc_get_name(abfd, r),
 					err >= NumberOf(reloc_err_msg) ? "unknown error" : reloc_err_msg[err]);
 				ld->errors++;
 			}
@@ -924,7 +956,7 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 
 	/* copy pointer to name */
 	bfd_asymbol_name(sp) = csym->name;
-	sp->value=(symvalue)csym->value.ptv;
+	bfd_asymbol_set_value(sp, (symvalue)csym->value.ptv);
 	bfd_set_section(sp, bfd_abs_section_ptr);
 	sp->flags=BSF_GLOBAL;
 	/* mark the referenced module in the bitmap */
@@ -1175,10 +1207,10 @@ asection	*csect;
 #endif
 			/* copy pointer to old name */
 			bfd_asymbol_name(sp) = bfd_asymbol_name(*ld->new_commons[i]);
-			sp->value=val;
+			bfd_asymbol_set_value(sp, val);
 			bfd_set_section(sp, csect);
 			sp->flags=(*ld->new_commons[i])->flags;
-			val+=(*ld->new_commons[i])->value;
+			val+=bfd_asymbol_value(*ld->new_commons[i]);
 			*ld->new_commons[i] = sp;
 		}
 		
@@ -1239,7 +1271,7 @@ long				num_new_commons;
 		goto cleanup;
 	}
 
-#ifdef HAVE_ELF_BFD_H
+#if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
 	/*
 	 *	sort the list of new_commons by alignment
 	 */

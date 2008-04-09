@@ -2,6 +2,7 @@
 #define PMBFD_H
 
 #include <stdio.h>
+#include <stdint.h>
 
 #define _PMBFD_
 
@@ -79,14 +80,10 @@ typedef struct sec asection;
 
 typedef struct {
 	const char *name; /* Beware; two asymbols may point to the same name */
-	flagword flags;
-	symvalue value;
-	asection *section;
-	/* ELF symbol extension */
-	struct {
-		unsigned long st_size;
-		unsigned long st_value;
-	} internal_elf_sym;
+	symvalue   val;
+	uint16_t   flags;
+	uint16_t   secndx;
+	uint32_t   size;
 } asymbol;
 
 #define bfd_asymbol_name(s) ((s)->name)
@@ -154,6 +151,9 @@ bfd_asymbol_bfd(asymbol *sym);
 
 bfd_vma
 bfd_asymbol_value(asymbol *sym);
+
+symvalue
+bfd_asymbol_set_value(asymbol *sym, symvalue v);
 
 long
 bfd_canonicalize_symtab(bfd *abfd, asymbol**);

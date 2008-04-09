@@ -216,12 +216,11 @@ int doit=0;
 		}
 
 		for ( n=0; n<nsyms; n++ ) {
+			asection *symsec;
 			s  = syms[n];
 			fl = s->flags;
-			if ( s->section )
-				printf("%08lx", s->value + bfd_get_section_vma(abfd, s->section));
-			else
-				printf("%08lx", s->value);
+			symsec = bfd_get_section(s);
+			printf("%08lx", bfd_asymbol_value(s));
 #if 0
 			printf(" %c%c%c%c%c%c%c",
 					((fl & BSF_LOCAL) ? (fl & BSF_GLOBAL) ? '!' : 'l' : ( fl & BSF_GLOBAL ) ? 'g' : ' '),
@@ -240,11 +239,11 @@ int doit=0;
 					((fl & BSF_FUNCTION)   ? 'F' : ((fl & BSF_FILE)   ? 'f' : ((fl & BSF_OBJECT) ? 'O' : ' ')))
 				  );
 #endif
-			printf(" %s\t", s->section ? bfd_get_section_name(abfd,s->section) : "(*none*)");
-			if ( bfd_is_com_section(s->section ) )
-				printf("%08lx", elf_symbol_from(abfd, s)->internal_elf_sym.st_value);
+			printf(" %s\t", symsec ? bfd_get_section_name(abfd,symsec) : "(*none*)");
+			if ( bfd_is_com_section(symsec) )
+				printf("%08lx", (unsigned long)elf_get_align(abfd, s));
 			else {
-				printf("%08lx", elf_symbol_from(abfd, s)->internal_elf_sym.st_size);
+				printf("%08lx", (unsigned long)elf_get_size(abfd,s));
 			}
 			/* FIXME: print st_other */
 			printf(" %s\n", s->name);

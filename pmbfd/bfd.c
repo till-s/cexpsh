@@ -1,3 +1,4 @@
+/* $Id$ */
 #include "pmbfd.h"
 #include "pmelf.h"
 
@@ -306,6 +307,25 @@ asection        *sec;
 	return 0;
 }
 
+static Elf32_Half
+sec2shndx(bfd *abfd, asection *sec)
+{
+	if ( !sec || bfd_is_und_section(sec) )
+		return SHN_UNDEF;
+
+	if ( bfd_is_abs_section(sec) )
+		return SHN_ABS;
+
+	if ( bfd_is_com_section(sec) )
+		return SHN_COMMON;
+
+#if SECCHUNKSZ > 0
+#error "not implemented"
+#else
+	return sec - abfd->sects;
+#endif
+}
+
 asection *
 elf_next_in_group(asection *sec)
 {
@@ -316,6 +336,12 @@ bfd*
 bfd_asymbol_bfd(asymbol *sym)
 {
 	return &thebfd;
+}
+
+symvalue
+bfd_asymbol_set_value(asymbol *sym, symvalue v)
+{
+	return sym->val = v;
 }
 
 bfd_vma
@@ -330,13 +356,13 @@ asection *sec = bfd_get_section(sym);
 	}
 
 	base = sec ? bfd_get_section_vma(&thebfd, sec) : 0;
-	return base + sym->value;
+	return base + sym->val;
 }
 
 int
 elf_get_size(bfd *abfd, asymbol *asym)
 {
-	return asym->internal_elf_sym.st_size;
+	return asym->size;
 }
 
 unsigned
@@ -344,7 +370,7 @@ elf_get_align(bfd *abfd, asymbol *asym)
 {
 unsigned rval;
 	/* must never return 0; minimal alignment is 1 */
-	if ( bfd_is_com_section(bfd_get_section(asym)) && (rval = asym->value) )
+	if ( bfd_is_com_section(bfd_get_section(asym)) && (rval = asym->val) )
 		return rval;
 	return 1;
 }
@@ -378,10 +404,9 @@ asection  *symsec;
 				ERRPR("Bad symbol name; ELF index possibly out of bounds\n");
 				goto bail;
 			}
-			asym->value                     = 
-			asym->internal_elf_sym.st_value = esym.st_value;
-			asym->internal_elf_sym.st_size  = esym.st_size;
-			asym->flags                     = 0;
+			asym->val   = esym.st_value;
+			asym->size  = esym.st_size;
+			asym->flags = 0;
 
 			if ( ! (symsec = shdr2sec(abfd, esym.st_shndx, 1)) ) {
 				ERRPR("Symbol %s pointing to NO section (idx %"PRIu16")\n",
@@ -389,10 +414,10 @@ asection  *symsec;
 				goto bail;
 			}
 
-			asym->section = symsec;
+			asym->secndx = esym.st_shndx;
 
 			/* if the section already has a vma recalculate the offset */
-			asym->value -= bfd_get_section_vma(asym);
+			asym->val   -= bfd_get_section_vma(abfd, symsec);
 
 			switch ( ELF32_ST_BIND( esym.st_info ) ) {
 				default:
@@ -428,7 +453,7 @@ asection  *symsec;
 			 * symbol name of section syms has been fixed up!
 			 */
 			if ( SEC_BOGUS == bfd_get_section_flags(abfd, symsec) )
-				asym->section = bfd_abs_section_ptr;
+				asym->secndx = SHN_ABS;
 
 #if 0	/**** This is now done by bfd_asymbol_value() ****/
 			if ( bfd_is_com_section(asym->section) ) {
@@ -567,7 +592,7 @@ bfd_get_flavour(bfd *abfd)
 asection *
 bfd_get_section(asymbol *sym)
 {
-	return sym->section;
+	return shdr2sec(&thebfd, sym->secndx, 0);
 }
 
 /* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
@@ -1119,7 +1144,8 @@ bfd_set_section_vma(bfd *abfd, asection *sect, bfd_vma vma)
 asection *
 bfd_set_section(asymbol *sym, asection *sect)
 {
-	return (sym->section = sect);
+	sym->secndx = sec2shndx(&thebfd, sect);
+	return sect;
 }
 
 bfd_boolean
@@ -1357,7 +1383,7 @@ int32_t        lim;
 		break;
 	}
 
-	val = val - r->rela.r_addend - pcadd;
+	val = val + r->rela.r_addend - pcadd;
 
 	if ( lim && (val < lim || val > -lim - 1) )
 		return bfd_reloc_overflow;
@@ -1406,6 +1432,7 @@ pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 }
 
 #define namecase(rel)	case rel: return #rel;
+
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {

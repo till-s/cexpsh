@@ -16,7 +16,7 @@ struct bfd_arch_info_type {
 
 #define SEC_BOGUS (-1)
 
-/* Assume we have < 64k sections */
+/* Assume we have less than 64k sections */
 typedef uint16_t	Secndx;
 
 struct sec {
@@ -27,9 +27,9 @@ struct sec {
 	flagword      flags;
 	Elf32_Shdr   *shdr;
 #define GRP_NULL	0
-	Secndx       grp_next;
+	Secndx       grp_next;		/* half-word */
 #define RELS_NULL	0
-	Secndx       rels;
+	Secndx       rels;		    /* half-word */
 };
 
 static void
@@ -159,6 +159,7 @@ elf_sym_name(bfd *abfd, Elf32_Sym *sym)
 	return sym->st_name >= abfd->symstrs->sh_size ? 0 : &abfd->strtabs[SYMSTRTAB][sym->st_name];
 }
 
+#if 1	/* currently unused; leave here in case we need it in the future */
 static char *stralloc(bfd *abfd, uint32_t len)
 {
 char       *rval;
@@ -180,6 +181,7 @@ const char **nst;
 	abfd->str_avail -= len;
 	return rval;
 }
+#endif
 
 #if SECCHUNKSZ > 0
 static asection *
@@ -319,9 +321,34 @@ bfd_asymbol_bfd(asymbol *sym)
 bfd_vma
 bfd_asymbol_value(asymbol *sym)
 {
-symvalue base = sym->section ? bfd_get_section_vma(&thebfd, sym->section) : 0;
+symvalue base;
+asection *sec = bfd_get_section(sym);
+
+	/* If this is a COM symbol, BFD wants the size in the value field */
+	if ( bfd_is_com_section(sec) ) {
+		return elf_get_size(&thebfd, sym);
+	}
+
+	base = sec ? bfd_get_section_vma(&thebfd, sec) : 0;
 	return base + sym->value;
 }
+
+int
+elf_get_size(bfd *abfd, asymbol *asym)
+{
+	return asym->internal_elf_sym.st_size;
+}
+
+unsigned
+elf_get_align(bfd *abfd, asymbol *asym)
+{
+unsigned rval;
+	/* must never return 0; minimal alignment is 1 */
+	if ( bfd_is_com_section(bfd_get_section(asym)) && (rval = asym->value) )
+		return rval;
+	return 1;
+}
+
 
 long
 bfd_canonicalize_symtab(bfd *abfd, asymbol** psymtab)
@@ -330,6 +357,7 @@ unsigned n;
 Elf32_Sym esym;
 asymbol   *asym;
 long      rval = -1;
+asection  *symsec;
 
 	if ( !abfd->syms ) {
 		if ( ! (abfd->syms = malloc(sizeof(asymbol)*(abfd->nsyms))) ) {
@@ -355,14 +383,16 @@ long      rval = -1;
 			asym->internal_elf_sym.st_size  = esym.st_size;
 			asym->flags                     = 0;
 
-			if ( ! (asym->section = shdr2sec(abfd, esym.st_shndx, 1)) ) {
+			if ( ! (symsec = shdr2sec(abfd, esym.st_shndx, 1)) ) {
 				ERRPR("Symbol %s pointing to NO section (idx %"PRIu16")\n",
 						asym->name, esym.st_shndx);
 				goto bail;
 			}
 
+			asym->section = symsec;
+
 			/* if the section already has a vma recalculate the offset */
-			asym->value -= asym->section->vma;
+			asym->value -= bfd_get_section_vma(asym);
 
 			switch ( ELF32_ST_BIND( esym.st_info ) ) {
 				default:
@@ -388,7 +418,7 @@ long      rval = -1;
 					asym->flags |= BSF_SECTION_SYM | BSF_DEBUGGING;
 					/* fixup the symbol name to use the section name */
 					if ( !asym->name || !*asym->name )
-						asym->name = bfd_get_section_name(abfd, asym->section);
+						asym->name = bfd_get_section_name(abfd, symsec);
 				
 				break;
 			}
@@ -397,9 +427,10 @@ long      rval = -1;
 			 * generated [-- match BFD behavior]) to ABS. Do this *after* the
 			 * symbol name of section syms has been fixed up!
 			 */
-			if ( SEC_BOGUS == bfd_get_section_flags(abfd, asym->section) )
+			if ( SEC_BOGUS == bfd_get_section_flags(abfd, symsec) )
 				asym->section = bfd_abs_section_ptr;
 
+#if 0	/**** This is now done by bfd_asymbol_value() ****/
 			if ( bfd_is_com_section(asym->section) ) {
 				/* Fixup the value; BFD returns the size in 'value' for
 				 * common symbols (the ELF st_value field holds the
@@ -407,6 +438,7 @@ long      rval = -1;
 				 */
 				asym->value = esym.st_size;
 			}
+#endif
 
 		}
 
@@ -1206,6 +1238,34 @@ asection *rels = get_reloc_sec(abfd, sect);
 #define R_386_GOTOFF       9
 #define R_386_GOTPC       10
 
+/*
+ * 68k relocation types
+ */
+
+#define R_68K_NONE         0
+#define R_68K_32           1
+#define R_68K_16           2
+#define R_68K_8            3
+#define R_68K_PC32         4
+#define R_68K_PC16         5
+#define R_68K_PC8          6
+#define R_68K_GOT32        7
+#define R_68K_GOT16        8
+#define R_68K_GOT8         9
+#define R_68K_GOT320      10
+#define R_68K_GOT160      11
+#define R_68K_GOT80       12
+#define R_68K_PLT32       13
+#define R_68K_PLT16       14
+#define R_68K_PLT8        15
+#define R_68K_PLT320      16
+#define R_68K_PLT160      17
+#define R_68K_PLT80       18
+#define R_68K_COPY        19
+#define R_68K_GLOB_DAT    20
+#define R_68K_JMP_SLOT    21
+#define R_68K_RELATIVE    22
+
 
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
@@ -1218,7 +1278,7 @@ Elf32_Word     val, add;
 
 	pc += r->rel.r_offset;
 
-	if ( bfd_is_und_section(psym->section) )
+	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
 
@@ -1238,6 +1298,89 @@ Elf32_Word     val, add;
 
 	return bfd_reloc_ok;
 }
+
+bfd_reloc_status_type
+pmbfd_perform_relocation_m68k(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
+{
+Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
+
+unsigned       sz;
+int32_t        val;
+int8_t         cval;
+int16_t        sval;
+uint32_t       pcadd=0;
+int32_t        lim;
+
+	if ( bfd_is_und_section(bfd_get_section(psym)) )
+		return bfd_reloc_undefined;
+
+	pc += r->rela.r_offset;
+
+	/* I don't have my hands on the 68k ABI document so
+	 * I don't know if there are any alignment requirements.
+	 * Anyhow, if we loaded the section correctly and
+	 * the compiler did the right thing this should
+	 * not be an issue.
+	 */
+
+	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+
+		default:
+		return bfd_reloc_notsupported;
+
+		case R_68K_PC8:  pcadd = pc; lim   = -0x0080; sz = 1; break;
+		case R_68K_8:    pcadd =  0; lim   = -0x0100; sz = 1; break;
+
+		case R_68K_PC16: pcadd = pc; lim   = -0x8000; sz = 2; break;
+		case R_68K_16:   pcadd =  0; lim   = -0x1000; sz = 2; break;
+
+		case R_68K_PC32: pcadd = pc; lim   = 0;       sz = 4; break;
+		case R_68K_32:   pcadd =  0; lim   = 0;       sz = 4; break;
+	}
+
+	if ( r->rela.r_offset + sz > bfd_get_section_size(input_section) )
+		return bfd_reloc_outofrange;
+
+	switch (sz) {
+		case 1:
+			memcpy(&cval, (void*)pc, sizeof(cval));
+			val = cval;
+		break;
+
+		case 2:
+			memcpy(&sval, (void*)pc, sizeof(sval));
+			val = sval;
+		break;
+
+		case 4:
+			memcpy(&val, (void*)pc, sizeof(val));
+		break;
+	}
+
+	val = val - r->rela.r_addend - pcadd;
+
+	if ( lim && (val < lim || val > -lim - 1) )
+		return bfd_reloc_overflow;
+
+	switch (sz) {
+		case 1:
+			cval = val;
+			memcpy((void*)pc, &cval, sizeof(cval));
+		break;
+
+		case 2:
+			sval = val;
+			memcpy((void*)pc, &sval, sizeof(sval));
+		break;
+
+		case 4:
+			memcpy((void*)pc, &val, sizeof(val));
+		break;
+	}
+
+	return bfd_reloc_ok;
+}
+
 
 pmbfd_arelent *
 pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev)
@@ -1262,21 +1405,56 @@ pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 	return r->rel.r_offset;
 }
 
+#define namecase(rel)	case rel: return #rel;
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
 	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
-		case R_386_NONE:		return "none";
-		case R_386_32:			return "R_386_32";
-		case R_386_PC32:		return "R_386_PC32";
-		case R_386_GOT32:		return "R_386_GOT32";
-		case R_386_PLT32:		return "R_386_PLT32";
-		case R_386_COPY:		return "R_386_COPY";
-		case R_386_GLOB_DAT:	return "R_386_GLOB_DAT";
-		case R_386_JMP_SLOT:	return "R_386_JMP_SLOT";
-		case R_386_RELATIVE:	return "R_386_RELATIVE";
-		case R_386_GOTOFF:		return "R_386_GOTOFF";
-		case R_386_GOTPC:		return "R_386_GOTPC";
+		namecase( R_386_NONE     )
+		namecase( R_386_32       )
+		namecase( R_386_PC32     )
+		namecase( R_386_GOT32    )
+		namecase( R_386_PLT32    )
+		namecase( R_386_COPY     )
+		namecase( R_386_GLOB_DAT )
+		namecase( R_386_JMP_SLOT )
+		namecase( R_386_RELATIVE )
+		namecase( R_386_GOTOFF   )
+		namecase( R_386_GOTPC    )
+
+		default:
+		break;
+	}
+	return "UNKNOWN";
+}
+
+const char *
+pmbfd_reloc_get_name_m68k(bfd *abfd, pmbfd_arelent *r)
+{
+	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+		namecase( R_68K_NONE )
+		namecase( R_68K_32 )
+		namecase( R_68K_16 )
+		namecase( R_68K_8 )
+		namecase( R_68K_PC32 )
+		namecase( R_68K_PC16 )
+		namecase( R_68K_PC8 )
+		namecase( R_68K_GOT32 )
+		namecase( R_68K_GOT16 )
+		namecase( R_68K_GOT8 )
+		namecase( R_68K_GOT320 )
+		namecase( R_68K_GOT160 )
+		namecase( R_68K_GOT80 )
+		namecase( R_68K_PLT32 )
+		namecase( R_68K_PLT16 )
+		namecase( R_68K_PLT8 )
+		namecase( R_68K_PLT320 )
+		namecase( R_68K_PLT160 )
+		namecase( R_68K_PLT80 )
+		namecase( R_68K_COPY )
+		namecase( R_68K_GLOB_DAT )
+		namecase( R_68K_JMP_SLOT )
+		namecase( R_68K_RELATIVE )
 
 		default:
 		break;

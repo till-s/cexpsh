@@ -89,10 +89,7 @@ typedef struct {
 	} internal_elf_sym;
 } asymbol;
 
-typedef asymbol elf_symbol_type;
-
 #define bfd_asymbol_name(s) ((s)->name)
-
 
 /* The code where relocations are dealt with in bfdstuff is
  * very concentrated.
@@ -110,7 +107,11 @@ typedef union  pmbfd_arelent pmbfd_arelent;
 asection *
 elf_next_in_group(asection *);
 
-#define elf_symbol_from(abfd, s) (s)
+int
+elf_get_size(bfd *abfd, asymbol *asym);
+
+unsigned
+elf_get_align(bfd *abfd, asymbol *asym);
 
 extern asection *bfd_abs_section_ptr;
 

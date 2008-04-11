@@ -34,13 +34,13 @@ int main(int argc, char ** argv)
 int              rval = 1;
 Elf_Stream       s;
 Elf32_Ehdr       ehdr;
-Txx_Elf32_Shtab  shtab = 0;
-Txx_Elf32_Symtab symtab = 0;
+Pmelf_Elf32_Shtab  shtab = 0;
+Pmelf_Elf32_Symtab symtab = 0;
 int              ch;
 int              doit=0;
 int              compat=0;
 
-	txx_set_errstrm(stderr);
+	pmelf_set_errstrm(stderr);
 
 	while ( (ch=getopt(argc, argv, optstr)) >= 0 ) {
 		switch (ch) {
@@ -62,39 +62,39 @@ int              compat=0;
 		return 1;
 	}
 
-	if ( ! (s = txx_newstrm(argv[optind], 0)) ) {
+	if ( ! (s = pmelf_newstrm(argv[optind], 0)) ) {
 		perror("Creating ELF stream");
 		return 1;
 	}
 
-	if ( txx_getehdr( s, &ehdr ) ) {
+	if ( pmelf_getehdr( s, &ehdr ) ) {
 		perror("Reading ELF header");
 		goto bail;
 	}
 
 	if ( doit & DO_EHDR )
-		txx_dump_ehdr( stdout, &ehdr );
+		pmelf_dump_ehdr( stdout, &ehdr );
 
-	if ( ! (shtab = txx_getshtab(s, &ehdr)) )
+	if ( ! (shtab = pmelf_getshtab(s, &ehdr)) )
 		goto bail;
 		
 	if ( doit & DO_SHDRS )
-		txx_dump_shtab( stdout, shtab, compat ? FMT_COMPAT : FMT_SHORT );
+		pmelf_dump_shtab( stdout, shtab, compat ? FMT_COMPAT : FMT_SHORT );
 
-	if ( ! (symtab = txx_getsymtab(s, shtab)) ) {
+	if ( ! (symtab = pmelf_getsymtab(s, shtab)) ) {
 		goto bail;
 	}
 
 	if ( doit & DO_GROUP )
-		txx_dump_groups( stdout, s, shtab, symtab);
+		pmelf_dump_groups( stdout, s, shtab, symtab);
 
 	if ( doit & DO_SYMS )
-		txx_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
+		pmelf_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
 
 	rval = 0;
 bail:
-	txx_delsymtab(symtab);
-	txx_delshtab(shtab);
-	txx_delstrm(s,0);
+	pmelf_delsymtab(symtab);
+	pmelf_delshtab(shtab);
+	pmelf_delstrm(s,0);
 	return rval;
 }

@@ -120,7 +120,7 @@ struct bfd {
 	const char      **strtabs;
 	uint32_t        nstrtabs;
 	uint32_t		str_avail;
-	Txx_Elf32_Shtab	shtab;
+	Pmelf_Elf32_Shtab	shtab;
 	Elf32_Shdr      *symsh;	    /* sh of symbol table           */
 	Elf32_Shdr		*symstrs;	/* sh of symbol table stringtab */
 #if SECCHUNKSZ > 0
@@ -395,12 +395,12 @@ asection  *symsec;
 			return -1;
 		}
 		/* seek skipping ELF symbol #0 */
-		if ( txx_seek(abfd->s, abfd->symsh->sh_offset + sizeof(esym)) ) {
+		if ( pmelf_seek(abfd->s, abfd->symsh->sh_offset + sizeof(esym)) ) {
 			bfd_perror("unable to seek to symbol table");
 			goto bail;
 		}
 		for ( n = 0, asym = abfd->syms; n<abfd->nsyms; n++, asym++ ) {
-			if ( txx_getsym(abfd->s, &esym) ) {
+			if ( pmelf_getsym(abfd->s, &esym) ) {
 				bfd_perror("unable to read symbol table");
 				goto bail;
 			}
@@ -514,11 +514,11 @@ static void bfd_cleanup(bfd *abfd, int noclose)
 {
 
 	if ( abfd->s ) {
-		txx_delstrm(abfd->s, noclose);
+		pmelf_delstrm(abfd->s, noclose);
 		abfd->s = 0;
 	}
 	if ( abfd->shtab ) {
-		txx_delshtab(abfd->shtab);
+		pmelf_delshtab(abfd->shtab);
 		abfd->shtab = 0;
 	}
 	while ( abfd->nstrtabs > 0 ) {
@@ -706,7 +706,7 @@ void
 bfd_init(void)
 {
 	if ( !inited ) {
-		txx_set_errstrm(stdout);
+		pmelf_set_errstrm(stdout);
 		memset( &thebfd, 0, sizeof(thebfd));
 		inited = 1;
 	}
@@ -787,7 +787,7 @@ const char        *sname;
 	/* mark as bogus */
 	bfd_set_section_flags(abfd, sec, SEC_BOGUS);
 
-	if ( ! (sname = txx_sec_name(abfd->shtab, shdr)) ) {
+	if ( ! (sname = pmelf_sec_name(abfd->shtab, shdr)) ) {
 		ERRPR("No section name; ELF index into shstrtab possibly out of range\n");
 		p->err = 1;
 		return;
@@ -850,7 +850,7 @@ const char        *sname;
 						return;
 
 		case SHT_GROUP:
-						grp = txx_getgrp(abfd->s, shdr, 0);
+						grp = pmelf_getgrp(abfd->s, shdr, 0);
 						if ( !grp ) {
 							p->err = 1;
 							return;
@@ -887,13 +887,13 @@ const char        *sname;
 						}
 
 						/* need to read the symbol */
-						if ( txx_seek(abfd->s, abfd->symsh->sh_offset + sizeof(sym)*shdr->sh_info) ) {
+						if ( pmelf_seek(abfd->s, abfd->symsh->sh_offset + sizeof(sym)*shdr->sh_info) ) {
 							bfd_perror("unable to seek to group signature symbol");
 							p->err = 1;
 							return;
 						}
 
-						if ( txx_getsym(abfd->s, &sym) ) {
+						if ( pmelf_getsym(abfd->s, &sym) ) {
 							bfd_perror("unable to read group signature symbol");
 							p->err = 1;
 							return;
@@ -987,7 +987,7 @@ int        rval = 0;
 
 
 		if ( ! (tsec = shdr2sec(abfd, shdr->sh_info, 0)) ) {
-			if ( !(name = txx_sec_name(abfd->shtab, shdr)) )
+			if ( !(name = pmelf_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
 			ERRPR("pmbfd: no asection found associated with REL/RELA section %s (sh_info: %"PRId32")\n",
 				name,
@@ -996,7 +996,7 @@ int        rval = 0;
 			return -1;
 		}
 		if ( SEC_BOGUS == bfd_get_section_flags(abfd, tsec) ) {
-			if ( !(name = txx_sec_name(abfd->shtab, shdr)) )
+			if ( !(name = pmelf_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
 			ERRPR("pmbfd: REL/RELA section %s (sh_info: %"PRId32") targeting BOGUS section %s\n",
 				name,
@@ -1040,27 +1040,27 @@ int               nrels;
 		ERRPR("bfd_openstreamr(): 'target' arg not supported\n");
 		return 0;
 	}
-	if ( ! (abfd->s = txx_newstrm(0, f)) )
+	if ( ! (abfd->s = pmelf_newstrm(0, f)) )
 		return 0;
 
-	if ( txx_getehdr(abfd->s, &abfd->ehdr) ) {
+	if ( pmelf_getehdr(abfd->s, &abfd->ehdr) ) {
 		goto cleanup;
 	}
 
 	abfd->arch = bfd_get_target(abfd);
 
-	if ( ! (abfd->shtab = txx_getshtab(abfd->s, &abfd->ehdr)) ) {
+	if ( ! (abfd->shtab = pmelf_getshtab(abfd->s, &abfd->ehdr)) ) {
 		goto cleanup;
 	}
 
-	if ( (abfd->nsyms = txx_find_symhdrs(abfd->s, abfd->shtab, &abfd->symsh, &abfd->symstrs)) < 2 ) {
+	if ( (abfd->nsyms = pmelf_find_symhdrs(abfd->s, abfd->shtab, &abfd->symsh, &abfd->symstrs)) < 2 ) {
 		goto cleanup;
 	}
 	/* ignore symbol #0 */
 	abfd->nsyms--;
 
 	/* get string table */
-	if ( ! (strs = txx_getscn( abfd->s, abfd->symstrs, 0, 0, 0)) ) {
+	if ( ! (strs = pmelf_getscn( abfd->s, abfd->symstrs, 0, 0, 0)) ) {
 		goto cleanup;
 	}
 
@@ -1170,7 +1170,7 @@ bfd_get_section_contents(bfd *abfd, asection *section, void *location, file_ptr 
 	if ( !section->shdr )
 		return BFD_FALSE;
 
-	return txx_getscn(abfd->s, section->shdr, location, offset, count) ? BFD_TRUE : BFD_FALSE;
+	return pmelf_getscn(abfd->s, section->shdr, location, offset, count) ? BFD_TRUE : BFD_FALSE;
 }
 
 asymbol *
@@ -1230,7 +1230,7 @@ long     nrels;
 
 	/* read relocations */
 	if ( nrels > 0 ) {
-		if ( ! (txx_getscn(abfd->s, rels->shdr, tab->data, 0, 0)) ) {
+		if ( ! (pmelf_getscn(abfd->s, rels->shdr, tab->data, 0, 0)) ) {
 			bfd_perror("Unable to read relocations\n");	
 			return -1;
 		}

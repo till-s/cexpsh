@@ -80,6 +80,16 @@ typedef struct sec asection;
 
 typedef struct {
 	const char *name; /* Beware; two asymbols may point to the same name */
+	/* NOTE: To make 'asymbol' smaller the 'val' field has slightly
+	 *       different semantics than demanded by BFD (BFD stores the
+	 *       symbol size of common symbols in 'value').
+	 *       Compatible semantics are obtained by accessing the value
+	 *       via the 'bfd_asymbol_value() / pmbfd_asymbol_set_value()'
+	 *       routines. 
+	 *       The member name differs from BFD's so we can detect attempts
+	 *       to tamper with 'value' w/o going through the proper access
+	 *       macros/routines.
+	 */
 	symvalue   val;
 	uint16_t   flags;
 	uint16_t   secndx;
@@ -87,19 +97,6 @@ typedef struct {
 } asymbol;
 
 #define bfd_asymbol_name(s) ((s)->name)
-
-/* The code where relocations are dealt with in bfdstuff is
- * very concentrated.
- * We can be more efficient and save memory if we don't emulate
- * the BFD API.
- * Hence we provide an alternative.
- */
-
-/* Table with relocations */
-typedef struct pmbfd_areltab pmbfd_areltab;
-
-typedef union  pmbfd_arelent pmbfd_arelent;
-
 
 asection *
 elf_next_in_group(asection *);
@@ -109,6 +106,9 @@ elf_get_size(bfd *abfd, asymbol *asym);
 
 unsigned
 elf_get_align(bfd *abfd, asymbol *asym);
+
+#define align_power(addr, align)    \
+  (((addr) + ((bfd_vma) 1 << (align)) - 1) & ((bfd_vma) -1 << (align)))
 
 extern asection *bfd_abs_section_ptr;
 
@@ -151,9 +151,6 @@ bfd_asymbol_bfd(asymbol *sym);
 
 bfd_vma
 bfd_asymbol_value(asymbol *sym);
-
-symvalue
-bfd_asymbol_set_value(asymbol *sym, symvalue v);
 
 long
 bfd_canonicalize_symtab(bfd *abfd, asymbol**);
@@ -238,28 +235,6 @@ bfd_map_over_sections(bfd *abfd, void (*f)(bfd *abfd, asection *sect, void *clos
 bfd *
 bfd_openstreamr(const char *fname, const char *target, FILE *f);
 
-
-/* generate reloc table */
-long
-pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms);
-
-/* iterator over reloc table */
-pmbfd_arelent *
-pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev);
-
-
-bfd_reloc_status_type
-pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *reloc, asymbol *sym, asection *input_section);
-
-int
-pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *reloc);
-
-bfd_size_type
-pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *reloc);
-
-const char *
-pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *reloc);
-
 void
 bfd_perror(const char *msg);
 
@@ -287,19 +262,53 @@ bfd_set_section_vma(bfd *abfd, asection *sect, bfd_vma vma);
 asection *
 bfd_set_section(asymbol *sym, asection *sect);
 
-/* The following routines are NOT in BFD -- they are added for ease of
- * portability
+#define xmalloc  malloc
+#define xrealloc realloc
+
+/*
+ * The following types and routines are NOT in BFD -- they
+ * are added for ease of portability
  */
+
+/* The code where relocations are dealt with in bfdstuff is
+ * very concentrated.
+ * We can be more efficient and save memory if we don't emulate
+ * the BFD API.
+ * Hence we provide an alternative.
+ */
+
+/* Table with relocations */
+typedef struct pmbfd_areltab pmbfd_areltab;
+
+typedef union  pmbfd_arelent pmbfd_arelent;
+
+/* generate reloc table */
+long
+pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms);
+
+/* iterator over reloc table */
+pmbfd_arelent *
+pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev);
+
+
+bfd_reloc_status_type
+pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *reloc, asymbol *sym, asection *input_section);
+
+int
+pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *reloc);
+
+bfd_size_type
+pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *reloc);
+
+const char *
+pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *reloc);
+
+symvalue
+pmbfd_asymbol_set_value(asymbol *sym, symvalue v);
 
 /* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
 file_ptr
 pmbfd_get_section_filepos(bfd *abfd, asection *section);
-
-#define xmalloc  malloc
-#define xrealloc realloc
-
-#define align_power(addr, align)    \
-  (((addr) + ((bfd_vma) 1 << (align)) - 1) & ((bfd_vma) -1 << (align)))
 
 #ifdef __cplusplus
 };

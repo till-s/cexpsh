@@ -8,13 +8,16 @@
 extern "C" {
 #endif
 
-#define EI_NIDENT  16
-
+/* Elementary Types */
 typedef uint32_t Elf32_Addr;
 typedef uint16_t Elf32_Half;
 typedef uint32_t Elf32_Off;
 typedef  int32_t Elf32_Sword;
 typedef uint32_t Elf32_Word;
+
+/**************************************************/
+/*  ELF HEADER                                    */
+/**************************************************/
 
 /* Object file type */
 #define ET_NONE		0		/* none               */
@@ -25,12 +28,12 @@ typedef uint32_t Elf32_Word;
 #define ET_LOPROC	0xff00	/* processor specific */
 #define ET_HIPROC	0xffff	/* processor specific */
 
-/* Machine type (supported by us so far)                      */
-#define EM_386				 3      /* Intel                  */
-#define EM_68K				 4      /* Motorola 68k           */
-#define EM_PPC				20      /* PowerPC                */
+/* Machine type (supported by us so far)          */
+#define EM_386				 3
+#define EM_68K				 4
+#define EM_PPC				20
 
-/* Identification indices                                     */
+/* Identification indices                          */
 #define EI_MAG0				 0
 #define EI_MAG1				 1
 #define EI_MAG2				 2
@@ -57,10 +60,11 @@ typedef uint32_t Elf32_Word;
 #define ELFOSABI_NONE		 0
 #define ELFOSABI_SYSV		 0 /* yep */
 
-/* Object file version                                        */
+/* Object file version                             */
 #define EV_NONE				 0
 #define EV_CURRENT			 1
 
+#define EI_NIDENT  16
 typedef struct {
 	uint8_t		e_ident[EI_NIDENT];
 	Elf32_Half	e_type;
@@ -78,7 +82,11 @@ typedef struct {
 	Elf32_Half	e_shstrndx;
 } Elf32_Ehdr;
 
-/* Section indices                                             */
+/**************************************************/
+/*  SECTION HEADER                                */
+/**************************************************/
+
+/* Section indices                                */
 #define SHN_UNDEF			 0
 #define SHN_LORESERVE		 0xff00
 #define SHN_LOPROC			 0xff00
@@ -137,6 +145,10 @@ typedef struct {
 	Elf32_Word	sh_entsize;
 } Elf32_Shdr;
 
+/**************************************************/
+/*  SYMBOLS                                       */
+/**************************************************/
+
 #define ELF32_ST_BIND(x)		(((x)>>4)&0xf)
 #define ELF32_ST_TYPE(x)		((x) & 0xf)
 #define ELF32_ST_INFO(b,t)		(((b)<<4) | ((t)&0xf))
@@ -157,6 +169,13 @@ typedef struct {
 #define STT_LOPROC		13
 #define STT_HIPROC		15
 
+#define STV_DEFAULT		 0
+#define STV_INTERNAL	 1
+#define STV_HIDDEN		 2
+#define STV_PROTECTED	 3
+
+#define ELF32_ST_VISIBILITY(o) ((o)&3)
+
 typedef struct {
 	Elf32_Word	st_name;
 	Elf32_Addr	st_value;
@@ -166,12 +185,9 @@ typedef struct {
 	Elf32_Half	st_shndx;
 } Elf32_Sym;
 
-#define STV_DEFAULT		 0
-#define STV_INTERNAL	 1
-#define STV_HIDDEN		 2
-#define STV_PROTECTED	 3
-
-#define ELF32_ST_VISIBILITY(o) ((o)&3)
+/**************************************************/
+/*  RELOCATION RECORDS                            */
+/**************************************************/
 
 #define ELF32_R_SYM(x)		((x) >> 8)
 #define ELF32_R_TYPE(x) 	((uint8_t)((x)&0xff))
@@ -188,96 +204,324 @@ typedef struct {
 	Elf32_Sword	r_addend;
 } Elf32_Rela;
 
+/**************************************************/
+/* ANYTHING BELOW HERE IS DEFINED BY THIS LIBRARY */
+/* AND NOT BY THE ELF FILE FORMAT.                */
+/**************************************************/
+
+
+/* A Section Header Table */
 typedef struct {
-	Elf32_Shdr	*shdrs;
-	uint32_t   	nshdrs;
-	const char 	*strtab;
+	Elf32_Shdr	*shdrs;       /* Array of Shdrs    */
+	uint32_t   	nshdrs;       /* number of entries */
+	const char 	*strtab;      /* associated strtab */
 	uint32_t    strtablen;
-	uint32_t	idx;
-} *Txx_Elf32_Shtab;
+	uint32_t	idx;          /* SH idx of strtab  */
+} *Pmelf_Elf32_Shtab;
+
+typedef struct {
+	Elf32_Sym	*syms;        /* Array of symbols  */
+	uint32_t    nsyms;        /* number of entries */
+	const char *strtab;       /* associated strtab */
+	uint32_t    strtablen;
+	uint32_t	idx;          /* SH idx of strtab  */
+} *Pmelf_Elf32_Symtab;
+
+/* Stream (file) where to read from; we hide the
+ * details so that other implementations could be
+ * provided.
+ */
+typedef struct _Elf_Stream *Elf_Stream;
 
 static inline const char *
-txx_elf32_get_section_name(Txx_Elf32_Shtab stab, uint32_t index)
+pmelf_elf32_get_section_name(Pmelf_Elf32_Shtab stab, uint32_t index)
 {
 	return &stab->strtab[stab->shdrs[index].sh_name];
 }
 
-typedef struct {
-	Elf32_Sym	*syms;
-	uint32_t    nsyms;
-	const char *strtab;
-	uint32_t    strtablen;
-	uint32_t	idx;
-} *Txx_Elf32_Symtab;
-
-typedef struct _Elf_Stream *Elf_Stream;
-
+/* Create a new stream; if 'name' is given then
+ * the named file is opened and used for the stream.
+ * Alternatively, an open FILE stream may be passed.
+ * The name is unused in this case.
+ * 
+ * RETURNS: new stream of NULL on error.
+ *
+ * NOTE:    if an open 'FILE' is passed and creating
+ *          the stream fails the FILE is *not* closed.
+ */
 Elf_Stream
-txx_newstrm(char *name, FILE *f);
+pmelf_newstrm(char *name, FILE *f);
 
+/* Cleanup and delete a stream. Optionally,
+ * (pass nonzero 'noclose' argument) the
+ * underlying FILE is not closed but left alone.
+ */
 void
-txx_set_errstrm(FILE *f);
+pmelf_delstrm(Elf_Stream s, int noclose);
 
-int
-txx_seek(Elf_Stream s, Elf32_Off where);
 
+/* Direct error messages to FILE; a NULL pointer
+ * may be passed to silence all messages.
+ *
+ * NOTE: by default (w/o calling this routine)
+ *       the library is silent (as if NULL had
+ *       been passed).
+ */
 void
-txx_delstrm(Elf_Stream s, int noclose);
+pmelf_set_errstrm(FILE *f);
 
+/* Position the stream;
+ * 
+ * RETURNS: 0 on success, nonzero on error.
+ *
+ * NOTE:    Always use this routine. Do not
+ *          fseek the underlying file directly.
+ */
 int
-txx_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
+pmelf_seek(Elf_Stream s, Elf32_Off where);
 
+/* Read an ELF file header into *pehdr (storage
+ * provided by caller).
+ *
+ * The header is byte-swapped if necessary into
+ * host byte order.
+ *
+ * NOTE:    The stream is rewound to the beginning
+ *          by this routine.
+ *          After returning successfully from this
+ *          routine the stream is positioned after
+ *          the datum that was read.
+ *
+ * RETURNS: 0 on success, nonzero on error.
+ */
 int
-txx_getshdr(Elf_Stream s, Elf32_Shdr *pshdr);
+pmelf_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
 
+/* Read an ELF section header into *pshdr (storage
+ * provided by caller).
+ *
+ * The header is byte-swapped if necessary into
+ * host byte order.
+ *
+ * NOTE:    The stream must have been correctly 
+ *          positioned prior to calling this routine.
+ *          After returning successfully from this
+ *          routine the stream is positioned after
+ *          the datum that was read.
+ *
+ * RETURNS: 0 on success, nonzero on error.
+ */
 int
-txx_getsym(Elf_Stream s, Elf32_Sym *psym);
+pmelf_getshdr(Elf_Stream s, Elf32_Shdr *pshdr);
 
+/* Read an ELF symbol into *psym (storage
+ * provided by caller).
+ *
+ * The symbol is byte-swapped if necessary into
+ * host byte order.
+ *
+ * NOTE:    The stream must have been correctly 
+ *          positioned prior to calling this routine.
+ *          After returning successfully from this
+ *          routine the stream is positioned after
+ *          the datum that was read.
+ *
+ * RETURNS: 0 on success, nonzero on error.
+ */
+int
+pmelf_getsym(Elf_Stream s, Elf32_Sym *psym);
+
+/* Read section contents described by *psect
+ * from stream 's' into the storage area pointed
+ * to by 'data' (provided by caller).
+ *
+ * No byte-swapping is performed.
+ *
+ *
+ * The stream is positioned to the section
+ * offset as indicated by psect->sh_offset.
+ *
+ * An additional 'offset' may be provided by
+ * the caller
+ *
+ * If the 'len' argument (byte count) is zero
+ * then the entire section contents are read.
+ *
+ * It is legal to pass a NULL 'data' pointer.
+ * This instructs the routine to allocate
+ * the required amount of memory. It is the
+ * responsability of the caller to free such
+ * memory.
+ *
+ * After returning successfully from this
+ * routine the stream is positioned after
+ * the datum that was read.
+ *
+ * RETURNS: pointer to 'data' (or allocated area
+ *          if a NULL data pointer was passed)
+ *          or NULL on failure.
+ */
 void *
-txx_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len);
+pmelf_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len);
 
+
+/* Read the contents of a SHT_GROUP section identified
+ * by the section header 'psect'.
+ *
+ * The stream is positioned to the start of the section
+ * and it's contents are read into the 'data' storage
+ * area which may be provided by the caller. If a NULL
+ * 'data' pointer is passed then memory is allocated
+ * (it is the user's responsability to free it when done).
+ *
+ * The section contents are byte-swapped as needed.
+ *
+ * A group section is an array of Elf32_Words listing
+ * the section indices of the group members. However,
+ * the very first word is a flag word (e.g., containing
+ * GRP_COMDAT).
+ *
+ * RETURNS: 'data' pointer on success, NULL on error.
+ *
+ * NOTE:    on successful return the stream is positioned
+ *          behind the section contents.
+ */
 Elf32_Word *
-txx_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data);
+pmelf_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data);
 
+/*
+ * Allocate memory for a section header table and read
+ * the section headers described by file header *pehdr
+ * from stream 's'.
+ *
+ * It is the user's responsibility to destroy the table
+ * by calling pmelf_delshtab().
+ *
+ * RETURNS: pointer to section header table on success,
+ *          NULL on error.
+ *
+ * NOTE:    after successful execution the stream is
+ *          positioned behind the section headers.
+ */
+Pmelf_Elf32_Shtab
+pmelf_getshtab(Elf_Stream s, Elf32_Ehdr *pehdr);
+
+/*
+ * Destroy section header table and release memory
+ */
 void
-txx_delshtab(Txx_Elf32_Shtab sht);
+pmelf_delshtab(Pmelf_Elf32_Shtab sht);
 
-Txx_Elf32_Shtab
-txx_getshtab(Elf_Stream s, Elf32_Ehdr *pehdr);
-
+/*
+ * Convenience routine: retrieve section name as a
+ * string.
+ *
+ * RETURNS: section name or NULL if parameters are
+ *          invalid (e.g., index into strtab found
+ *          in shdr is out of bounds).
+ */
 const char *
-txx_sec_name(Txx_Elf32_Shtab sht, Elf32_Shdr *shdr);
+pmelf_sec_name(Pmelf_Elf32_Shtab sht, Elf32_Shdr *shdr);
 
+/*
+ * Convenience routine: retrieve symbol name as a
+ * string.
+ *
+ * RETURNS: symbol name or NULL if parameters are
+ *          invalid (e.g., index into strtab found
+ *          in sym is out of bounds).
+ */
 const char *
-txx_sym_name(Txx_Elf32_Symtab symt, Elf32_Sym *sym);
+pmelf_sym_name(Pmelf_Elf32_Symtab symt, Elf32_Sym *sym);
 
+/*
+ * Allocate memory for a symbol table and read the
+ * section headers described by section header table
+ * 'shtab' from stream 's'.
+ *
+ * It is the user's responsibility to destroy the table
+ * by calling pmelf_delsymtab().
+ *
+ * RETURNS: pointer to symbol header table on success,
+ *          NULL on error.
+ *
+ * NOTE:    after successful execution the stream is
+ *          positioned behind the ELF symbol table.
+ */
+Pmelf_Elf32_Symtab
+pmelf_getsymtab(Elf_Stream s, Pmelf_Elf32_Shtab shtab);
+
+/*
+ * Destroy symbol table and release memory
+ */
 void
-txx_delsymtab(Txx_Elf32_Symtab symtab);
+pmelf_delsymtab(Pmelf_Elf32_Symtab symtab);
 
-Txx_Elf32_Symtab
-txx_getsymtab(Elf_Stream s, Txx_Elf32_Shtab shtab);
-
+/*
+ * Convenience routine for users who want to build their
+ * own symbol table (by repeated use of pmelf_getsym()).
+ *
+ * This routine locates the section headers of the
+ * symbol table and it's associated string table,
+ * respectively.
+ *
+ * RETURNS: (positive) number of symbols or a value less
+ *          than zero on error.
+ *
+ *          If successful, pointers to the respective
+ *          headers are stored in *psymsh (header of
+ *          symbol table section) and *pstrsh (header
+ *          of string table used by symbol table).
+ */
 long
-txx_find_symhdrs(Elf_Stream s, Txx_Elf32_Shtab shtab, Elf32_Shdr **psymsh, Elf32_Shdr **pstrsh);
+pmelf_find_symhdrs(Elf_Stream s, Pmelf_Elf32_Shtab shtab, Elf32_Shdr **psymsh, Elf32_Shdr **pstrsh);
 
+/* Dump contents of file header to FILE in readable form */
 void
-txx_dump_ehdr(FILE *f, Elf32_Ehdr *pehdr);
+pmelf_dump_ehdr(FILE *f, Elf32_Ehdr *pehdr);
 
-#define FMT_SHORT  0
-#define FMT_LONG   1
-#define FMT_COMPAT 2
+#define FMT_SHORT  0		/* more concise; fits on one line */
+#define FMT_LONG   1        /* slightly longer / more info    */
+#define FMT_COMPAT 2        /* 'readelf -Ss' compatible       */
 
+/* Dump contents of section header to FILE in readable form
+ * using one of the formats defined above.
+ *
+ * NOTE: the section name is NOT printed by this routine
+ *       (essentially because it has no information about
+ *       the string table). It is the user's responsability
+ *       to print the name if needed.
+ */
 void 
-txx_dump_shdr(FILE *f, Elf32_Shdr *pshdr, int format);
+pmelf_dump_shdr(FILE *f, Elf32_Shdr *pshdr, int format);
 
+/*
+ * Dump contents of section header table in readable
+ * form to FILE. If format == FMT_COMPAT the listing is
+ * identical to the output of 'readelf -S' (except for some
+ * header and footer lines).
+ */
 void
-txx_dump_shtab(FILE *f, Txx_Elf32_Shtab shtab, int format);
+pmelf_dump_shtab(FILE *f, Pmelf_Elf32_Shtab shtab, int format);
 
+/*
+ * Dump contents of symbol table in readable form to FILE.
+ * If format == FMT_COMPAT the listing is identical to the
+ * output of 'readelf -s' (except for some header and footer
+ * lines).
+ */
 void
-txx_dump_symtab(FILE *f, Txx_Elf32_Symtab symtab, Txx_Elf32_Shtab shtab, int format);
+pmelf_dump_symtab(FILE *f, Pmelf_Elf32_Symtab symtab, Pmelf_Elf32_Shtab shtab, int format);
 
+/*
+ * Dump contents of all section groups to FILE in readable
+ * form, compatible with 'readelf -g'.
+ *
+ * RETURNS:  number of section groups on success or a value
+ *           less than zero if an error was found.
+ */
 int
-txx_dump_groups(FILE *f, Elf_Stream s, Txx_Elf32_Shtab shtab, Txx_Elf32_Symtab symtab);
+pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Elf32_Shtab shtab, Pmelf_Elf32_Symtab symtab);
 
 #ifdef __cplusplus
 }

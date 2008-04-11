@@ -5,7 +5,7 @@ all: bfdod rdelf libpmbfd.a
 
 CFLAGS=-Wall -O2 -g
 
-PMELF_SRCS=elf.c symname.c secname.c strm.c dmpgrps.c
+PMELF_SRCS =symname.c secname.c strm.c dmpgrps.c
 PMELF_SRCS+=dmpsym.c dmpsymtab.c
 PMELF_SRCS+=dmpshdr.c dmpshtab.c
 PMELF_SRCS+=dmpehdr.c
@@ -34,7 +34,7 @@ libpmelf.a: $(PMELF_SRCS:%.c=%.o)
 	ar -r $@ $^
 	ranlib $@
 
-libpmbfd.a: bfd.o elf.o
+libpmbfd.a: bfd.o
 	ar -r $@ $^
 	ranlib $@
 

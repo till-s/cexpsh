@@ -3,6 +3,25 @@
 #include <bfd.h>
 #include <elf-bfd.h>
 #define get_section_filepos(abfd, sect) (sect)->filepos
+
+static inline unsigned
+elf_get_align(bfd *abfd, asymbol *sp)
+{
+elf_symbol_type *esp;
+unsigned         rval;
+	if ( (esp = elf_symbol_from(abfd, sp)) && (rval = esp->internal_elf_sym.st_value) ) {
+		return rval;
+	}
+	return  1;
+}
+
+static inline int
+elf_get_size(bfd *abfd, asymbol *asym)
+{
+elf_symbol_type *elfsp= elf_symbol_from(abfd, asym);
+	return elfsp ? elfsp->internal_elf_sym.st_size : 0 ;
+}
+
 #else
 #include "pmbfd.h"
 #define get_section_filepos(abfd, sect) pmbfd_get_section_filepos(abfd,sect)
@@ -34,7 +53,7 @@ char   *sep = "";
 		bfd_get_section_lma(abfd, sect)
 	);
 
-	printf("  %08lx", get_section_filepos(abfd, sect));
+	printf("  %08lx", (unsigned long)get_section_filepos(abfd, sect));
 
 	/* WEIRDNESS (bug ?) if I tried a single printf statement the alignment
 	 * was always printed as 0

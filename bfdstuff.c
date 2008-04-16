@@ -109,7 +109,7 @@
 #define DEBUG_SYM		(1<<3)
 #define DEBUG_CDPRI		(1<<4)
 
-#define DEBUG			(-1)
+#define DEBUG			(0)
 
 #include "cexp_regex.h"
 

@@ -77,7 +77,7 @@ pmelf_seek(Elf_Stream s, Elf32_Off where)
 void
 pmelf_delstrm(Elf_Stream s, int noclose)
 {
-	if ( !noclose && s->f )
+	if ( !noclose && s && s->f )
 		fclose(s->f);
 	free(s);
 }

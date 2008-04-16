@@ -106,14 +106,37 @@ fi
 
 fi
 
+dnl test for presence of 'binutils/bfd' 
+if test ! -d $srcdir/binutils/bfd ; then
+	enable_bfd=no;
+	if test ! "$enable_libelf" = "yes"; then
+		pmbfd_cpu=$host_cpu
+		case "$pmbfd_cpu" in
+			i*86 ) pmbfd_cpu=i386
+			;;
+		esac
+dnl 	try to use 'pmbfd' -- do we have relocations for our CPU arch ?
+		if test ! -f $srcdir/pmbfd/bfd-reloc-"$pmbfd_cpu".c ; then
+			AC_MSG_ERROR([pmbfd relocations for $pmbfd_cpu not implemented, sorry
+Provide an implementation or install BFD])
+		fi
+		AC_DEFINE(USE_PMBFD,1,[should we use our "poor man's BFD implentation?"])
+		enable_libelf=no
+		enable_pmbfd=yes
+		AC_CONFIG_SUBDIRS(pmbfd)
+	fi
+fi
+
+
 dnl we need libelf for the 'xsyms' tool
 if test "$enable_bfd" = "no" ; then
 	enable_opcodes=no;
 
 	if test "$enable_libelf" = "no"; then
-		if test "$enable_cexp" = "no"; then
-			AC_MSG_ERROR([must not disable both, bfd and libelf when building xsyms])
-		fi
+dnl		if test "$enable_cexp" = "no"; then
+dnl			AC_MSG_ERROR([must not disable both, bfd and libelf when building xsyms])
+dnl		fi
+	true
 	else
 		enable_libelf=yes	
 		dnl can we use a locally installed lib?
@@ -154,6 +177,7 @@ AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
 AM_CONDITIONAL(USEOPCODES,test "$enable_opcodes" != "no")
 AM_CONDITIONAL(USELIBELF,test "$enable_libelf" != "no")
+AM_CONDITIONAL(USEPMBFD,test "$enable_pmbfd" = "yes")
 
 AH_VERBATIM(NO_THREAD_PROTECTION,[
 /* Disable thread protection on OS other than RTEMS */

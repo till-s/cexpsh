@@ -1,5 +1,10 @@
 Changes since CEXP-1.5
  2008/4/15:
+ - added Makefile.am/configure.ac magic to support new pmelf.
+   FIXME: THIS NEEDS CLEANUP
+ - xsyms-bfd.c now also can use pmbfd/pmelf. (But for binary symbol
+   table generation objcopy --extract-symbol should be used.)
+ 2008/4/15:
  - (cexp.c): improved trivial 'readline' emulation (when no tecla or readline
    is configured) by switching terminal to RAW mode; we can then use backspace
    for erasing chars, CTRL-U to kill a line, ...

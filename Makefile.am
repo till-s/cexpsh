@@ -33,6 +33,15 @@ gencore_SOURCES  = gencore.c
 gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 else
+if USEPMBFD
+SYMF_SRCS        = bfdstuff.c
+SYMLIBP          = -Lpmbfd
+SYMLIBS          = -lpmbfd -lpmelf
+SYMINCS          = -I$(srcdir)/pmbfd
+xsyms_SOURCES    = xsyms-bfd.c
+xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
+xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
+else
 if USELIBELF
 SYMF_SRCS        = elfsyms.c
 SYMLIBP          = -Llibelf-local/lib
@@ -47,6 +56,7 @@ xsyms_LDADD      = -lelf
 else
 xsyms_LDADD      = -Llibelf-local/lib -lelf
 xsyms_CPPFLAGS   = -Ilibelf-local/include
+endif
 endif
 endif
 
@@ -86,7 +96,8 @@ cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_LDFLAGS= $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 # $(BFDLIBP) -Wl,-Bstatic
-bin_PROGRAMS=cexp xsyms
+bin_PROGRAMS=cexp
+bin_PROGRAMS += xsyms
 endif
 else
 AM_CPPFLAGS = $(xsyms_CPPFLAGS)

@@ -92,7 +92,6 @@ extern int tgetnum();
 
 #if defined(USE_RTEMS_SHELL) && defined(__rtems__)
 
-
 extern shell_scanline(char *line, int size, FILE *in, FILE *out);
 
 static char *readline_r(char *prompt, void *context)
@@ -126,11 +125,13 @@ int		len;
 
 #else
 #define LINEBUFSZ 500
+#define TABSZ     4
 static char *readline_r(char *prompt, void *context)
 {
-int ch = -1;
-
-	char *rval,*cp;
+int ch = -1,i;
+int fd;
+struct termios told, tnew;
+char *rval,*cp;
 
 	if ( ! (rval=malloc(LINEBUFSZ)) )
 		return 0;
@@ -140,25 +141,70 @@ int ch = -1;
 		fflush(stdout);
 	}
 
+	fd = fileno(stdin);
+	if ( isatty(fd) && 0 ==tcgetattr(fd, &told) ) {
+		tnew = told;
+		cfmakeraw(&tnew);	
+		tcsetattr(fd, TCSANOW, &tnew);
+	} else {
+		fd = -1;
+	}
+
 	for (cp=rval; cp<rval+LINEBUFSZ-1 && (ch=getchar())>=0;) {
+			const char *back="\b \b";
 			switch (ch) {
-				case '\n': *cp=0; return rval;
+
+				case '\r': ch='\n';
+					/* fall thru */
+				case '\n':
+					putchar('\r');
+					*cp=0;
+					cp = rval + LINEBUFSZ;
+				break;
+
 				case '\b':
 					if (cp>rval) {
 						cp--;
 						fputs("\b ",stdout);
 						fflush(stdout);
+					} else {
+						continue;
 					}
-					break;
+				break;
+
+				case 21: /* Ctrl-U -- kill entire line */
+					while ( cp>rval ) {
+						fputs("\b \b",stdout);
+						cp--;
+					}
+					fflush(stdout);
+				continue;
+
+				case 4: /* Ctrl-D -- bail */
+					ch = -1;
+				goto bail;
+
+				case '\t':
+					i = TABSZ - ((cp-rval)%TABSZ);
+					while ( i-->0 && cp < rval+LINEBUFSZ-1 )
+						fputc(*cp++ = ' ', stdout);
+				continue;
+
 				default:
 					*cp++=ch;
-					break;
+				break;
 			}
+			putchar(ch);
 	}
+
+bail:
+
 	if ( ch < 0 ) {
 		free(rval);
 		rval = 0;
 	}
+	if ( fd >= 0 )
+		tcsetattr(fd, TCSANOW, &told);
 	return rval;	
 }
 #endif

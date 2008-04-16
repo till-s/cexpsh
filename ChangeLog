@@ -1,4 +1,8 @@
 Changes since CEXP-1.5
+ 2008/4/15:
+ - (cexp.c): improved trivial 'readline' emulation (when no tecla or readline
+   is configured) by switching terminal to RAW mode; we can then use backspace
+   for erasing chars, CTRL-U to kill a line, ...
  2008/4/7:
  - (bfdstuff.c): 
    o access members of asection struct only through bfd_get_section_xxx()

@@ -15,8 +15,12 @@ PMELF_SRCS+=shtab.c
 PMELF_SRCS+=getgrp.c
 PMELF_SRCS+=getscn.c
 PMELF_SRCS+=getsym.c
+PMELF_SRCS+=putsym.c
+PMELF_SRCS+=putdat.c
 PMELF_SRCS+=getshdr.c
+PMELF_SRCS+=putshdr.c
 PMELF_SRCS+=getehdr.c
+PMELF_SRCS+=putehdr.c
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c -o $@ $^

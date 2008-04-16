@@ -157,6 +157,8 @@ elf_get_align(bfd *abfd, asymbol *asym);
   (((addr) + ((bfd_vma) 1 << (align)) - 1) & ((bfd_vma) -1 << (align)))
 
 extern asection *bfd_abs_section_ptr;
+extern asection *bfd_und_section_ptr;
+extern asection *bfd_com_section_ptr;
 
 #if 0
 enum bfd_architecture {
@@ -280,6 +282,9 @@ bfd_map_over_sections(bfd *abfd, void (*f)(bfd *abfd, asection *sect, void *clos
 
 bfd *
 bfd_openstreamr(const char *fname, const char *target, FILE *f);
+
+bfd *
+bfd_openr(const char *fname, const char *target);
 
 void
 bfd_perror(const char *msg);

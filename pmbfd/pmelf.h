@@ -159,6 +159,8 @@ typedef struct {
 #define SHT_GROUP			17
 #define SHT_SYMTAB_SHNDX	18
 #define SHT_MAXSUP			18
+#define SHT_GNU_VERSION     0x6fffffff
+#define SHT_GNU_VERSION_R   0x6ffffffe
 #define SHT_LOPROC			0x70000000
 #define SHT_HIPROC			0x7fffffff
 #define SHT_LOUSER			0x80000000
@@ -666,6 +668,19 @@ pmelf_dump_symtab(FILE *f, Pmelf_Elf32_Symtab symtab, Pmelf_Elf32_Shtab shtab, i
  */
 int
 pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Elf32_Shtab shtab, Pmelf_Elf32_Symtab symtab);
+
+/* Write headers to a stream */
+int
+pmelf_putehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
+
+int
+pmelf_putshdr(Elf_Stream s, Elf32_Shdr *pshdr);
+
+int
+pmelf_putsym(Elf_Stream s, Elf32_Sym *psym);
+
+int
+pmelf_write(Elf_Stream s, void *data, Elf32_Word len);
 
 #ifdef __cplusplus
 }

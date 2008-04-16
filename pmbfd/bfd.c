@@ -45,50 +45,13 @@
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
 
-#include "pmbfd.h"
-#include "pmelf.h"
-
-#include <string.h>
-#include <stdlib.h>
-#include <inttypes.h>
-
-#define ERRPR(x...) fprintf(stderr,x)
-
-#define BFD_TRUE  1
-#define BFD_FALSE 0
-
-struct bfd_arch_info_type {
-	const char *arch_name;
-};
-
-#define SEC_BOGUS (-1)
-
-#define DEBUG_RELOC (1)
-
-#undef DEBUG
-
-/* Assume we have less than 64k sections */
-typedef uint16_t	Secndx;
-
-struct sec {
-	const char   *name;
-	bfd_size_type size;
-	bfd_vma       vma;
-	unsigned      align_power;
-	flagword      flags;
-	Elf32_Shdr   *shdr;
-#define GRP_NULL	0
-	Secndx       grp_next;		/* half-word */
-#define RELS_NULL	0
-	Secndx       rels;		    /* half-word */
-};
+#include "pmbfdP.h"
 
 static void
 bfd_set_section_name(asection *sect, const char *name)
 {
 	sect->name = name;
 }
-
 
 #define SECCHUNKSZ       0
 #define MAX_USR_SECTS    5
@@ -148,34 +111,6 @@ static uint32_t msk[]={
 	}
 	return rval;
 }
-
-/* Index into strtabs */
-#define SYMSTRTAB	0
-
-struct bfd {
-	Elf_Stream      s;
-	Elf32_Ehdr      ehdr;
-	const char      *arch;
-#if SECCHUNKSZ == 0
-	asection        *sects;
-	uint32_t        nsects;
-	uint32_t		maxsects;
-#endif
-	asymbol         *syms;
-	long            nsyms;
-	const char      **strtabs;
-	uint32_t        nstrtabs;
-	uint32_t		str_avail;
-	Pmelf_Elf32_Shtab	shtab;
-	Elf32_Shdr      *symsh;	    /* sh of symbol table           */
-	Elf32_Shdr		*symstrs;	/* sh of symbol table stringtab */
-#if SECCHUNKSZ > 0
-	struct secchunk	*secmemh;
-	struct secchunk *secmemt;
-#endif
-	struct symchunk	*symmemh;
-	struct symchunk *symmemt;
-};
 
 const char *
 bfd_printable_name(bfd *abfd)
@@ -859,6 +794,10 @@ const char        *sname;
 
 	switch ( shdr->sh_type ) {
 		case SHT_NULL:	return;
+			
+		/* These should not be in static executables */
+		case SHT_GNU_VERSION:
+		case SHT_GNU_VERSION_R:
 
 		case SHT_PROGBITS:
 		case SHT_NOBITS:
@@ -1064,6 +1003,21 @@ int        rval = 0;
 	return rval;
 }
 
+bfd *
+bfd_openr(const char *fname, const char *target)
+{
+FILE *f;
+bfd  *rval;
+	if ( ! (f=fopen(fname,"r")) ) {
+		ERRPR("pmbfd: unable to open '%s'\n", fname);
+		return 0;
+	}
+	if ( !(rval=bfd_openstreamr(fname, target, f)) ) {
+		fclose(f);
+		return 0;
+	}
+	return rval;
+}
 
 bfd *
 bfd_openstreamr(const char *fname, const char *target, FILE *f)
@@ -1225,18 +1179,6 @@ bfd_make_empty_symbol(bfd *abfd)
 	return symget(abfd);
 }
 
-struct pmbfd_areltab {
-	Elf32_Word	entsz;
-	Elf32_Shdr  *shdr;
-	uint8_t		data[];
-};
-
-union pmbfd_arelent {
-	Elf32_Rel	rel;
-	Elf32_Rela	rela;
-	char        raw[sizeof(Elf32_Rela)];
-};
-
 static asection *
 get_reloc_sec(bfd *abfd, asection *sect)
 {
@@ -1297,253 +1239,6 @@ asection *rels = get_reloc_sec(abfd, sect);
 	return sizeof(pmbfd_areltab) + rels->shdr->sh_size;
 }
 
-#if   defined(__i386__)
-#define pmbfd_perform_relocation_i386 pmbfd_perform_relocation
-#define pmbfd_reloc_get_name_i386     pmbfd_reloc_get_name
-#elif defined(__m68k__)
-#define pmbfd_perform_relocation_m68k pmbfd_perform_relocation
-#define pmbfd_reloc_get_name_m68k     pmbfd_reloc_get_name
-#elif defined(__PPC__)
-#define pmbfd_perform_relocation_ppc  pmbfd_perform_relocation
-#define pmbfd_reloc_get_name_ppc      pmbfd_reloc_get_name
-#else
-#error "relocation not implemented for this CPU"
-#endif
-
-bfd_reloc_status_type
-pmbfd_perform_relocation_i386(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
-{
-Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
-Elf32_Word     val, add;
-
-	if ( r->rel.r_offset + sizeof(Elf32_Word) > bfd_get_section_size(input_section) )
-		return bfd_reloc_outofrange;
-
-	pc += r->rel.r_offset;
-
-	if ( bfd_is_und_section(bfd_get_section(psym)) )
-		return bfd_reloc_undefined;
-
-
-	val = 0;
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
-		default:
-		return bfd_reloc_notsupported;
-
-		case R_386_PC32: val = -(Elf32_Word)pc;
-
-		case R_386_32:	 memcpy(&add, (char*)pc, sizeof(add));
-
-						 val += add + bfd_asymbol_value(psym);
-						 memcpy((char*)pc, &val, sizeof(val));
-		break;
-	}
-
-	return bfd_reloc_ok;
-}
-
-bfd_reloc_status_type
-pmbfd_perform_relocation_m68k(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
-{
-Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
-
-unsigned       sz;
-int32_t        val;
-int8_t         cval;
-int16_t        sval;
-uint32_t       pcadd=0;
-int32_t        lim;
-
-	if ( bfd_is_und_section(bfd_get_section(psym)) )
-		return bfd_reloc_undefined;
-
-	pc += r->rela.r_offset;
-
-	/* I don't have my hands on the 68k ABI document so
-	 * I don't know if there are any alignment requirements.
-	 * Anyhow, if we loaded the section correctly and
-	 * the compiler did the right thing this should
-	 * not be an issue.
-	 */
-
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
-
-		default:
-		return bfd_reloc_notsupported;
-
-		case R_68K_PC8:  pcadd = pc; lim   = -0x0080; sz = 1; break;
-		case R_68K_8:    pcadd =  0; lim   = -0x0100; sz = 1; break;
-
-		case R_68K_PC16: pcadd = pc; lim   = -0x8000; sz = 2; break;
-		case R_68K_16:   pcadd =  0; lim   = -0x1000; sz = 2; break;
-
-		case R_68K_PC32: pcadd = pc; lim   = 0;       sz = 4; break;
-		case R_68K_32:   pcadd =  0; lim   = 0;       sz = 4; break;
-	}
-
-	if ( r->rela.r_offset + sz > bfd_get_section_size(input_section) )
-		return bfd_reloc_outofrange;
-
-	switch (sz) {
-		case 1:
-			memcpy(&cval, (void*)pc, sizeof(cval));
-			val = cval;
-		break;
-
-		case 2:
-			memcpy(&sval, (void*)pc, sizeof(sval));
-			val = sval;
-		break;
-
-		case 4:
-			memcpy(&val, (void*)pc, sizeof(val));
-		break;
-	}
-
-	val = val + bfd_asymbol_value(psym) + r->rela.r_addend - pcadd;
-
-	if ( lim && (val < lim || val > -lim - 1) )
-		return bfd_reloc_overflow;
-
-	switch (sz) {
-		case 1:
-			cval = val;
-			memcpy((void*)pc, &cval, sizeof(cval));
-		break;
-
-		case 2:
-			sval = val;
-			memcpy((void*)pc, &sval, sizeof(sval));
-		break;
-
-		case 4:
-			memcpy((void*)pc, &val, sizeof(val));
-		break;
-	}
-
-	return bfd_reloc_ok;
-}
-
-bfd_reloc_status_type
-pmbfd_perform_relocation_ppc(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
-{
-Elf32_Word     pc;
-unsigned       sz, algn;
-int32_t        val,oval;
-int16_t        sval;
-int32_t        lim;
-uint32_t       msk,lomsk;
-uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
-
-	if ( bfd_is_und_section(bfd_get_section(psym)) )
-		return bfd_reloc_undefined;
-
-	pc  = bfd_get_section_vma(abfd, input_section) + r->rela.r_offset;
-
-	val = bfd_asymbol_value(psym) + r->rela.r_addend;
-
-	/* gcc seems to only use these...
-	 *
-	 * R_PPC_ADDR16_HA
-	 * R_PPC_ADDR16_HI
-	 * R_PPC_ADDR16_LO
-	 * R_PPC_ADDR24
-	 * R_PPC_ADDR32
-	 * R_PPC_REL24
-	 * R_PPC_REL32
-	 */
-
-	msk   = ~0;
-	lim   =  0;
-	lomsk =  0;
-
-	algn  =  1;
-	sz    =  4;
-
-	switch ( type ) {
-
-		default:
-		return bfd_reloc_notsupported;
-
-		case R_PPC_ADDR16_HA:
-		case R_PPC_ADDR16_HI:
-		case R_PPC_ADDR16_LO: sz = algn = 2;
-		break;
-	 
-	 	case R_PPC_ADDR24:
-	 	case R_PPC_REL24:
-							  lim = - (1<<(27-1));
-		                      if ( R_PPC_REL24 == type )
-							  	lim >>= 1;
-							  msk   =  0x03fffffc;
-							  lomsk =  0x00000003;
-	 	case R_PPC_REL32:     sz = algn = 4;
-		break;
-
-		/* This is used by gcc to put data at unaligned addresses, too */
-	 	case R_PPC_ADDR32:    sz = 4; algn = 1;
-		break;
-	}
-
-	if ( pc & (algn-1)) {
-		ERRPR("pmbfd_perform_relocation_ppc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
-		return bfd_reloc_other;
-	}
-
-
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
-		case R_PPC_REL24:
-		case R_PPC_REL32:
-			val -= pc;
-		break;
-		default:
-		break;
-	}
-
-	if ( lim && (val < lim || val > -lim - 1) )
-		return bfd_reloc_overflow;
-
-	if ( lomsk & val ) {
-		ERRPR("pmbfd_perform_relocation_ppc(): value (0x%08"PRIx32") not properly aligned\n", val);
-		return bfd_reloc_other;
-	}
-
-#if DEBUG & DEBUG_RELOC
-	fprintf(stderr,"Relocating val: 0x%08"PRIx32", lim: 0x%08"PRIx32", pc: 0x%08"PRIx32"\n",
-		val, lim, pc);
-#endif
-
-	if ( 2 == sz ) {
-		memcpy(&sval, (void*)pc, sizeof(sval));
-		oval = sval;
-	} else {
-		memcpy(&oval, (void*)pc, sizeof(oval));
-	}
-	val = ( oval & ~msk ) | (val & msk);
-
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
-		case R_PPC_ADDR16_HA:
-			if ( val & 0x8000 )
-				val+=0x10000;
-		case R_PPC_ADDR16_HI:
-			val >>= 16;
-		break;
-		default:
-		break;
-	}
-
-	/* patch back */
-	if ( 2 == sz ) {
-		sval = val;
-		memcpy((void*)pc, &sval, sizeof(sval));
-	} else {
-		memcpy((void*)pc, &val,  sizeof(val) );
-	}
-
-	return bfd_reloc_ok;
-}
-
-
 pmbfd_arelent *
 pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev)
 {
@@ -1567,109 +1262,3 @@ pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 	return r->rel.r_offset;
 }
 
-#define namecase(rel)	case rel: return #rel;
-
-const char *
-pmbfd_reloc_get_name_i386(bfd *abfd, pmbfd_arelent *r)
-{
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
-		namecase( R_386_NONE     )
-		namecase( R_386_32       )
-		namecase( R_386_PC32     )
-		namecase( R_386_GOT32    )
-		namecase( R_386_PLT32    )
-		namecase( R_386_COPY     )
-		namecase( R_386_GLOB_DAT )
-		namecase( R_386_JMP_SLOT )
-		namecase( R_386_RELATIVE )
-		namecase( R_386_GOTOFF   )
-		namecase( R_386_GOTPC    )
-
-		default:
-		break;
-	}
-	return "UNKNOWN";
-}
-
-const char *
-pmbfd_reloc_get_name_m68k(bfd *abfd, pmbfd_arelent *r)
-{
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
-		namecase( R_68K_NONE )
-		namecase( R_68K_32 )
-		namecase( R_68K_16 )
-		namecase( R_68K_8 )
-		namecase( R_68K_PC32 )
-		namecase( R_68K_PC16 )
-		namecase( R_68K_PC8 )
-		namecase( R_68K_GOT32 )
-		namecase( R_68K_GOT16 )
-		namecase( R_68K_GOT8 )
-		namecase( R_68K_GOT320 )
-		namecase( R_68K_GOT160 )
-		namecase( R_68K_GOT80 )
-		namecase( R_68K_PLT32 )
-		namecase( R_68K_PLT16 )
-		namecase( R_68K_PLT8 )
-		namecase( R_68K_PLT320 )
-		namecase( R_68K_PLT160 )
-		namecase( R_68K_PLT80 )
-		namecase( R_68K_COPY )
-		namecase( R_68K_GLOB_DAT )
-		namecase( R_68K_JMP_SLOT )
-		namecase( R_68K_RELATIVE )
-
-		default:
-		break;
-	}
-	return "UNKNOWN";
-}
-
-const char *
-pmbfd_reloc_get_name_ppc(bfd *abfd, pmbfd_arelent *r)
-{
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
-		namecase( R_PPC_NONE                )
-		namecase( R_PPC_ADDR32              )
-		namecase( R_PPC_ADDR24              )
-		namecase( R_PPC_ADDR16              )
-		namecase( R_PPC_ADDR16_LO           )
-		namecase( R_PPC_ADDR16_HI           )
-		namecase( R_PPC_ADDR16_HA           )
-		namecase( R_PPC_ADDR14              )
-		namecase( R_PPC_ADDR14_BRTAKEN      )
-		namecase( R_PPC_ADDR14_BRNTAKEN     )
-		namecase( R_PPC_REL24               )
-		namecase( R_PPC_REL14               )
-		namecase( R_PPC_REL14_BRTAKEN       )
-		namecase( R_PPC_REL14_BRNTAKEN      )
-		namecase( R_PPC_GOT16               )
-		namecase( R_PPC_GOT16_LO            )
-		namecase( R_PPC_GOT16_HI            )
-		namecase( R_PPC_GOT16_HA            )
-		namecase( R_PPC_PLTREL24            )
-		namecase( R_PPC_COPY                )
-		namecase( R_PPC_GLOB_DAT            )
-		namecase( R_PPC_JMP_SLOT            )
-		namecase( R_PPC_RELATIVE            )
-		namecase( R_PPC_LOCAL24PC           )
-		namecase( R_PPC_UADDR32             )
-		namecase( R_PPC_UADDR16             )
-		namecase( R_PPC_REL32               )
-		namecase( R_PPC_PLT32               )
-		namecase( R_PPC_PLTREL32            )
-		namecase( R_PPC_PLT16_LO            )
-		namecase( R_PPC_PLT16_HI            )
-		namecase( R_PPC_PLT16_HA            )
-		namecase( R_PPC_SDAREL16            )
-		namecase( R_PPC_SECTOFF             )
-		namecase( R_PPC_SECTOFF_LO          )
-		namecase( R_PPC_SECTOFF_HI          )
-		namecase( R_PPC_SECTOFF_HA          )
-		namecase( R_PPC_ADDR30              )
-
-		default:
-			break;
-	}
-	return "UNKNOWN";
-}

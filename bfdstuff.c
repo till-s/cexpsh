@@ -82,7 +82,12 @@
  * We redefine bfd's boolean here
  */
 #define  boolean bfdddd_bbboolean
-#if 0
+#ifdef USE_PMBFD
+#include "pmbfd.h"
+#define reloc_get_address(abfd, r) pmbfd_reloc_get_address(abfd, r)
+#define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
+#undef HAVE_ELF_BFD_H
+#else
 #include <bfd.h>
 #include <libiberty.h>
 
@@ -94,11 +99,6 @@
 #define reloc_get_name(abfd,r)     ((r)->howto->name)
 #define bfd_asymbol_set_value(s,v) ((s)->value = (v))
 #endif
-#else
-#include "pmbfd.h"
-#define reloc_get_address(abfd, r) pmbfd_reloc_get_address(abfd, r)
-#define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
-#undef HAVE_ELF_BFD_H
 #endif
 
 #define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))

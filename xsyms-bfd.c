@@ -8,15 +8,23 @@
  * object file.
  */
 
-#include <bfd.h>
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
+#endif
+
+#ifdef USE_PMBFD
+#include <pmelf.h>
+#include <pmbfd.h>
+#undef HAVE_ELF_BFD_H
+#else
+#include <bfd.h>
 #endif
 
 #ifdef HAVE_ELF_BFD_H
@@ -26,6 +34,140 @@
 #define LINKER_VERSION_SEPARATOR '@'
 #define DUMMY_ALIAS_PREFIX       "__cexp__dummy_alias_"
 
+#ifdef _PMBFD_
+
+static int cpyscn(Elf_Stream elfi, Elf_Stream elfo, Pmelf_Elf32_Shtab shtab, Elf32_Shdr *shdr)
+{
+void *dat = 0;
+int  rval = -1;
+	if ( !(dat=pmelf_getscn(elfi,shdr,0,0,0)) ) {
+		fprintf(stderr,"Unable to read %s section\n", pmelf_sec_name(shtab, shdr));
+		return -1;
+	}
+	if ( pmelf_write(elfo, dat, shdr->sh_size) ) {
+		fprintf(stderr,"Unable to write %s section\n", pmelf_sec_name(shtab, shdr));
+		goto cleanup;
+	}
+	rval = 0;
+
+cleanup:
+	free(dat);
+	return rval;
+}
+
+static int
+pmelf_copy_symtab(char *ifilen, char *ofilen)
+{
+FILE       *of;
+Elf_Stream elfi=0, elfo=0;
+Elf32_Ehdr ehdr;
+Elf32_Shdr shdrs[4]; /* NULL .shstrtab .symtab .strtab */
+Elf32_Shdr *symsh, *strsh;
+Pmelf_Elf32_Shtab shtab = 0;
+Pmelf_Elf32_Symtab symtab = 0;
+Elf32_Sym  *sym;
+int        rval = -1, i;
+char       buf[BUFSIZ];
+
+	/* Do it the ELF way... */
+	memset(shdrs,0,sizeof(shdrs));
+
+	pmelf_set_errstrm(stderr);
+
+	elfi = pmelf_newstrm(ifilen, 0);
+	if ( pmelf_getehdr(elfi, &ehdr) ) {
+		goto cleanup;
+	}
+
+	if ( !(shtab = pmelf_getshtab(elfi, &ehdr)) )
+		goto cleanup;
+
+	if ( !(symtab = pmelf_getsymtab(elfi, shtab)) )
+		goto cleanup;
+
+	if ( pmelf_find_symhdrs(elfi, shtab, &symsh, &strsh) < 0 ) {
+		goto cleanup;
+	}
+	shdrs[0]           = shtab->shdrs[0];
+
+	shdrs[1].sh_name   = 1; /* .shstrtab */
+	shdrs[1].sh_type   = SHT_STRTAB;
+	shdrs[1].sh_offset = sizeof(ehdr) + sizeof(shdrs);
+	shdrs[1].sh_size   = 27;
+
+	shdrs[2]           = *symsh;
+	shdrs[2].sh_name   = 11;
+	shdrs[2].sh_offset = shdrs[1].sh_offset + shdrs[1].sh_size;
+	shdrs[2].sh_link   = 3;
+
+	shdrs[3]           = *strsh;
+	shdrs[3].sh_name   = 19;
+	shdrs[3].sh_offset = shdrs[2].sh_offset + shdrs[2].sh_size;
+
+	ehdr.e_entry = 0;
+	ehdr.e_phoff = 0;
+	ehdr.e_shoff = sizeof(ehdr);
+	ehdr.e_phnum = 0;
+	ehdr.e_shnum = sizeof(shdrs)/sizeof(shdrs[0]);
+	ehdr.e_shstrndx = 1;
+
+	if ( ! (of = fopen(ofilen,"w")) ) {
+		fprintf(stderr,"pmelf -- Opening %s for writing: %s\n",ofilen, strerror(errno));
+		goto cleanup;
+	}
+	if ( ! (elfo = pmelf_newstrm(0, of)) ) {
+		fclose(of);
+		goto cleanup;
+	}
+	if ( pmelf_putehdr(elfo, &ehdr) ) {
+		goto cleanup;
+	}
+	for ( i = 0; i<ehdr.e_shnum; i++ ) {
+		if ( pmelf_putshdr(elfo, shdrs+i) ) {
+			goto cleanup;
+		}
+	}
+	if (   pmelf_write(elfo,"",1)
+	    || pmelf_write(elfo,".shstrtab",10)
+	    || pmelf_write(elfo,".symtab",8)
+	    || pmelf_write(elfo,".strtab",8) )
+	{
+		fprintf(stderr,"pmelf -- unable to write .shstrtab: %s\n", strerror(errno));
+		goto cleanup;
+	}
+
+	for ( i=0, sym=symtab->syms; i<symtab->nsyms; i++, sym++ ) {
+		if ( sym->st_shndx != SHN_UNDEF && sym->st_shndx < shtab->nshdrs ) {
+		/*
+			sym->st_value += shtab->shdrs[sym->st_shndx].sh_addr;
+		 */
+			sym->st_shndx = SHN_ABS;
+		}
+	}
+
+	if ( pmelf_write(elfo, symtab->syms, symsh->sh_size) ) {
+		fprintf(stderr,"pmelf -- unable to write .symtab\n");
+		goto cleanup;
+	}
+
+	if ( cpyscn(elfi, elfo, shtab, strsh) ) 
+		goto cleanup;
+
+	ofilen = 0;
+	rval   = 0;
+
+cleanup:
+	pmelf_delstrm(elfi,0);
+	if ( elfo && ofilen )
+		unlink(ofilen);
+	pmelf_delstrm(elfo,0);
+	pmelf_delshtab(shtab);
+	pmelf_delsymtab(symtab);
+	return rval;
+}
+#endif
+
+
 static void
 usage(char *nm)
 {
@@ -33,7 +175,11 @@ char *chpt=strrchr(nm,'/');
 if (chpt)
 	nm=chpt+1;
 fprintf(stderr,"usage: %s [-p] [-z] [-h] [-a] <infile> <outfile>\n", nm);
+#ifdef _PMBFD_
+fprintf(stderr,"       %s implementation using PMBFD\n",nm);
+#else
 fprintf(stderr,"       %s implementation using BFD\n",nm);
+#endif
 fprintf(stderr,"	   $Id$\n\n");
 fprintf(stderr,"       strip an object file leaving only the symbol table\n");
 fprintf(stderr,"       -h this info\n");
@@ -45,6 +191,9 @@ fprintf(stderr,"       -s [together with -C]: add section symbols to the symtab 
 fprintf(stderr,"          print linker commands on stdout. You want to save these in\n");
 fprintf(stderr,"          a file and add them as a linker script to the final link of\n");
 fprintf(stderr,"          your application.\n");
+fprintf(stderr,"       WARNING: use other than with -C[s] is deprecated; use\n");
+fprintf(stderr,"                objcopy --extract symbol instead! (Requires\n");
+fprintf(stderr,"                binutils >= 2.18).\n");
 }
 
 /* duplicate a string and replace/append a suffix */
@@ -156,12 +305,15 @@ int							sectsyms=0;
 		fprintf(stderr,"Unable to open input file\n");
 		goto cleanup;
 	}
+
+#ifndef _PMBFD_
 	arch=bfd_get_arch_info(ibfd);
 
 	if (!arch) {
 		fprintf(stderr,"Unable to determine architecture\n");
 		goto cleanup;
 	}
+#endif
 
 	if (dumparch) {
 		printf("%s\n",bfd_printable_name(ibfd));
@@ -189,9 +341,13 @@ int							sectsyms=0;
 			}
 	} else {
 		if (!ofilen || !*ofilen ||
+#ifdef _PMBFD_
+			0
+#else
 		    !(obfd=bfd_openw(ofilen,0)) ||
 	    	! bfd_set_format(obfd,bfd_object) ||
 		    ! bfd_set_arch_mach(obfd, arch->arch, arch->mach)
+#endif
 	        ) {
 		fprintf(stderr,"Unable to create output BFD\n");
 		goto cleanup;
@@ -209,6 +365,9 @@ int							sectsyms=0;
 		goto cleanup;
 	}
 
+#ifdef _PMBFD_
+	if ( gensrc ) {
+#endif
 	/* Allocate space for the symbol table  */
 	if (i) {
 		isyms=(asymbol**)xmalloc((i));
@@ -220,6 +379,9 @@ int							sectsyms=0;
 		bfd_perror("Canonicalizing symtab");
 		goto cleanup;
 	}
+#ifdef _PMBFD_
+	}
+#endif
 
 	/* Now copy/generate the symbol table */
 	if (gensrc) {
@@ -262,6 +424,9 @@ int							sectsyms=0;
 				sz = (elfsp)->internal_elf_sym.st_size;
 			}
 #endif
+#ifdef _PMBFD_
+			sz = elf_get_size(ibfd, isyms[i]);
+#endif
 			if ( !(BSF_SECTION_SYM & f) && bfd_is_com_section(bfd_get_section(isyms[i])) )
 				sz = bfd_asymbol_value(isyms[i]); /* value holds size */
 
@@ -295,24 +460,39 @@ int							sectsyms=0;
 		fprintf(ofeil,"\t},\n");
 		fprintf(ofeil,"};\n");
 		fprintf(ofeil,"CexpSym cexpSystemSymbols = systemSymbols;\n");
-	} else {
+	} else
+	{
+	fprintf(stderr,"WARNING: the use of %s is deprecated; use 'objcopy --extract-symbol' instead\n",
+	       argv[0]);
+	fprintf(stderr,"         (requires binutils >= 2.18); use this utility only to generate a\n");
+	fprintf(stderr,"         built-in symbol table via the '-C[s]' options.\n");
+#ifndef _PMBFD_
 	for (i=0; i<nsyms; i++) {
 		osyms[i]          = bfd_make_empty_symbol(obfd);
 		/* leave undefined symbols in the undefined section;
 		 */
-		if (bfd_is_und_section(isyms[i]->section)) {
-			osyms[i]->section = bfd_und_section_ptr;
+		if (bfd_is_und_section(bfd_get_section(isyms[i]))) {
+			bfd_set_section(osyms[i], bfd_und_section_ptr);
 		} else {
-			osyms[i]->section = bfd_abs_section_ptr;
+			bfd_set_section(osyms[i], bfd_abs_section_ptr);
 		}
 		osyms[i]->value   = bfd_asymbol_value(isyms[i]) -
-							bfd_get_section_vma(obfd,osyms[i]->section);
+							bfd_get_section_vma(obfd,bfd_get_section(osyms[i]));
 		osyms[i]->flags   = isyms[i]->flags;
 		osyms[i]->name    = isyms[i]->name;
 		bfd_copy_private_symbol_data(ibfd,isyms[i],obfd,osyms[i]);
 	}
 
 	bfd_set_symtab(obfd,osyms,nsyms);
+#else
+	{
+		if ( ibfd )
+			bfd_close_all_done(ibfd);
+		ibfd = 0;
+		if ( pmelf_copy_symtab(ifilen, ofilen) )
+			goto cleanup;
+	}
+#endif
 	}
 
 	rval = 0;
@@ -324,6 +504,7 @@ cleanup:
 		ofeil = 0;
 	}
 
+#ifndef _PMBFD_
 	if (obfd) {
 		if (rval) {
 			unlink(ofilen);
@@ -332,6 +513,7 @@ cleanup:
 			bfd_close(obfd);
 		}
 	}
+#endif
 
 	free(isyms);
 	free(osyms);

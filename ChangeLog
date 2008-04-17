@@ -1,4 +1,7 @@
 Changes since CEXP-1.5
+ 2008/4/17:
+ - new LICENSE; we now use the SLAC license instead of the EPICS open
+   license.
  2008/4/16:
  - removed support for libelf; we now use pmelf when appropriate.
  - added multilib support. libcexp, libtecla, libspencer_regexp and

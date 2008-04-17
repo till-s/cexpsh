@@ -1,7 +1,7 @@
 AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 
-HOSTCC=@HOSTCC@
-SUBDIRS=@THESUBDIRS@
+HOSTCC  = @HOSTCC@
+SUBDIRS = @THESUBDIRS@
 
 ##BUILT_SOURCES = builddate.h
 
@@ -138,6 +138,3 @@ cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
 	$(CC) -c -I$(srcdir) $(CFLAGS) -o $@ $^
 
 .PHONY: ALWAYS
-
-## gentab.c
-## init.c

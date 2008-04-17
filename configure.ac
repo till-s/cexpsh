@@ -49,6 +49,7 @@ fi
 
 if test "$enable_cexp" != "no" ; then
 
+dnl for gencore:
 AC_CHECK_HEADERS([sys/mman.h])
 
 AC_ARG_ENABLE(YYDEBUG,
@@ -140,7 +141,7 @@ dnl		fi
 	fi
 else
 	if test ! -d $srcdir/binutils ; then
-		AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY)
+		AC_MSG_ERROR("YOU NEED TO INSTALL binutils source tree TO THE SOURCE DIRECTORY")
 	fi
 dnl	AC_CONFIG_SUBDIRS needs a literal arg :-(
 	AC_CONFIG_SUBDIRS(binutils)

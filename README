@@ -15,14 +15,19 @@ possible to invoke arbitrary functions and to
 read/write variables (and hence virtually any
 memory location) by interpreting C-style expressions.
 
-Cexp can access object files using either libelf
-or libbfd. The latter is preferred as it is more powerful:
+Cexp can access object files using either the pmbfd/pmelf
+libraries ('poor-man's BFD) that comes with Cexp or libbfd.
+The latter is more powerful:
  - not limited to the ELF object format.
- - cexp implements a dynamic/runtime loader using libbfd
+ - supports many more machine types (pmbfd currently 
+   only supports 32-bit powerpc, m68k and i386).
  - using BFD / libopcodes, a disassembler comes for free.
-However, linking against the BFD library is subject to
-the GPL (whereas libelf is under LGPL). See LICENSING
-below for more information.
+
+Otoh, using pmbfd/pmelf has the following advantages:
+ - much smaller memory footprint.
+ - less restrictive license. Linking against the BFD
+   library is subject to the GPL. See LICENSING
+   below for more information.
 
 What is New?
 ------------
@@ -47,9 +52,9 @@ CEXP is a simple utility featuring
  - C expression parser/interpreter
  - type "engine"
  - user definable variables
- - recursive invocation / simple scripts
- - dynamic/runtime 'module' loader
- - disassembler
+ - recursive invocation/simple scripts
+ - runtime 'module' loader/linker
+ - disassembler (only if linked with BFD)
  - CEXP is reentrant
 
 Cexp knows about the basic C types (no aggregates), i.e.
@@ -57,6 +62,7 @@ Cexp knows about the basic C types (no aggregates), i.e.
 char,   char*
 short,  short*
 long,   long*
+float,  float*
 double, double*
 long    (*)()
 double  (*)()
@@ -78,11 +84,12 @@ A) Using a Symbol Table File
 On startup, Cexp reads the 'system' symbol table either from 
 the executable itself, or from a stripped-down '.sym'
 file - such a stripped-down symbol file can be created using
-the 'xsyms' utility.
+the 'objcopy' (preferred, but needs binutils 2.18 or later)
+or 'xsyms' (deprecated; comes with Cexp) utilities.
 
 B) Builtin Symbol Table File
 - - - - - - - - - - - - - - -
-The 'xsyms' tool (BFD version only) can now be used to generate
+The 'xsyms' tool can be used to generate
 a symbol table in C-source form for subsequent compilation and
 linkage into the final executable. This usually involves linking
 the executable twice:
@@ -212,7 +219,7 @@ reason for this is to save typing. Hence
 char is in fact unsigned char etc.
 
 An 'int' type is missing (but could easily added) which
-means that on some machines (e.g. an alpha) no 32bit
+means that on some machines (e.g. 64-bit cpus) no 32bit
 type is currently available...
 
 User Variables
@@ -316,34 +323,35 @@ Cexp has two entry points,
 
 and
 
-    cexp(char *arg1,...)
+    cexpsh(char *arg1,...)
 
 i.e. a 'main' style and a 'vararg' style. The
 'vararg' version ends up building an argument list
 and calling cexp_main(). It is mainly intended
-for recursively invoking 'cexp()' e.g. for 
+for recursively invoking 'cexpsh()' e.g. for 
 reading a series of lines from a file.
 Note that the string argument list submitted to
-cexp() must be NULL terminated. When calling
-cexp() from cexp() (e.g. to interpret a script),
+cexpsh() must be NULL terminated. When calling
+cexpsh() from cexpsh() (e.g. to interpret a script),
 this is not necessary, however, because any unused
 arguments (up to the internal maximum of 10 args)
 are filled with zeroes...
 
-The calling syntax of cexp_main/cexp is as follows:
+The calling syntax of cexp_main/cexpsh is as follows:
 
-cexp [-s <symbolfile>] [-h] [-d] [-q] [<scriptfile>]
+cexpsh [-s <symbolfile>] [-h] [-d] [-q] [<scriptfile>]
 
 -h and -d have the obvious effect of printing usage
 info and enabling debugging information (only available
 if configured with --enable-YYDEBUG).
 
-The -q ('quiet') flag instructs cexp not to print
+The -q ('quiet') flag instructs Cexp not to print
 any normal output (errors are still reported to stderr)
 on stdout. This behavior can be desirable when evaluating
 scripts.
 
-Note that the -s option MUST be used the first time
+Note that (unless you are using a built-in symbol
+table) the -s option MUST be used the first time
 'Cexp' is started and it must be provided with an
 appropriate symbol file. This can be the executable
 itself of a stripped version (use the 'xsyms' utility)
@@ -355,7 +363,7 @@ Once Cexp has loaded the system's symbol table, further
 instances will simply use the global system table if
 the -s argument is missing.
 
-cexp then reads commands from stdin (using the TECLA
+Cexp then reads commands from stdin (using the TECLA
 library) or alternatively from a script file.
 
 Cexp ignores any characters present on a line
@@ -365,7 +373,7 @@ after it scans the comment tokens
 Example for invoking Cexp from Cexp to evaluate
 a script:
 
-  Cexp> cexp("script_file")
+  Cexp> cexpsh("script_file")
 
 While the former syntax involves recursive execution of
 Cexp, it is now also possible to let the current instance
@@ -394,7 +402,7 @@ sequences...):
 Loadable Modules / Runtime Loader
 ---------------------------------
 
-When built aginst the BFD library, cexp is capable of
+When built aginst the BFD library, Cexp is capable of
 dynamically loading object files into a running program.
 Cexp keeps track of module dependencies. Note that this
 only covers symbol table dependencies. Cexp rejects
@@ -463,9 +471,9 @@ setenv("PATH","/tmp:/TFTP/BOOTP_HOST/blah/bin:",1)
 
 Building loadable modules
 - - - - - - - - - - - - -
-Note the important difference between a dymamically loaded
+Note the important difference between a run-time loaded/linked
 object and a _shared_ object (such as a shared library). The 
-latter, although also 'dynamically loaded' is different from
+latter, although also 'run-time loaded' is different from
 the former. A shared object is shared among several entities
 using disjunct address spaces (e.g. different UNIX processes).
 Supporting shared objects involves PIC and GOTs.
@@ -487,16 +495,16 @@ Let's now assume the both of the demo programs issue
 
 	cexpModuleLoad("someObjectFile.o")
 
-Cexp's dynamic loader doesn't support shared objects - hence
+Cexp's run-time loader doesn't support shared objects - hence
 both instances of 'cexp' will end up with their own copy of
 'someObjectFile' which will get loaded twice to physical memory.
 
 The main target of Cexp is RTEMS, a real-time OS which has
 a global address space shared by all threads. Hence, there is
-no need for shared object support but dynamically loading
+no need for shared object support but run-time loading
 code is still very desirable.
 
-The Cexp dynamic loader simply accepts _any_ relocatable object file.
+The Cexp run-time loader simply accepts _any_ relocatable object file.
 The simplest modules are just object files:
 
 	cross-gcc -c -O some_object.c
@@ -515,15 +523,22 @@ Cexp loads the initial symbol table at startup. The executable
 itself may be used for that purpose (unless it is a pure binary
 as it is the case on some embedded systems). Alternatively
 (for saving memory and time), a stripped-down object file containing
-only the symbol table may be generated using the 'xsyms' tool
-(available on ELF targets only), e.g:
+only the symbol table may be generated using the 'objcopy'
+tool, e.g:
+
+	cross-objcopy --extract-symbol cexp cexp.sym
+	cexp -s cexp.sym
+
+This requires binutils 2.18 or later. Alternatively, the
+'xsyms' utility that comes with CEXP may be used
 
 	xsyms cexp cexp.sym
-	cexp -s cexp.sym
+
+but this is deprecated.
 
 Loadable Modules 'Magic'
 - - - - - - - - - - - - -
-When loading modules, 'cexp' does some magic operations on
+When loading modules, 'Cexp' does some magic operations on
 special symbols it recognizes. Note that the all-capital names
 given here are macros - the actual names can be found in the
 header.
@@ -597,11 +612,11 @@ Using the Parser from a Program
 - - - - - - - - - - - - - - - -
 
 In some cases, you might want to access/use symbols in loaded modules from 
-a program rather than through the cexp shell or a shell script. If the
+a program rather than through the Cexp shell or a shell script. If the
 module providing the 'caller' is loaded after the module defining the 'callee'
 this is transparent. E.g., let a module 'A' define a function 'a()' and module
 'B' define a routine 'b()' which shall call 'a()'. If module 'A' was loaded
-before 'B' then cexp's linker will resolve the reference and no special
+before 'B' then Cexp's linker will resolve the reference and no special
 treatment is required.
 
 If, however, module 'B' must for some reason be loaded before 'A' then
@@ -632,7 +647,7 @@ CexpParserCtx c = cexpCreateParserCtx(0);
 	cexpparse(c);
 
 Note that more documentation about these calls can be found in 'cexp.h'.
-Note also that some of the cexp library calls require more arguments
+Note also that some of the Cexp library calls require more arguments
 than apparent from the examples in other sections of this document where
 the shell is explained!  Most routines are geared for shell use and declare
 the most important arguments first, followed by optional arguments and they
@@ -654,7 +669,7 @@ CEXP Liberary Initialization
 When using the 'cexp_main()' AKA shell entry point, the library is initialized
 automatically (you might still want to use cexpInit() if you intend to use your
 own signal handler...).
-If you want to use cexp from a program as shown in the examples above, the library
+If you want to use Cexp from a program as shown in the examples above, the library
 must be initialized before using it:
 
 	cexpInit(0);            /* initialize internal data; use default signal handling   */
@@ -743,43 +758,4 @@ relocation type 'R_PPC_EMB_SDA21' or 'R_PPC_SDAREL16' or similar.
 LICENSING & DISCLAIMERS
 -----------------------
 
-CEXP is released under the terms of the EPICS open license (consult the LICENSE
-file for details)
-
-Copyright 2002, Stanford University and
-		Till Straumann <strauman@slac.stanford.edu>
-
-Stanford Notice
-***************
-
-Acknowledgement of sponsorship
-* * * * * * * * * * * * * * * *
-This software was produced by the Stanford Linear Accelerator Center,
-Stanford University, under Contract DE-AC03-76SFO0515 with the Department
-of Energy.
-
-Government disclaimer of liability
-- - - - - - - - - - - - - - - - -
-Neither the United States nor the United States Department of Energy,
-nor any of their employees, makes any warranty, express or implied,
-or assumes any legal liability or responsibility for the accuracy,
-completeness, or usefulness of any data, apparatus, product, or process
-disclosed, or represents that its use would not infringe privately
-owned rights.
-
-Stanford disclaimer of liability
-- - - - - - - - - - - - - - - - -
-Stanford University makes no representations or warranties, express or
-implied, nor assumes any liability for the use of this software.
-
-This product is subject to the EPICS open license
-- - - - - - - - - - - - - - - - - - - - - - - - - 
-Consult the LICENSE file or http://www.aps.anl.gov/epics/license/open.php
-for more information.
-
-Maintenance of notice
-- - - - - - - - - - -
-In the interest of clarity regarding the origin and status of this
-software, Stanford University requests that any recipient of it maintain
-this notice affixed to any distribution by the recipient that contains a
-copy or derivative of this software.
+Consult the separate LICENSE file for details.

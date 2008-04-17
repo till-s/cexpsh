@@ -189,6 +189,22 @@ AH_VERBATIM(NO_THREAD_PROTECTION,[
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)
 
+AM_ENABLE_MULTILIB([Makefile],[.])
+dnl install multilibs into MULTISUBDIR
+AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
+dnl in order to properly build multilibs in sub-libraries it seems we
+dnl must pass the --enable-multilibs arg to sub-configures or multilibs
+dnl are not built there.
+dnl To work around, we simply set the default to 'no' so the user must
+dnl say --enable-multilib to get them.
+if test "${enable_multilib+set}" != set ; then
+	multilib=no
+fi
+dnl cannot use multilibs with BFD
+if test "${enable_bfd}" != "no" -a "${multilib}" != "no" ; then
+	AC_MSG_ERROR([cannot build multilibbed BFD; please configure with --disable-multilib])
+fi
+
 dnl when building these tools we don't want to install the whole crap in the subdirectories
 if test "$target-system" != "$host-system" ; then
 AC_SUBST(THESUBDIRS,['$(patsubst %,'"$subdirs"',$(filter-out install%,$@))'])

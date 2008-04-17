@@ -1,4 +1,9 @@
 Changes since CEXP-1.5
+ 2008/4/16:
+ - added multilib support. libcexp, libtecla, libspencer_regexp and
+   libpmbfd/libpmelf can be built as multilibs.
+   NOTE: 'real' BFD does not support multilibs and hence we cannot
+   use them if BFD is to be used.
  2008/4/15:
  - added Makefile.am/configure.ac magic to support new pmelf.
    FIXME: THIS NEEDS CLEANUP

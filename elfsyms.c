@@ -150,9 +150,7 @@ int 		s=sp->st_size;
 	cesp->value.ptv  = (CexpVal)sp->st_value;
 }
 
-
-#undef  USE_ELF_MEMORY
-
+#define  USE_ELF_MEMORY
 
 /* read an ELF file, extract the relevant information and
  * build our internal version of the symbol table.
@@ -225,8 +223,7 @@ int			fd=-1;
 		} while (got);
 			got = ptr-buf;
 	}
-	/* FIXME: memory stream not implemented yet by pmelf */
-	if (!(elf=elf_memory(buf,got)))
+	if (!(elf = pmelf_memstrm(buf,got)))
 		goto cleanup;
 #else
 	if ( ! (elf =  pmelf_newstrm(filename,0)) )

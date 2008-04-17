@@ -23,5 +23,9 @@ if test ! -f $srcdir/"$RELOCS" ; then
 fi
 AM_CONDITIONAL(HAVE_RELOCS, test ! "$RELOCS"xx = xx )
 
+AM_ENABLE_MULTILIB([Makefile],[..])
+dnl install multilibs into MULTISUBDIR
+AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
+
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT

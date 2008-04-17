@@ -26,7 +26,7 @@ SYMLIBP         += -L@BINUTILS@/opcodes/.libs
 SYMLIBS         += -lopcodes
 endif
 SYMINCS          = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-xsyms_SOURCES    = xsyms-bfd.c
+xsyms_SOURCES    = xsyms.c
 xsyms_LDADD      = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 gencore_SOURCES  = gencore.c
@@ -38,26 +38,19 @@ SYMF_SRCS        = bfdstuff.c
 SYMLIBP          = -Lpmbfd
 SYMLIBS          = -lpmbfd -lpmelf
 SYMINCS          = -I$(srcdir)/pmbfd
-xsyms_SOURCES    = xsyms-bfd.c
-xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
-xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 else
 if USELIBELF
 SYMF_SRCS        = elfsyms.c
-SYMLIBP          = -Llibelf-local/lib
-SYMLIBS          = -lelf
-SYMINCS          = -Ilibelf-local/include
+SYMLIBP          = -Lpmbfd
+SYMLIBS          = -lpmelf
+SYMINCS          = -I$(srcdir)/pmbfd
 else
 SYMF_SRCS        = noloader.c
 endif
+endif
 xsyms_SOURCES    = xsyms.c
-if NATIVE_LIBELF
-xsyms_LDADD      = -lelf
-else
-xsyms_LDADD      = -Llibelf-local/lib -lelf
-xsyms_CPPFLAGS   = -Ilibelf-local/include
-endif
-endif
+xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
+xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 endif
 
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h help.c $(SYMF_SRCS) $(TECLA_SRCS)
@@ -90,7 +83,6 @@ libcexp_a_DEPENDENCIES=$(SYMDEPS)
 if DO_DEMO
 cexp_SOURCES=$(SRCS)
 cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
-#cexp_LDADD= -Llibelf-0.8.0/lib -lelf -Lregexp -lspencer_regexp
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
@@ -108,21 +100,6 @@ bin_PROGRAMS=xsyms
 endif
 endif
 
-
-cexp-elfsyms.$(OBJEXT) libcexp_a-elfsyms.$(OBJEXT): install-libelf-local
-
-if NATIVE_LIBELF
-else
-xsyms-xsyms.$(OBJEXT): install-libelf-local
-endif
-
-install-libelf-local:
-	$(MAKE) -C @LIBELF@ prefix=`pwd`/libelf-local exec_prefix=`pwd`/libelf-local datadir=`pwd`/libelf-local/share install
-
-remove-libelf-local:
-	$(RM) -r libelf-local
-
-clean-local: remove-libelf-local
 
 #we can't use automake for this because
 # - we _need_ bison
@@ -164,4 +141,3 @@ cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
 
 ## gentab.c
 ## init.c
-## xsyms.c

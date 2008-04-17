@@ -1,5 +1,6 @@
 Changes since CEXP-1.5
  2008/4/16:
+ - removed support for libelf; we now use pmelf when appropriate.
  - added multilib support. libcexp, libtecla, libspencer_regexp and
    libpmbfd/libpmelf can be built as multilibs.
    NOTE: 'real' BFD does not support multilibs and hence we cannot

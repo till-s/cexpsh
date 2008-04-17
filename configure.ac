@@ -9,8 +9,6 @@ AM_MAINTAINER_MODE
 
 dnl if the versions are changed, the AC_CONFIG_SUBDIRS arguments
 dnl below need to be adapted :-(
-LIBELF=libelf-0.8.2
-AC_SUBST(LIBELF)
 BINUTILS=binutils
 AC_SUBST(BINUTILS)
 LIBTECLA=libtecla
@@ -120,17 +118,17 @@ dnl 	try to use 'pmbfd' -- do we have relocations for our CPU arch ?
 			AC_MSG_ERROR([pmbfd relocations for $pmbfd_cpu not implemented, sorry
 Provide an implementation or install BFD])
 		fi
-		AC_DEFINE(USE_PMBFD,1,[should we use our "poor man's BFD implentation?"])
 		enable_libelf=no
 		enable_pmbfd=yes
-		AC_CONFIG_SUBDIRS(pmbfd)
 	fi
 fi
-
 
 dnl we need libelf for the 'xsyms' tool
 if test "$enable_bfd" = "no" ; then
 	enable_opcodes=no;
+
+	AC_CONFIG_SUBDIRS(pmbfd)
+	AC_DEFINE(USE_PMBFD,1,[should we use our "poor man's BFD implentation?"])
 
 	if test "$enable_libelf" = "no"; then
 dnl		if test "$enable_cexp" = "no"; then
@@ -139,19 +137,6 @@ dnl		fi
 	true
 	else
 		enable_libelf=yes	
-		dnl can we use a locally installed lib?
-		if test "$host-system" = "$build-system" ; then
-			AC_CHECK_HEADER(libelf/libelf.h, AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes))
-dnl			AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
-		fi
-		if test "$we_have_native_libelf" != "yes" ; then
-dnl	     AC_CONFIG_SUBDIRS needs a literal arg :-(
-			if test ! -d $srcdir/$LIBELF ; then
-				AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY")
-			fi
-			AC_CONFIG_SUBDIRS(libelf-0.8.2)
-		fi
-		AC_DEFINE(HAVE_LIBELF,1,[do we have (and use) libelf])
 	fi
 else
 	if test ! -d $srcdir/binutils ; then
@@ -172,7 +157,6 @@ dnl dont build the cexp library if host != target; they want to build xsyms
 AM_CONDITIONAL(DO_CEXPLIB, test "$enable_cexp" != "no")
 dnl if host=target AND host=build, then to the demo
 AM_CONDITIONAL(DO_DEMO, 	test "$host-system" = "$build-system")
-AM_CONDITIONAL(NATIVE_LIBELF, test "$we_have_native_libelf" = "yes" )
 AM_CONDITIONAL(USEBFD,  test "$enable_bfd" != "no")
 AM_CONDITIONAL(USETECLA,test "$enable_tecla" != "no")
 AM_CONDITIONAL(USEOPCODES,test "$enable_opcodes" != "no")

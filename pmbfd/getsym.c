@@ -49,7 +49,7 @@
 int
 pmelf_getsym(Elf_Stream s, Elf32_Sym *psym)
 {
-	if ( 1 != fread(psym, sizeof(*psym), 1, s->f) ) {
+	if ( 1 != SREAD(psym, sizeof(*psym), 1, s) ) {
 		return -1;
 	}
 	if ( s->needswap ) {

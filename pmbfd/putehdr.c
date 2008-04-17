@@ -93,5 +93,5 @@ Elf32_Ehdr nehdr;
 	}
 #endif
 
-	return 1 == fwrite(pehdr, sizeof(*pehdr), 1, s->f) ? 0 : -1;
+	return s->write && 1 == SWRITE(pehdr, sizeof(*pehdr), 1, s) ? 0 : -1;
 }

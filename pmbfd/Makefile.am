@@ -1,6 +1,7 @@
 AUTOMAKE_OPTIONS = foreign no-installinfo no-installman
 lib_LIBRARIES    = libpmelf.a libpmbfd.a
-libpmelf_a_SOURCES = symname.c secname.c strm.c putdat.c dmpgrps.c
+libpmelf_a_SOURCES = symname.c secname.c putdat.c dmpgrps.c
+libpmelf_a_SOURCES+=strm.c fstrm.c mstrm.c
 libpmelf_a_SOURCES+=dmpsym.c dmpsymtab.c
 libpmelf_a_SOURCES+=dmpshdr.c dmpshtab.c
 libpmelf_a_SOURCES+=dmpehdr.c

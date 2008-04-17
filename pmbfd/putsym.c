@@ -63,5 +63,5 @@ Elf32_Sym nsym;
 #endif
 	}
 
-	return 1 == fwrite( psym, sizeof(*psym), 1, s->f) ? 0 : -1;
+	return s->write && 1 == SWRITE( psym, sizeof(*psym), 1, s) ? 0 : -1;
 }

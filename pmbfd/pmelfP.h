@@ -59,9 +59,16 @@
 #undef PARANOIA_ON
 
 struct _Elf_Stream {
-	FILE *f;
+	void    *f;
+	size_t  (*read) (void *buf, size_t size, size_t nmemb, void* stream);
+	size_t  (*write)(const void *buf, size_t size, size_t nmemb, void* stream);
+	int     (*seek) (void* stream, long offset, int whence);
+	int     (*close)(void* s);
 	int  needswap;
 };
+
+#define SREAD(b,sz,n,s)  (s)->read((b),(sz),(n),(s)->f)
+#define SWRITE(b,sz,n,s) (s)->write((b),(sz),(n),(s)->f)
 
 extern FILE *pmelf_err;
 

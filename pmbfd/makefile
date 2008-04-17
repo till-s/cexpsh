@@ -5,7 +5,8 @@ all: bfdod rdelf libpmbfd.a
 
 CFLAGS=-Wall -O2 -g
 
-PMELF_SRCS =symname.c secname.c strm.c dmpgrps.c
+PMELF_SRCS =symname.c secname.c dmpgrps.c
+PMELF_SRCS+=strm.c mstrm.c fstrm.c
 PMELF_SRCS+=dmpsym.c dmpsymtab.c
 PMELF_SRCS+=dmpshdr.c dmpshtab.c
 PMELF_SRCS+=dmpehdr.c

@@ -49,5 +49,5 @@
 int
 pmelf_write(Elf_Stream s, void *data, Elf32_Word len)
 {
-	return (len == fwrite(data, 1, len, s->f)) ? 0 : -1;
+	return s->write && (len == SWRITE(data, 1, len, s)) ? 0 : -1;
 }

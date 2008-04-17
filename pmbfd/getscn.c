@@ -82,7 +82,7 @@ Elf32_Word end;
 		data = buf;
 	}
 
-	if ( len != fread( data, 1, len, s->f ) ) {
+	if ( len != SREAD(data, 1, len, s) ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getscn unable to read %s", strerror(errno));
 		free(buf);
 		return 0;

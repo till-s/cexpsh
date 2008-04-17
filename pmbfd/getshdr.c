@@ -49,7 +49,7 @@
 int
 pmelf_getshdr(Elf_Stream s, Elf32_Shdr *pshdr)
 {
-	if ( 1 != fread(pshdr, sizeof(*pshdr), 1, s->f) ) {
+	if ( 1 != SREAD(pshdr, sizeof(*pshdr), 1, s) ) {
 		return -1;
 	}
 	if ( s->needswap ) {

@@ -46,27 +46,62 @@
  */ 
 #include "pmelfP.h"
 
-int
-pmelf_putshdr(Elf_Stream s, Elf32_Shdr *pshdr)
+typedef struct _Elf_Memstream {
+	struct _Elf_Stream s;
+	char               *buf;
+	size_t             len;
+	unsigned long      pos;
+} *Elf_Memstream;
+
+static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
 {
-Elf32_Shdr nshdr;
-	if ( s->needswap ) {
-#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-		return -2;
-#else
-		nshdr = *pshdr;
-		pshdr = &nshdr;
-		e32_swap32( &pshdr->sh_name);
-		e32_swap32( &pshdr->sh_type);
-		e32_swap32( &pshdr->sh_flags);
-		e32_swap32( &pshdr->sh_addr);
-		e32_swap32( &pshdr->sh_offset);
-		e32_swap32( &pshdr->sh_size);
-		e32_swap32( &pshdr->sh_link);
-		e32_swap32( &pshdr->sh_info);
-		e32_swap32( &pshdr->sh_addralign);
-		e32_swap32( &pshdr->sh_entsize);
-#endif
+Elf_Memstream s = p;
+size_t        l = size*nelms;
+
+	if ( s->pos + l > s->len ) {
+		errno = EINVAL;
+		return -1;
 	}
-	return s->write && 1 == SWRITE( pshdr, sizeof(*pshdr), 1, s) ? 0 : -1;
+
+	memcpy(buf, &s->buf[s->pos], l);
+	s->pos += l;
+	return nelms;
+}
+
+static int mseek(void *p, long offset, int whence)
+{
+Elf_Memstream s = p;
+	if ( SEEK_SET != whence ) {
+		errno = ENOTSUP;
+		return -1;
+	}
+	if ( offset < 0 || offset >= s->len ) {
+		errno = EINVAL;
+		return -1;
+	}
+	s->pos = offset;
+	return 0;
+}
+
+Elf_Stream
+pmelf_memstrm(void *buf, size_t len)
+{
+Elf_Memstream s;
+
+	if ( len < 1 )
+		return 0;
+
+	if ( ! (s = calloc(1, sizeof(*s))) ) {
+		return 0;
+	}
+
+	s->s.f = s;
+	s->buf = buf;
+	s->len = len;
+	s->pos = 0;
+
+	s->s.read = (void*)mrd;
+	s->s.seek = (void*)mseek;
+
+	return &s->s;
 }

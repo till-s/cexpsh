@@ -145,7 +145,7 @@ elf_sym_name(bfd *abfd, Elf32_Sym *sym)
 	return sym->st_name >= abfd->symstrs->sh_size ? 0 : &abfd->strtabs[SYMSTRTAB][sym->st_name];
 }
 
-#if 1	/* currently unused; leave here in case we need it in the future */
+#if 0	/* currently unused; leave here in case we need it in the future */
 static char *stralloc(bfd *abfd, uint32_t len)
 {
 char       *rval;

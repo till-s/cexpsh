@@ -385,6 +385,13 @@ pmelf_elf32_get_section_name(Pmelf_Elf32_Shtab stab, uint32_t index)
 Elf_Stream
 pmelf_newstrm(char *name, FILE *f);
 
+/*
+ * Create a new stream to read from a memory
+ * buffer 'buf'.
+ */
+Elf_Stream
+pmelf_memstrm(void *buf, size_t len);
+
 /* Cleanup and delete a stream. Optionally,
  * (pass nonzero 'noclose' argument) the
  * underlying FILE is not closed but left alone.

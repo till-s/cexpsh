@@ -46,27 +46,26 @@
  */ 
 #include "pmelfP.h"
 
-int
-pmelf_putshdr(Elf_Stream s, Elf32_Shdr *pshdr)
+Elf_Stream
+pmelf_newstrm(char *name, FILE *f)
 {
-Elf32_Shdr nshdr;
-	if ( s->needswap ) {
-#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-		return -2;
-#else
-		nshdr = *pshdr;
-		pshdr = &nshdr;
-		e32_swap32( &pshdr->sh_name);
-		e32_swap32( &pshdr->sh_type);
-		e32_swap32( &pshdr->sh_flags);
-		e32_swap32( &pshdr->sh_addr);
-		e32_swap32( &pshdr->sh_offset);
-		e32_swap32( &pshdr->sh_size);
-		e32_swap32( &pshdr->sh_link);
-		e32_swap32( &pshdr->sh_info);
-		e32_swap32( &pshdr->sh_addralign);
-		e32_swap32( &pshdr->sh_entsize);
-#endif
+FILE *nf = 0;
+Elf_Stream s;
+
+	if ( ! f ) {
+		if ( !(f = nf = fopen(name,"r")) ) {
+			return 0;	
+		}
 	}
-	return s->write && 1 == SWRITE( pshdr, sizeof(*pshdr), 1, s) ? 0 : -1;
+	if ( ! (s = calloc(1, sizeof(*s))) ) {
+		if ( nf )
+			fclose(nf);
+		return 0;
+	}
+	s->f    = f;
+	s->read = (void*)fread;
+	s->seek = (void*)fseek;
+	s->write= (void*)fwrite;
+	s->close= (void*)fclose;
+	return s;
 }

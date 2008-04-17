@@ -54,7 +54,7 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 	if ( pmelf_seek(s, 0) ) {
 		return -1;
 	}
-	if ( 1 != fread(pehdr, sizeof(*pehdr), 1, s->f) ) {
+	if ( 1 != SREAD(pehdr, sizeof(*pehdr), 1, s) ) {
 		return -1;
 	}
 	if ( memcmp(magic, pehdr->e_ident+EI_MAG0, sizeof(magic)) ) {

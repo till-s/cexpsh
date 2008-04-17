@@ -65,7 +65,7 @@
 
 #include <cexp_regex.h>
 
-#include <libelf/libelf.h>
+#include <pmelf.h>
 
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
@@ -87,6 +87,9 @@ filter(void *ext_sym, void *closure)
 Elf32_Sym	*sp=ext_sym;
 char		*strtab=closure;
 
+	if ( STB_LOCAL == ELF32_ST_BIND(sp->st_info) )
+		return 0;
+
 	switch (ELF32_ST_TYPE(sp->st_info)) {
 	case STT_OBJECT:
 	case STT_FUNC:
@@ -98,7 +101,6 @@ char		*strtab=closure;
 	}
 
 	return 0;
-
 }
 
 static void
@@ -149,7 +151,7 @@ int 		s=sp->st_size;
 }
 
 
-#define USE_ELF_MEMORY
+#undef  USE_ELF_MEMORY
 
 
 /* read an ELF file, extract the relevant information and
@@ -160,12 +162,12 @@ int 		s=sp->st_size;
 static CexpSymTbl
 cexpSlurpElf(char *filename)
 {
-Elf			*elf=0;
-Elf32_Ehdr	*ehdr;
-Elf_Scn		*scn;
+Elf_Stream	elf=0;
 Elf32_Shdr	*shdr=0;
-Elf_Data	*strs;
-CexpSymTbl	rval=0;
+Elf32_Ehdr  ehdr;
+Pmelf_Elf32_Shtab  shtab  = 0;
+Pmelf_Elf32_Symtab symtab = 0;
+CexpSymTbl	rval=0,csymt=0;
 CexpSym		sane;
 #ifdef USE_ELF_MEMORY
 char		*buf=0,*ptr=0;
@@ -179,7 +181,7 @@ char		HOST[30];
 #endif
 int			fd=-1;
 
-	elf_version(EV_CURRENT);
+	pmelf_set_errstrm(stderr);
 
 #ifdef USE_ELF_MEMORY
 #ifdef HAVE_RCMD
@@ -223,92 +225,57 @@ int			fd=-1;
 		} while (got);
 			got = ptr-buf;
 	}
+	/* FIXME: memory stream not implemented yet by pmelf */
 	if (!(elf=elf_memory(buf,got)))
 		goto cleanup;
 #else
-	if ((fd=open(filename,O_RDONLY,0))<0)
-		goto cleanup;
-
-	if (!(elf=elf_begin(fd,ELF_C_READ,0)))
+	if ( ! (elf =  pmelf_newstrm(filename,0)) )
 		goto cleanup;
 #endif
 
 	/* we need the section header string table */
-	if (!(ehdr=elf32_getehdr(elf)) ||
-	    !(scn =elf_getscn(elf,ehdr->e_shstrndx)) ||
-	    !(strs=elf_getdata(scn,0)))
+	if (      pmelf_getehdr(elf, &ehdr)
+	     || ! (shtab  = pmelf_getshtab(elf, &ehdr))
+	     || ! (symtab = pmelf_getsymtab(elf, shtab)) )
 		goto cleanup;
 	
-	for (scn=0; (scn=elf_nextscn(elf,scn)) && (shdr=elf32_getshdr(scn));) {
-		if (!(strcmp((char*)strs->d_buf + shdr->sh_name,".symtab")))
-			break;
-	}
-	if (!shdr)
+	/* convert the symbol table */
+
+	if (!(csymt=cexpCreateSymTbl((void*)symtab->syms,sizeof(*symtab->syms),symtab->nsyms,filter,assign,(void*)symtab->strtab)))
 		goto cleanup;
 
-	/* get the string table */
-	{
-		long		nsyms;
-		Elf32_Sym	*syms;
-		CexpSym		cesp;
-		char		*strtab;
-
-		strtab=(char*)elf_getdata(elf_getscn(elf,shdr->sh_link),0)->d_buf;
-		syms=(Elf32_Sym*)elf_getdata(scn,0)->d_buf;
-
-		nsyms=shdr->sh_size/shdr->sh_entsize;
-
-		if (!(rval=cexpCreateSymTbl((void*)syms,sizeof(*syms),nsyms,filter,assign,(void*)strtab)))
-			goto cleanup;
-
-	}
-
-
-	elf_cntl(elf,ELF_C_FDDONE);
-	elf_end(elf); elf=0;
-#ifdef USE_ELF_MEMORY
-	if (buf) {
-		free(buf); buf=0;
-	}
-#endif
-	if (fd>=0) close(fd);
 
 #ifndef ELFSYMS_TEST_MAIN
 	/* do a couple of sanity checks */
-	if ((sane=cexpSymTblLookup("cexpSlurpElf",rval))) {
+	if ((sane=cexpSymTblLookup("cexpSlurpElf",csymt))) {
 		extern void *_edata, *_etext;
 		/* it must be the main symbol table */
-		if (sane->value.ptv!=(CexpVal)cexpSlurpElf)
-			goto bailout;
-		if (!(sane=cexpSymTblLookup("_etext",rval)) || sane->value.ptv!=(CexpVal)&_etext)
-			goto bailout;
-		if (!(sane=cexpSymTblLookup("_edata",rval)) || sane->value.ptv!=(CexpVal)&_edata)
-			goto bailout;
+		if (    sane->value.ptv!=(CexpVal)cexpSlurpElf
+		     || !(sane=cexpSymTblLookup("_etext",csymt)) || sane->value.ptv!=(CexpVal)&_etext
+		     || !(sane=cexpSymTblLookup("_edata",csymt)) || sane->value.ptv!=(CexpVal)&_edata ) {
+			fprintf(stderr,"ELFSYMS SANITY CHECK FAILED: you possibly loaded the wrong symbol table\n");
+			goto cleanup;
+		}
 		/* OK, sanity test passed */
 	}
 #endif
 
-
-	return rval;
-
-bailout:
-	fprintf(stderr,"ELFSYMS SANITY CHECK FAILED: you possibly loaded the wrong symbol table\n");
+	rval  = csymt;
+	csymt = 0;
 
 cleanup:
-	if (elf_errno())
-		fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
-	if (elf)
-		elf_end(elf);
+	pmelf_delsymtab(symtab);
+	pmelf_delshtab(shtab);
+	pmelf_delstrm(elf,0);
 #ifdef USE_ELF_MEMORY
 	if (buf)
 		free(buf);
 #endif
-	if (rval)
-		cexpFreeSymTbl((CexpSymTbl*)&rval);
+	if (csymt)
+		cexpFreeSymTbl(&csymt);
 	if (fd>=0)
 		close(fd);
-	if (elf_errno()) fprintf(stderr,"ELF error: %s\n",elf_errmsg(elf_errno()));
-	return 0;
+	return rval;
 }
 
 int
@@ -358,7 +325,7 @@ CexpSym		symp;
 		fprintf(stderr,
 			"%02i 0x%08xx (%2i) %s\n",
 			symp->value.type,
-			symp->value.tv.p,
+			symp->value.ptv,
 			symp->size,
 			symp->name);	
 		symp++;

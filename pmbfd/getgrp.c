@@ -56,7 +56,7 @@ int        ne,j;
 		return 0;
 
 	if ( psect->sh_size & (sizeof(*buf)-1) ) {
-		PMELF_PRINTF(pmelf_err, "group section size not a multiple of %u\n", sizeof(*buf));
+		PMELF_PRINTF(pmelf_err, "group section size not a multiple of %lu\n", (unsigned long)sizeof(*buf));
 		return 0;
 	}
 

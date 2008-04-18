@@ -92,6 +92,7 @@
 #include "pmbfd.h"
 #define reloc_get_address(abfd, r) pmbfd_reloc_get_address(abfd, r)
 #define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
+#define bfd_asymbol_set_value(s,v) pmbfd_asymbol_set_value(s,v)
 #undef HAVE_ELF_BFD_H
 #else
 #include <bfd.h>
@@ -99,12 +100,12 @@
 
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
+#endif
 
-#define bfd_set_output_section(s, o) do { (s)->output_section = (o); } while (0) 
 #define reloc_get_address(abfd, r) ((r)->address)
 #define reloc_get_name(abfd,r)     ((r)->howto->name)
 #define bfd_asymbol_set_value(s,v) ((s)->value = (v))
-#endif
+
 #endif
 
 #define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
@@ -730,7 +731,16 @@ long		err;
 		}
 		/* slurp the relocation records; build a list */
 		cr=xmalloc(sz);
+		/*
+		 * API of bfd_canonicalize_reloc() differs from
+		 * pmbfd_canonicalize_reloc(). We want to emphasize
+		 * that, hence we don't simply redefine bfd_canonicalize_reloc()
+		 */
+#ifndef _PMBFD_
 		sz=bfd_canonicalize_reloc(abfd,sect,cr,ld->st);
+#else
+		sz=pmbfd_canonicalize_reloc(abfd,sect,cr,ld->st);
+#endif
 		if (sz<=0) {
 			fprintf(stderr,"ERROR: unable to canonicalize relocs\n");
 			free(cr);

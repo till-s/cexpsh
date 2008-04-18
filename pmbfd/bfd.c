@@ -323,12 +323,6 @@ bfd_asymbol_bfd(asymbol *sym)
 	return &thebfd;
 }
 
-symvalue
-bfd_asymbol_set_value(asymbol *sym, symvalue v)
-{
-	return sym->val = v;
-}
-
 bfd_vma
 bfd_asymbol_value(asymbol *sym)
 {
@@ -1204,7 +1198,7 @@ uint32_t sz;
 }
 
 long
-bfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms)
+pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms)
 {
 asection *rels;
 long     nrels;
@@ -1262,3 +1256,8 @@ pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 	return r->rel.r_offset;
 }
 
+symvalue
+pmbfd_asymbol_set_value(asymbol *sym, symvalue v)
+{
+	return sym->val = v;
+}

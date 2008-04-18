@@ -379,6 +379,12 @@ filter(void *ext_sym, void *closure)
 LinkData	ld   =closure;
 asymbol		*asym=*(asymbol**)ext_sym;
 
+		ld = ld;
+		/*
+		 * silence warning about unused var (bfd_get_section_name macro
+		 * does currently not use the first argument).
+		 */
+
 		if ( !(BSF_KEEP & asym->flags) )
 			return 0;
 		return BSF_SECTION_SYM & asym->flags ? 

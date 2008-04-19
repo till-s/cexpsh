@@ -121,6 +121,7 @@ if test ! -f $srcdir/cexp.y ; then
 	fi
 fi
 
+
 # Matrix of all configuration possibilities of --enable-bfd, --enable-pmbfd, --enable-loader
 #
 #                                       loader  unset             off              on
@@ -167,6 +168,7 @@ else
 	fi
 fi
 
+
 if test ! "${enable_bfd+set}" = "set"; then
 	# neither --enable-bfd nor --disable-bfd was given; pick a default:
 	# unless the loader is explicitly disabled we enable BFD -- except
@@ -195,7 +197,7 @@ fi
 # finally we need to find out if we should use pmbfd...
 if test ! "${enable_pmbfd+set}" = "set"; then
 	if test "${enable_loader}" = "yes"; then
-		if "${enable_bfd}" = "yes"; then
+		if test "${enable_bfd}" = "yes"; then
 			enable_pmbfd=no
 		else
 			enable_pmbfd=yes
@@ -204,7 +206,6 @@ if test ! "${enable_pmbfd+set}" = "set"; then
 		enable_pmbfd=yes
 	fi
 fi
-
 
 # At this point we have cooked down to the following valid combinations
 #
@@ -217,6 +218,7 @@ fi
 if test "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no"; then
 	AC_MSG_ERROR([you can not --enable-opcodes w/o BFD installed and enabled])
 fi
+
 # pick default
 if test ! "${enable_opcodes+set}" = "set"; then
 	if test "${enable_bfd}" = "yes"; then
@@ -256,9 +258,9 @@ if test "$enable_cexp" != "no" ; then
 		AC_CONFIG_SUBDIRS(libtecla)
 		AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
 		AC_CHECK_LIB(curses,tgetnum,[LIBS="$LIBS -lcurses"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
-	else if test "$enable_readline" != "no" ; then
+	else if test "${enable_readline}" != "no" ; then
 		AC_CHECK_HEADER(readline/readline.h)
-		if test "$ac_cv_header_readline_readline_h" = "yes" ; then
+		if test "${ac_cv_header_readline_readline_h}" = "yes" ; then
 			AC_DEFINE(USE_GNU_READLINE,1,[whether to use the GNU readline library])
 			AC_CHECK_LIB(termcap,tgetnum,[LIBS="$LIBS -ltermcap"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
 			AC_CHECK_LIB(readline,readline,[LIBS="-lreadline $LIBS"])

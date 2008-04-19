@@ -47,26 +47,55 @@
 #include "pmelfP.h"
 
 int
-pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Elf32_Shtab shtab, Pmelf_Elf32_Symtab symtab)
+pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab)
 {
 int i,j;
 int ng,ne;
-Elf32_Shdr *shdr;
+Elf_Shdr *shdr;
 int sz=0;
+int shdrsz;
 Elf32_Word *buf = 0;
 Elf32_Word *nbuf;
 const char *name;
+uint8_t    *p;
+Pmelf_Size sh_size;
+uint32_t   sh_type, sh_link, sh_info;
+
 
 	if ( !f )
 		f = stdout;
 
-	for ( ng = i = 0, shdr = shtab->shdrs; i < shtab->nshdrs; i++, shdr++ ) {
+	shdrsz = get_shdrsz(shtab);
 
-		if ( SHT_GROUP == shdr->sh_type ) {
+	for ( ng = i = 0, p = shtab->shdrs.p_raw; i < shtab->nshdrs; i++, p+=shdrsz ) {
+		shdr = (Elf_Shdr*)p;
 
-			if ( shdr->sh_size > sz ) {
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		if ( ELFCLASS64 == shtab->clss )
+			sh_type = shdr->s64.sh_type;
+		else
+#endif
+			sh_type = shdr->s32.sh_type;
+
+		if ( SHT_GROUP == sh_type ) {
+
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+			if ( ELFCLASS64 == shtab->clss ) {
+				sh_size = shdr->s64.sh_size;
+				sh_link = shdr->s64.sh_link;
+				sh_info = shdr->s64.sh_info;
+			}
+			else
+#endif
+			{
+				sh_size = shdr->s32.sh_size;
+				sh_link = shdr->s32.sh_link;
+				sh_info = shdr->s32.sh_info;
+			}
+
+			if ( sh_size > sz ) {
 				free(buf); buf = 0;
-				sz = shdr->sh_size;
+				sz = sh_size;
 			}
 
 			if ( ! (nbuf = pmelf_getgrp(s, shdr, buf)) ) {
@@ -74,7 +103,7 @@ const char *name;
 			}
 			buf = nbuf;
 
-			ne  = shdr->sh_size/sizeof(*buf);
+			ne  = sh_size/sizeof(*buf);
 
 			if ( ! (name = pmelf_sec_name(shtab, shdr)) ) {
 				name = "<OUT-OF-BOUNDS>";
@@ -87,17 +116,17 @@ const char *name;
 				name
 			);
 			if ( symtab ) {
-				if ( symtab->idx == shdr->sh_link ) {
-					if ( shdr->sh_info >= symtab->nsyms ) {
+				if ( symtab->idx == sh_link ) {
+					if ( sh_info >= symtab->nsyms ) {
 						PMELF_PRINTF(pmelf_err, PMELF_PRE"pmelf_dump_groups: group sig. symbol index out of bounds\n");
 						ng = -1;
 						goto cleanup;
 					}
-					if ( !(name = pmelf_sym_name(symtab, &symtab->syms[shdr->sh_info])) )
+					if ( !(name = pmelf_sym_name(symtab, get_symtabN(symtab,sh_info))) )
 						name = "<OUT-OF-BOUNDS>";
 					fprintf(f, "[%s]", name);
 				} else {
-					fprintf(f, "<unable to print group id symbol: symtab index mismatch>");
+					fprintf(f, "<unable to print group id symbol: symtab index mismatch> (expecting %"PRIu32", got %"PRIu32")", symtab->idx, sh_link );
 				}
 			} else {
 				fprintf(f,"<unable to print group id symbol: no symbol table given");
@@ -112,7 +141,7 @@ const char *name;
 					ng = -1;
 					goto cleanup;
 				}
-				if ( ! (name = pmelf_sec_name(shtab, &shtab->shdrs[buf[j]])) ) {
+				if ( ! (name = pmelf_sec_name(shtab, (Elf_Shdr*)(shtab->shdrs.p_raw + shdrsz*buf[j]))) ) {
 					name = "<OUT-OF-BOUNDS>";
 				}
 				fprintf(f,"   [%5"PRIu32"]   %s\n", buf[j], name);

@@ -46,18 +46,24 @@
  */ 
 #include "pmelfP.h"
 
-long
-pmelf_find_symhdrs(Elf_Stream s, Pmelf_Elf32_Shtab shtab, Elf32_Shdr **psymsh, Elf32_Shdr **pstrsh)
+Pmelf_Long
+pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh)
 {
-Elf32_Sym    *sym;
-Elf32_Shdr   *shdr;
-uint32_t     i;
-Elf32_Shdr   *symsh  = 0;
-Elf32_Shdr   *strsh  = 0;
-const char   *name;
+Elf_Shdr   *shdr;
+uint32_t   i;
+Elf_Shdr   *symsh  = 0;
+Elf_Shdr   *strsh  = 0;
+const char *name;
+uint8_t    *p;
+uint32_t   shdrsz = get_shdrsz(shtab);
+uint32_t   symsz;
+Pmelf_Size sh_size, sh_entsize;
+Pmelf_Off  sh_offset;
 
-	for ( i = 0, shdr = shtab->shdrs; i<shtab->nshdrs; i++, shdr++ ) {
-		switch ( shdr->sh_type ) {
+	for ( i = 0, p = shtab->shdrs.p_raw; i<shtab->nshdrs; i++, p+=shdrsz ) {
+		shdr = (Elf_Shdr*)p;
+
+		switch ( get_sh_type(shtab->clss,shdr) ) {
 			default:
 			break;
 
@@ -74,7 +80,7 @@ const char   *name;
 					symsh = shdr;
 #define USE_SYM_SH_LINK
 #ifdef USE_SYM_SH_LINK
-					strsh = shtab->shdrs + symsh->sh_link;
+					strsh = get_shtabN(shtab,get_sh_link(shtab->clss, symsh));
 #endif
 				}
 			break;
@@ -102,27 +108,44 @@ const char   *name;
 		return -1;
 	}
 
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == shtab->clss ) {
+		sh_size    = symsh->s64.sh_size;
+		sh_entsize = symsh->s64.sh_entsize;
+		sh_offset  = symsh->s64.sh_offset;
+		symsz      = sizeof(Elf64_Sym);
+	}
+	else
+#endif
+	{
+		sh_size    = symsh->s32.sh_size;
+		sh_entsize = symsh->s32.sh_entsize;
+		sh_offset  = symsh->s32.sh_offset;
+		symsz      = sizeof(Elf32_Sym);
+	}
+
+
 	if ( !strsh ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: no strtab found\n");
 		return -1;
 	}
 
-	if ( 0 == symsh->sh_size ) {
+	if ( 0 == sh_size ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: zero size symtab\n");
 		return -1;
 	}
 
-	if ( symsh->sh_entsize && symsh->sh_entsize != sizeof( *sym ) ) {
-		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: symbol size mismatch (sh_entsize %"PRIu32"\n", symsh->sh_entsize);
+	if ( sh_entsize && sh_entsize != symsz ) {
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: symbol size mismatch (sh_entsize %lu\n", (unsigned long)sh_entsize);
 		return -1;
 	}
 
-	if ( (symsh->sh_size % sizeof(*sym)) != 0 ) {
+	if ( (sh_size % symsz) != 0 ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: sh_size of symtab not a multiple of sizeof(Elf32_Sym)\n");
 		return -1;
 	}
 
-	if ( pmelf_seek(s, symsh->sh_offset) ) {
+	if ( pmelf_seek(s, sh_offset) ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs unable to seek to symtab %s\n", strerror(errno));
 		return -1;
 	}
@@ -132,5 +155,5 @@ const char   *name;
 	if ( pstrsh )
 		*pstrsh = strsh;
 
-	return symsh->sh_size/sizeof(*sym);
+	return sh_size/symsz;
 }

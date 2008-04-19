@@ -47,23 +47,23 @@
 #include "pmelfP.h"
 
 void
-pmelf_delsymtab(Pmelf_Elf32_Symtab symtab)
+pmelf_delsymtab(Pmelf_Symtab symtab)
 {
 	if ( symtab ) {
-		free(symtab->syms);
+		free(symtab->syms.p_raw);
 		free((void*)symtab->strtab);
 		free(symtab);
 	}
 }
 
-Pmelf_Elf32_Symtab
-pmelf_getsymtab(Elf_Stream s, Pmelf_Elf32_Shtab shtab)
+Pmelf_Symtab
+pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab)
 {
-Pmelf_Elf32_Symtab rval = 0;
-uint32_t      i;
-long          nsyms;
-Elf32_Shdr   *symsh  = 0;
-Elf32_Shdr   *strsh  = 0;
+Pmelf_Symtab rval    = 0;
+Elf_Shdr     *symsh  = 0;
+Elf_Shdr     *strsh  = 0;
+Pmelf_Long   i,nsyms;
+uint32_t     symsz;
 
 	if ( (nsyms = pmelf_find_symhdrs(s, shtab, &symsh, &strsh)) < 0 )
 		return 0;
@@ -73,21 +73,37 @@ Elf32_Shdr   *strsh  = 0;
 
 	rval->nsyms = nsyms;
 
-	rval->idx   = symsh - shtab->shdrs;
+	rval->idx   = ((uintptr_t)symsh - (uintptr_t)shtab->shdrs.p_raw) / get_shdrsz(shtab);
+	rval->clss  = shtab->clss;
 
 	if ( 0 == rval->nsyms ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsymtab: symtab with 0 elements\n");
 		goto bail;
 	}
 
-	if ( !(rval->syms = calloc(rval->nsyms, sizeof(*rval->syms))) )
+	symsz = get_symsz(rval);
+
+	if ( !(rval->syms.p_raw = calloc(rval->nsyms, symsz)) )
 		goto bail;
 
 	/* slurp the symbols */
-	for ( i=0; i<rval->nsyms; i++ ) {
-		if ( pmelf_getsym(s, rval->syms + i) ) {
-			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsymtab unable to read symbol %"PRIu32": %s\n", i, strerror(errno));
-			goto bail;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == rval->clss ) {
+		for ( i=0; i<rval->nsyms; i++ ) {
+			if ( pmelf_getsym64(s, rval->syms.p_t64 + i) ) {
+				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsymtab unable to read symbol %lu: %s\n", i, errno ? strerror(errno) : "");
+				goto bail;
+			}
+		}
+	} 
+	else
+#endif
+	{
+		for ( i=0; i<rval->nsyms; i++ ) {
+			if ( pmelf_getsym32(s, rval->syms.p_t32 + i) ) {
+				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsymtab unable to read symbol %lu: %s\n", i, errno ? strerror(errno) : "");
+				goto bail;
+			}
 		}
 	}
 
@@ -96,7 +112,7 @@ Elf32_Shdr   *strsh  = 0;
 		goto bail;
 	}
 
-	rval->strtablen = strsh->sh_size;
+	rval->strtablen = get_sh_size(shtab->clss,strsh);
 
 	return rval;
 

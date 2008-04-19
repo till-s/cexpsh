@@ -47,10 +47,17 @@
 #include "pmelfP.h"
 
 const char *
-pmelf_sec_name(Pmelf_Elf32_Shtab sht, Elf32_Shdr *shdr)
+pmelf_sec_name(Pmelf_Shtab sht, Elf_Shdr *shdr)
 {
-	if ( shdr->sh_name > sht->strtablen )
+uint32_t sh_name;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == sht->clss )
+		sh_name = shdr->s64.sh_name;
+	else
+#endif
+		sh_name = shdr->s32.sh_name;
+	if ( sh_name > sht->strtablen )
 		return 0;
-	return &sht->strtab[shdr->sh_name];
+	return &sht->strtab[sh_name];
 }
 

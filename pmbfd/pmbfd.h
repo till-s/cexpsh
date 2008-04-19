@@ -3,7 +3,7 @@
 /* 
  * Authorship
  * ----------
- * This software ('pmelf' ELF file reader) was created by
+ * This software ('pmbfd' BFD emulation for cexpsh) was created by
  *     Till Straumann <strauman@slac.stanford.edu>, 2008,
  * 	   Stanford Linear Accelerator Center, Stanford University.
  * 

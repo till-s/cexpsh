@@ -61,6 +61,14 @@ typedef uint32_t Elf32_Off;
 typedef  int32_t Elf32_Sword;
 typedef uint32_t Elf32_Word;
 
+typedef uint64_t Elf64_Addr;
+typedef uint64_t Elf64_Off;
+typedef uint16_t Elf64_Half;
+typedef uint32_t Elf64_Word;
+typedef  int32_t Elf64_Sword;
+typedef uint64_t Elf64_Xword;
+typedef  int64_t Elf64_Sxword;
+
 /**************************************************/
 /*  ELF HEADER                                    */
 /**************************************************/
@@ -78,6 +86,7 @@ typedef uint32_t Elf32_Word;
 #define EM_386				 3
 #define EM_68K				 4
 #define EM_PPC				20
+#define EM_X86_64			62
 
 /* Identification indices                          */
 #define EI_MAG0				 0
@@ -127,6 +136,29 @@ typedef struct {
 	Elf32_Half	e_shnum;
 	Elf32_Half	e_shstrndx;
 } Elf32_Ehdr;
+
+typedef struct {
+	uint8_t		e_ident[EI_NIDENT];
+	Elf64_Half	e_type;
+	Elf64_Half	e_machine;
+	Elf64_Word	e_version;
+	Elf64_Addr	e_entry;
+	Elf64_Off	e_phoff;
+	Elf64_Off	e_shoff;
+	Elf64_Word	e_flags;
+	Elf64_Half	e_ehsize;
+	Elf64_Half	e_phentsize;
+	Elf64_Half	e_phnum;
+	Elf64_Half	e_shentsize;
+	Elf64_Half	e_shnum;
+	Elf64_Half	e_shstrndx;
+} Elf64_Ehdr;
+
+typedef union {
+	uint8_t    e_ident[EI_NIDENT];
+	Elf32_Ehdr e32;
+	Elf64_Ehdr e64;
+} Elf_Ehdr;
 
 /**************************************************/
 /*  SECTION HEADER                                */
@@ -193,6 +225,24 @@ typedef struct {
 	Elf32_Word	sh_entsize;
 } Elf32_Shdr;
 
+typedef struct {
+	Elf64_Word	sh_name;
+	Elf64_Word	sh_type;
+	Elf64_Xword	sh_flags;
+	Elf64_Addr	sh_addr;
+	Elf64_Off	sh_offset;
+	Elf64_Xword	sh_size;
+	Elf64_Word	sh_link;
+	Elf64_Word	sh_info;
+	Elf64_Xword	sh_addralign;
+	Elf64_Xword	sh_entsize;
+} Elf64_Shdr;
+
+typedef union {
+	Elf32_Shdr s32;
+	Elf64_Shdr s64;
+} Elf_Shdr;
+
 /**************************************************/
 /*  SYMBOLS                                       */
 /**************************************************/
@@ -200,6 +250,10 @@ typedef struct {
 #define ELF32_ST_BIND(x)		(((x)>>4)&0xf)
 #define ELF32_ST_TYPE(x)		((x) & 0xf)
 #define ELF32_ST_INFO(b,t)		(((b)<<4) | ((t)&0xf))
+
+#define ELF64_ST_BIND(x)		ELF32_ST_BIND(x)
+#define ELF64_ST_TYPE(x)		ELF32_ST_TYPE(x)
+#define ELF64_ST_INFO(b,t)		ELF32_ST_INFO(b,t)
 
 #define STB_LOCAL		 0
 #define STB_GLOBAL		 1
@@ -223,6 +277,7 @@ typedef struct {
 #define STV_PROTECTED	 3
 
 #define ELF32_ST_VISIBILITY(o) ((o)&3)
+#define ELF64_ST_VISIBILITY(o) ELF32_ST_VISIBILITY(o)
 
 typedef struct {
 	Elf32_Word	st_name;
@@ -232,6 +287,20 @@ typedef struct {
 	uint8_t		st_other;
 	Elf32_Half	st_shndx;
 } Elf32_Sym;
+
+typedef struct {
+	Elf64_Word	st_name;
+	uint8_t		st_info;
+	uint8_t		st_other;
+	Elf64_Half	st_shndx;
+	Elf64_Addr	st_value;
+	Elf64_Xword	st_size;
+} Elf64_Sym;
+
+typedef union {
+	Elf32_Sym t32;
+	Elf64_Sym t64;
+} Elf_Sym;
 
 /**************************************************/
 /*  RELOCATION RECORDS                            */
@@ -326,6 +395,10 @@ typedef struct {
 #define ELF32_R_TYPE(x) 	((uint8_t)((x)&0xff))
 #define ELF32_R_INFO(s,t)	(((s)<<8) | ((t)&0xff))
 
+#define ELF64_R_SYM(x)		((x) >> 32)
+#define ELF64_R_TYPE(x) 	((uint32_t)((x)&0xffffffffL))
+#define ELF64_R_INFO(s,t)	(((s)<<32) | ((t)&0xffffffffL))
+
 typedef struct {
 	Elf32_Addr	r_offset;
 	Elf32_Word	r_info;
@@ -337,28 +410,63 @@ typedef struct {
 	Elf32_Sword	r_addend;
 } Elf32_Rela;
 
+typedef struct {
+	Elf64_Addr	r_offset;
+	Elf64_Xword	r_info;
+} Elf64_Rel;
+
+typedef struct {
+	Elf64_Addr		r_offset;
+	Elf64_Xword		r_info;
+	Elf64_Sxword	r_addend;
+} Elf64_Rela;
+
+
 /**************************************************/
 /* ANYTHING BELOW HERE IS DEFINED BY THIS LIBRARY */
 /* AND NOT BY THE ELF FILE FORMAT.                */
 /**************************************************/
 
+typedef union {
+	Elf32_Ehdr *p_e32;
+	Elf64_Ehdr *p_e64;
+} Elf_PEhdr;
+
+typedef union {
+	uint8_t    *p_raw;
+	Elf32_Shdr *p_s32;
+	Elf64_Shdr *p_s64;
+} Elf_PShdr;
+
+typedef union {
+	uint8_t    *p_raw;
+	Elf32_Sym  *p_t32;
+	Elf64_Sym  *p_t64;
+} Elf_PSym;
+
+typedef unsigned long Pmelf_Off;
+typedef unsigned long Pmelf_Size;
+typedef long          Pmelf_Long;
+
 
 /* A Section Header Table */
 typedef struct {
-	Elf32_Shdr	*shdrs;       /* Array of Shdrs    */
+	Elf_PShdr	shdrs;        /* Array of Shdrs    */
 	uint32_t   	nshdrs;       /* number of entries */
 	const char 	*strtab;      /* associated strtab */
-	uint32_t    strtablen;
+	Pmelf_Size  strtablen;
 	uint32_t	idx;          /* SH idx of strtab  */
-} *Pmelf_Elf32_Shtab;
+	uint8_t     clss;         /* class (64/32-bit) */
+} *Pmelf_Shtab;
 
 typedef struct {
-	Elf32_Sym	*syms;        /* Array of symbols  */
-	uint32_t    nsyms;        /* number of entries */
-	const char *strtab;       /* associated strtab */
-	uint32_t    strtablen;
+	Elf_PSym	syms;         /* Array of symbols  */
+	Pmelf_Long  nsyms;        /* number of entries */
+	const char  *strtab;      /* associated strtab */
+	Pmelf_Size  strtablen;
 	uint32_t	idx;          /* SH idx of strtab  */
-} *Pmelf_Elf32_Symtab;
+	uint8_t     clss;         /* class (64/32-bit) */
+} *Pmelf_Symtab;
 
 /* Stream (file) where to read from; we hide the
  * details so that other implementations could be
@@ -367,9 +475,24 @@ typedef struct {
 typedef struct _Elf_Stream *Elf_Stream;
 
 static inline const char *
-pmelf_elf32_get_section_name(Pmelf_Elf32_Shtab stab, uint32_t index)
+pmelf32_get_section_name(Pmelf_Shtab stab, uint32_t index)
 {
-	return &stab->strtab[stab->shdrs[index].sh_name];
+	return &stab->strtab[stab->shdrs.p_s32[index].sh_name];
+}
+
+static inline const char *
+pmelf64_get_section_name(Pmelf_Shtab stab, uint32_t index)
+{
+	return &stab->strtab[stab->shdrs.p_s64[index].sh_name];
+}
+
+static inline const char *
+pmelf_get_section_name(Pmelf_Shtab stab, uint32_t index)
+{
+	if ( ELFCLASS64 == stab->clss )
+		return pmelf64_get_section_name(stab, index);
+	else
+		return pmelf32_get_section_name(stab, index);
 }
 
 /* Create a new stream; if 'name' is given then
@@ -418,7 +541,7 @@ pmelf_set_errstrm(FILE *f);
  *          fseek the underlying file directly.
  */
 int
-pmelf_seek(Elf_Stream s, Elf32_Off where);
+pmelf_seek(Elf_Stream s, Pmelf_Off where);
 
 /* Read an ELF file header into *pehdr (storage
  * provided by caller).
@@ -435,7 +558,7 @@ pmelf_seek(Elf_Stream s, Elf32_Off where);
  * RETURNS: 0 on success, nonzero on error.
  */
 int
-pmelf_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
+pmelf_getehdr(Elf_Stream s, Elf_Ehdr *pehdr);
 
 /* Read an ELF section header into *pshdr (storage
  * provided by caller).
@@ -452,7 +575,9 @@ pmelf_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
  * RETURNS: 0 on success, nonzero on error.
  */
 int
-pmelf_getshdr(Elf_Stream s, Elf32_Shdr *pshdr);
+pmelf_getshdr32(Elf_Stream s, Elf32_Shdr *pshdr);
+int
+pmelf_getshdr64(Elf_Stream s, Elf64_Shdr *pshdr);
 
 /* Read an ELF symbol into *psym (storage
  * provided by caller).
@@ -469,7 +594,9 @@ pmelf_getshdr(Elf_Stream s, Elf32_Shdr *pshdr);
  * RETURNS: 0 on success, nonzero on error.
  */
 int
-pmelf_getsym(Elf_Stream s, Elf32_Sym *psym);
+pmelf_getsym32(Elf_Stream s, Elf32_Sym *psym);
+int
+pmelf_getsym64(Elf_Stream s, Elf64_Sym *psym);
 
 /* Read section contents described by *psect
  * from stream 's' into the storage area pointed
@@ -502,7 +629,7 @@ pmelf_getsym(Elf_Stream s, Elf32_Sym *psym);
  *          or NULL on failure.
  */
 void *
-pmelf_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len);
+pmelf_getscn(Elf_Stream s, Elf_Shdr *psect, void *data, Pmelf_Off offset, Pmelf_Off len);
 
 
 /* Read the contents of a SHT_GROUP section identified
@@ -527,7 +654,7 @@ pmelf_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf3
  *          behind the section contents.
  */
 Elf32_Word *
-pmelf_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data);
+pmelf_getgrp(Elf_Stream s, Elf_Shdr *psect, Elf32_Word *data);
 
 /*
  * Allocate memory for a section header table and read
@@ -543,14 +670,14 @@ pmelf_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data);
  * NOTE:    after successful execution the stream is
  *          positioned behind the section headers.
  */
-Pmelf_Elf32_Shtab
-pmelf_getshtab(Elf_Stream s, Elf32_Ehdr *pehdr);
+Pmelf_Shtab
+pmelf_getshtab(Elf_Stream s, Elf_Ehdr *pehdr);
 
 /*
  * Destroy section header table and release memory
  */
 void
-pmelf_delshtab(Pmelf_Elf32_Shtab sht);
+pmelf_delshtab(Pmelf_Shtab sht);
 
 /*
  * Convenience routine: retrieve section name as a
@@ -561,7 +688,7 @@ pmelf_delshtab(Pmelf_Elf32_Shtab sht);
  *          in shdr is out of bounds).
  */
 const char *
-pmelf_sec_name(Pmelf_Elf32_Shtab sht, Elf32_Shdr *shdr);
+pmelf_sec_name(Pmelf_Shtab sht, Elf_Shdr *shdr);
 
 /*
  * Convenience routine: retrieve symbol name as a
@@ -572,7 +699,7 @@ pmelf_sec_name(Pmelf_Elf32_Shtab sht, Elf32_Shdr *shdr);
  *          in sym is out of bounds).
  */
 const char *
-pmelf_sym_name(Pmelf_Elf32_Symtab symt, Elf32_Sym *sym);
+pmelf_sym_name(Pmelf_Symtab symt, Elf_Sym *sym);
 
 /*
  * Allocate memory for a symbol table and read the
@@ -588,14 +715,14 @@ pmelf_sym_name(Pmelf_Elf32_Symtab symt, Elf32_Sym *sym);
  * NOTE:    after successful execution the stream is
  *          positioned behind the ELF symbol table.
  */
-Pmelf_Elf32_Symtab
-pmelf_getsymtab(Elf_Stream s, Pmelf_Elf32_Shtab shtab);
+Pmelf_Symtab
+pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab);
 
 /*
  * Destroy symbol table and release memory
  */
 void
-pmelf_delsymtab(Pmelf_Elf32_Symtab symtab);
+pmelf_delsymtab(Pmelf_Symtab symtab);
 
 /*
  * Convenience routine for users who want to build their
@@ -613,12 +740,12 @@ pmelf_delsymtab(Pmelf_Elf32_Symtab symtab);
  *          symbol table section) and *pstrsh (header
  *          of string table used by symbol table).
  */
-long
-pmelf_find_symhdrs(Elf_Stream s, Pmelf_Elf32_Shtab shtab, Elf32_Shdr **psymsh, Elf32_Shdr **pstrsh);
+Pmelf_Long
+pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh);
 
 /* Dump contents of file header to FILE in readable form */
 void
-pmelf_dump_ehdr(FILE *f, Elf32_Ehdr *pehdr);
+pmelf_dump_ehdr(FILE *f, Elf_Ehdr *pehdr);
 
 #define FMT_SHORT  0		/* more concise; fits on one line */
 #define FMT_LONG   1        /* slightly longer / more info    */
@@ -633,7 +760,10 @@ pmelf_dump_ehdr(FILE *f, Elf32_Ehdr *pehdr);
  *       to print the name if needed.
  */
 void 
-pmelf_dump_shdr(FILE *f, Elf32_Shdr *pshdr, int format);
+pmelf_dump_shdr32(FILE *f, Elf32_Shdr *pshdr, int format);
+
+void 
+pmelf_dump_shdr64(FILE *f, Elf64_Shdr *pshdr, int format);
 
 /*
  * Dump contents of section header table in readable
@@ -642,7 +772,7 @@ pmelf_dump_shdr(FILE *f, Elf32_Shdr *pshdr, int format);
  * header and footer lines).
  */
 void
-pmelf_dump_shtab(FILE *f, Pmelf_Elf32_Shtab shtab, int format);
+pmelf_dump_shtab(FILE *f, Pmelf_Shtab shtab, int format);
 
 /*
  * Dump symbol information in readable form to FILE.
@@ -655,7 +785,9 @@ pmelf_dump_shtab(FILE *f, Pmelf_Elf32_Shtab shtab, int format);
  * output of 'readelf -s'.
  */
 void
-pmelf_dump_sym(FILE *f, Elf32_Sym *sym, Pmelf_Elf32_Shtab shtab, const char *strtab, unsigned strtablen, int format);
+pmelf_dump_sym32(FILE *f, Elf32_Sym *sym, Pmelf_Shtab shtab, const char *strtab, unsigned strtablen, int format);
+void
+pmelf_dump_sym64(FILE *f, Elf64_Sym *sym, Pmelf_Shtab shtab, const char *strtab, unsigned strtablen, int format);
 
 /*
  * Dump contents of symbol table in readable form to FILE.
@@ -664,7 +796,7 @@ pmelf_dump_sym(FILE *f, Elf32_Sym *sym, Pmelf_Elf32_Shtab shtab, const char *str
  * lines).
  */
 void
-pmelf_dump_symtab(FILE *f, Pmelf_Elf32_Symtab symtab, Pmelf_Elf32_Shtab shtab, int format);
+pmelf_dump_symtab(FILE *f, Pmelf_Symtab symtab, Pmelf_Shtab shtab, int format);
 
 /*
  * Dump contents of all section groups to FILE in readable
@@ -674,7 +806,7 @@ pmelf_dump_symtab(FILE *f, Pmelf_Elf32_Symtab symtab, Pmelf_Elf32_Shtab shtab, i
  *           less than zero if an error was found.
  */
 int
-pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Elf32_Shtab shtab, Pmelf_Elf32_Symtab symtab);
+pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab);
 
 /* Write headers to a stream */
 int

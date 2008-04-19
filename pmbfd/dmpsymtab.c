@@ -47,10 +47,12 @@
 #include "pmelfP.h"
 
 void
-pmelf_dump_symtab(FILE *f, Pmelf_Elf32_Symtab symtab, Pmelf_Elf32_Shtab shtab, int format)
+pmelf_dump_symtab(FILE *f, Pmelf_Symtab symtab, Pmelf_Shtab shtab, int format)
 {
-uint32_t   i;
-Elf32_Sym  *sym;
+Pmelf_Long  i;
+Elf_Sym     *sym;
+uint8_t     *p;
+uint32_t    symsz = get_symsz(symtab);
 
 	if ( !f )
 		f = stdout;
@@ -62,8 +64,14 @@ Elf32_Sym  *sym;
 	else
 		fprintf(f,"%3s", "Ndx");
 	fprintf(f," Name\n");
-	for ( i=0, sym = symtab->syms; i<symtab->nsyms; i++, sym++ ) {
-		fprintf(f,"%6"PRIu32": ", i);
-		pmelf_dump_sym(f, sym, shtab, symtab->strtab, symtab->strtablen, format);
+	for ( i=0, p = symtab->syms.p_raw; i<symtab->nsyms; i++, p+=symsz ) {
+		sym = (Elf_Sym*)p;
+		fprintf(f,"%6lu: ", i);
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		if ( ELFCLASS64 == symtab->clss )
+			pmelf_dump_sym64(f, &sym->t64, shtab, symtab->strtab, symtab->strtablen, format);
+		else
+#endif
+			pmelf_dump_sym32(f, &sym->t32, shtab, symtab->strtab, symtab->strtablen, format);
 	}
 }

@@ -56,10 +56,10 @@ Elf32_Sym nsym;
 #else
 		nsym = *psym;
 		psym = &nsym;
-		e32_swap32( &psym->st_name);
-		e32_swap32( &psym->st_value);
-		e32_swap32( &psym->st_size);
-		e32_swap16( &psym->st_shndx);
+		elf_swap32( &psym->st_name);
+		elf_swap32( &psym->st_value);
+		elf_swap32( &psym->st_size);
+		elf_swap16( &psym->st_shndx);
 #endif
 	}
 

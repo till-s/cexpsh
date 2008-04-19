@@ -59,9 +59,10 @@ static const char *pmelf_ehdr_type_s[] = {
 static const char *pmelf_ehdr_machine_s(Elf32_Half idx)
 {
 	switch ( idx ) {
-		case EM_386: return "Intel x86";
-		case EM_68K: return "Motorola 68k";
-		case EM_PPC: return "PowerPC";
+		case EM_386:    return "Intel x86";
+		case EM_68K:    return "Motorola 68k";
+		case EM_PPC:    return "PowerPC";
+		case EM_X86_64: return "AMD x86-64";
 		default: break;
 	}
 	return "unknown";
@@ -72,24 +73,55 @@ static const char *pmelf_ehdr_abi_s[]={
 };
 
 void
-pmelf_dump_ehdr(FILE *f, Elf32_Ehdr *pehdr)
+pmelf_dump_ehdr(FILE *f, Elf_Ehdr *pehdru)
 {
 	if ( !f )
 		f = stdout;
-	fprintf( f, "File    type : %s (%u)\n", ARRSTR(pmelf_ehdr_type_s,    pehdr->e_type), pehdr->e_type );
-	fprintf( f, "Machine type : %s\n", pmelf_ehdr_machine_s(pehdr->e_machine) );
-	fprintf( f, "ABI          : %s (%u)\n", ARRSTR(pmelf_ehdr_abi_s, pehdr->e_ident[EI_OSABI]), pehdr->e_ident[EI_OSABI]);
-	fprintf( f, "Version      : %"PRIu32"\n",     pehdr->e_version );
 
-	fprintf( f, "Entry point  : 0x%08"PRIx32"\n", pehdr->e_entry );
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( pehdru->e_ident[EI_CLASS] == ELFCLASS64 )
+	{
+		Elf64_Ehdr *pehdr = &pehdru->e64;
 
-	fprintf( f, "PH offset    : %"    PRIu32"\n", pehdr->e_phoff  );
-	fprintf( f, "SH offset    : %"    PRIu32"\n", pehdr->e_shoff  );
-	fprintf( f, "Flags        : 0x%08"PRIx32"\n", pehdr->e_flags  );
-	fprintf( f, "EH size      : %"    PRIu16"\n", pehdr->e_ehsize );
-	fprintf( f, "PH entry size: %"    PRIu16"\n", pehdr->e_phentsize );
-	fprintf( f, "# of PH      : %"    PRIu16"\n", pehdr->e_phnum );
-	fprintf( f, "SH entry size: %"    PRIu16"\n", pehdr->e_shentsize );
-	fprintf( f, "# of SH      : %"    PRIu16"\n", pehdr->e_shnum );
-	fprintf( f, "SHSTR index  : %"    PRIu16"\n", pehdr->e_shstrndx );
+		fprintf( f, "Class        : ELF64\n");
+		fprintf( f, "File    type : %s (%u)\n", ARRSTR(pmelf_ehdr_type_s,    pehdr->e_type), pehdr->e_type );
+		fprintf( f, "Machine type : %s\n", pmelf_ehdr_machine_s(pehdr->e_machine) );
+		fprintf( f, "ABI          : %s (%u)\n", ARRSTR(pmelf_ehdr_abi_s, pehdr->e_ident[EI_OSABI]), pehdr->e_ident[EI_OSABI]);
+		fprintf( f, "Version      : %"PRIu32"\n",     pehdr->e_version );
+
+		fprintf( f, "Entry point  : 0x%08"PRIx64"\n", pehdr->e_entry );
+
+		fprintf( f, "PH offset    : %"    PRIu64"\n", pehdr->e_phoff  );
+		fprintf( f, "SH offset    : %"    PRIu64"\n", pehdr->e_shoff  );
+		fprintf( f, "Flags        : 0x%08"PRIx32"\n", pehdr->e_flags  );
+		fprintf( f, "EH size      : %"    PRIu16"\n", pehdr->e_ehsize );
+		fprintf( f, "PH entry size: %"    PRIu16"\n", pehdr->e_phentsize );
+		fprintf( f, "# of PH      : %"    PRIu16"\n", pehdr->e_phnum );
+		fprintf( f, "SH entry size: %"    PRIu16"\n", pehdr->e_shentsize );
+		fprintf( f, "# of SH      : %"    PRIu16"\n", pehdr->e_shnum );
+		fprintf( f, "SHSTR index  : %"    PRIu16"\n", pehdr->e_shstrndx );
+	}
+	else 
+#endif
+	{
+		Elf32_Ehdr *pehdr = &pehdru->e32;
+
+		fprintf( f, "Class        : ELF32\n");
+		fprintf( f, "File    type : %s (%u)\n", ARRSTR(pmelf_ehdr_type_s,    pehdr->e_type), pehdr->e_type );
+		fprintf( f, "Machine type : %s\n", pmelf_ehdr_machine_s(pehdr->e_machine) );
+		fprintf( f, "ABI          : %s (%u)\n", ARRSTR(pmelf_ehdr_abi_s, pehdr->e_ident[EI_OSABI]), pehdr->e_ident[EI_OSABI]);
+		fprintf( f, "Version      : %"PRIu32"\n",     pehdr->e_version );
+
+		fprintf( f, "Entry point  : 0x%08"PRIx32"\n", pehdr->e_entry );
+
+		fprintf( f, "PH offset    : %"    PRIu32"\n", pehdr->e_phoff  );
+		fprintf( f, "SH offset    : %"    PRIu32"\n", pehdr->e_shoff  );
+		fprintf( f, "Flags        : 0x%08"PRIx32"\n", pehdr->e_flags  );
+		fprintf( f, "EH size      : %"    PRIu16"\n", pehdr->e_ehsize );
+		fprintf( f, "PH entry size: %"    PRIu16"\n", pehdr->e_phentsize );
+		fprintf( f, "# of PH      : %"    PRIu16"\n", pehdr->e_phnum );
+		fprintf( f, "SH entry size: %"    PRIu16"\n", pehdr->e_shentsize );
+		fprintf( f, "# of SH      : %"    PRIu16"\n", pehdr->e_shnum );
+		fprintf( f, "SHSTR index  : %"    PRIu16"\n", pehdr->e_shstrndx );
+	}
 }

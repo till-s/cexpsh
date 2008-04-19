@@ -181,9 +181,6 @@ char   *sep = "";
 	}
 #endif
 
-#if 0
-	txx_dump_shdr(stdout, (void*)&(elf_section_data(sect)->this_hdr), 2/*FMT_COMPAT*/);
-#endif
 	*(int*)arg = n+1;
 }
 
@@ -240,7 +237,7 @@ int doit=0;
 		return 1;
 	}
 	if ( !(f=fopen(argv[optind],"r")) ) {
-		perror("unable to open file for reading");
+		bfd_perror("unable to open file for reading");
 		return 1;
 	}
 	bfd_init();

@@ -77,19 +77,19 @@ Elf32_Ehdr nehdr;
 	if ( s->needswap ) {
 		nehdr = *pehdr;
 		pehdr = &nehdr;
-		e32_swap16( &pehdr->e_type      );
-		e32_swap16( &pehdr->e_machine   );
-		e32_swap32( &pehdr->e_version   );
-		e32_swap32( &pehdr->e_entry     );
-		e32_swap32( &pehdr->e_phoff     );
-		e32_swap32( &pehdr->e_shoff     );
-		e32_swap32( &pehdr->e_flags     );
-		e32_swap16( &pehdr->e_ehsize    );
-		e32_swap16( &pehdr->e_phentsize );
-		e32_swap16( &pehdr->e_phnum     );
-		e32_swap16( &pehdr->e_shentsize );
-		e32_swap16( &pehdr->e_shnum     );
-		e32_swap16( &pehdr->e_shstrndx  );
+		elf_swap16( &pehdr->e_type      );
+		elf_swap16( &pehdr->e_machine   );
+		elf_swap32( &pehdr->e_version   );
+		elf_swap32( &pehdr->e_entry     );
+		elf_swap32( &pehdr->e_phoff     );
+		elf_swap32( &pehdr->e_shoff     );
+		elf_swap32( &pehdr->e_flags     );
+		elf_swap16( &pehdr->e_ehsize    );
+		elf_swap16( &pehdr->e_phentsize );
+		elf_swap16( &pehdr->e_phnum     );
+		elf_swap16( &pehdr->e_shentsize );
+		elf_swap16( &pehdr->e_shnum     );
+		elf_swap16( &pehdr->e_shstrndx  );
 	}
 #endif
 

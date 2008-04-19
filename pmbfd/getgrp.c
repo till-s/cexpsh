@@ -47,20 +47,36 @@
 #include "pmelfP.h"
 
 Elf32_Word *
-pmelf_getgrp(Elf_Stream s, Elf32_Shdr *psect, Elf32_Word *data)
+pmelf_getgrp(Elf_Stream s, Elf_Shdr *psect, Elf32_Word *data)
 {
 Elf32_Word *buf;
-int        ne,j;
+int        j;
+Pmelf_Off  sh_size;
+Pmelf_Off  ne;
 
-	if ( SHT_GROUP != psect->sh_type )
+	switch ( s->clss ) {
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		case ELFCLASS64:
+			if ( SHT_GROUP != psect->s64.sh_type )
+				return 0;
+			sh_size = psect->s64.sh_size;
+		break;
+#endif
+		case ELFCLASS32:
+			if ( SHT_GROUP != psect->s32.sh_type )
+				return 0;
+			sh_size = psect->s32.sh_size;
+		break;
+		default:
 		return 0;
+	}
 
-	if ( psect->sh_size & (sizeof(*buf)-1) ) {
+	if ( sh_size & (((Pmelf_Off)sizeof(*buf))-1) ) {
 		PMELF_PRINTF(pmelf_err, "group section size not a multiple of %lu\n", (unsigned long)sizeof(*buf));
 		return 0;
 	}
 
-	ne  = psect->sh_size/sizeof(*buf);
+	ne  = sh_size/sizeof(*buf);
 
 	if ( ne < 1 ) {
 		PMELF_PRINTF(pmelf_err, "group has no members and not even a flag word\n");
@@ -75,7 +91,7 @@ int        ne,j;
 		return -2;
 #else
 		for ( j=0; j < ne; j++ ) {
-			e32_swap32( &buf[j] );
+			elf_swap32( &buf[j] );
 		}
 #endif
 	}

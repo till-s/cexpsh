@@ -47,13 +47,29 @@
 #include "pmelfP.h"
 
 void *
-pmelf_getscn(Elf_Stream s, Elf32_Shdr *psect, void *data, Elf32_Off offset, Elf32_Word len)
+pmelf_getscn(Elf_Stream s, Elf_Shdr *psect, void *data, Pmelf_Off offset, Pmelf_Off len)
 {
 void       *buf = 0;
-Elf32_Word end;
+Pmelf_Off  end;
+Pmelf_Off  sh_size, sh_offset;
+
+	switch ( s->clss ) {
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		case ELFCLASS64:
+			sh_size   = psect->s64.sh_size;
+			sh_offset = psect->s64.sh_offset;
+		break;
+#endif
+		case ELFCLASS32:
+			sh_size   = psect->s32.sh_size;
+			sh_offset = psect->s32.sh_offset;
+		break;
+		default:
+		return 0;
+	}
 
 	if ( 0 == len )
-		len = psect->sh_size;
+		len = sh_size;
 
 	end = offset + len;
 
@@ -63,12 +79,12 @@ Elf32_Word end;
 		return 0;
 	}
 
-	if ( end > psect->sh_size ) {
+	if ( end > sh_size ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getscn invalid offset/length (requested area not entirely within section)\n");
 		return 0;
 	}
 
-	if ( pmelf_seek(s, psect->sh_offset + offset) ) {
+	if ( pmelf_seek(s, sh_offset + offset) ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getscn unable to seek %s", strerror(errno));
 		return 0;
 	}
@@ -83,7 +99,7 @@ Elf32_Word end;
 	}
 
 	if ( len != SREAD(data, 1, len, s) ) {
-		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getscn unable to read %s", strerror(errno));
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getscn unable to read %s", errno ? strerror(errno) : "");
 		free(buf);
 		return 0;
 	}

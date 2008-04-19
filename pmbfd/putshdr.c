@@ -56,16 +56,16 @@ Elf32_Shdr nshdr;
 #else
 		nshdr = *pshdr;
 		pshdr = &nshdr;
-		e32_swap32( &pshdr->sh_name);
-		e32_swap32( &pshdr->sh_type);
-		e32_swap32( &pshdr->sh_flags);
-		e32_swap32( &pshdr->sh_addr);
-		e32_swap32( &pshdr->sh_offset);
-		e32_swap32( &pshdr->sh_size);
-		e32_swap32( &pshdr->sh_link);
-		e32_swap32( &pshdr->sh_info);
-		e32_swap32( &pshdr->sh_addralign);
-		e32_swap32( &pshdr->sh_entsize);
+		elf_swap32( &pshdr->sh_name);
+		elf_swap32( &pshdr->sh_type);
+		elf_swap32( &pshdr->sh_flags);
+		elf_swap32( &pshdr->sh_addr);
+		elf_swap32( &pshdr->sh_offset);
+		elf_swap32( &pshdr->sh_size);
+		elf_swap32( &pshdr->sh_link);
+		elf_swap32( &pshdr->sh_info);
+		elf_swap32( &pshdr->sh_addralign);
+		elf_swap32( &pshdr->sh_entsize);
 #endif
 	}
 	return s->write && 1 == SWRITE( pshdr, sizeof(*pshdr), 1, s) ? 0 : -1;

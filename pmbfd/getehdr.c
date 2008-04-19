@@ -46,23 +46,99 @@
  */ 
 #include "pmelfP.h"
 
+static int
+getehdr32_top(Elf_Stream s, Elf32_Ehdr *pehdr)
+{
+	if ( 1 != SREAD(&pehdr->e_type, sizeof(*pehdr) - EI_NIDENT, 1, s) ) {
+		return -1;
+	}
+
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
+	if ( s->needswap ) {
+		elf_swap16( &pehdr->e_type      );
+		elf_swap16( &pehdr->e_machine   );
+		elf_swap32( &pehdr->e_version   );
+		elf_swap32( &pehdr->e_entry     );
+		elf_swap32( &pehdr->e_phoff     );
+		elf_swap32( &pehdr->e_shoff     );
+		elf_swap32( &pehdr->e_flags     );
+		elf_swap16( &pehdr->e_ehsize    );
+		elf_swap16( &pehdr->e_phentsize );
+		elf_swap16( &pehdr->e_phnum     );
+		elf_swap16( &pehdr->e_shentsize );
+		elf_swap16( &pehdr->e_shnum     );
+		elf_swap16( &pehdr->e_shstrndx  );
+	}
+#endif
+
+	if ( pehdr->e_shentsize != sizeof( Elf32_Shdr ) ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
+		return -1;
+	}
+
+	if ( pehdr->e_shnum > 0 ) {
+		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: shstrndx out of bounds\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+	
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+static int
+getehdr64_top(Elf_Stream s, Elf64_Ehdr *pehdr)
+{
+	if ( 1 != SREAD(&pehdr->e_type, sizeof(*pehdr) - EI_NIDENT, 1, s) ) {
+		return -1;
+	}
+
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
+	if ( s->needswap ) {
+		elf_swap16( &pehdr->e_type      );
+		elf_swap16( &pehdr->e_machine   );
+		elf_swap32( &pehdr->e_version   );
+		elf_swap64( &pehdr->e_entry     );
+		elf_swap64( &pehdr->e_phoff     );
+		elf_swap64( &pehdr->e_shoff     );
+		elf_swap32( &pehdr->e_flags     );
+		elf_swap16( &pehdr->e_ehsize    );
+		elf_swap16( &pehdr->e_phentsize );
+		elf_swap16( &pehdr->e_phnum     );
+		elf_swap16( &pehdr->e_shentsize );
+		elf_swap16( &pehdr->e_shnum     );
+		elf_swap16( &pehdr->e_shstrndx  );
+	}
+#endif
+
+	if ( pehdr->e_shentsize != sizeof( Elf64_Shdr ) ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
+		return -1;
+	}
+
+	if ( pehdr->e_shnum > 0 ) {
+		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: shstrndx out of bounds\n");
+			return -1;
+		}
+	}
+	return 0;
+}
+#endif
+	
 int
-pmelf_getehdr(Elf_Stream s, Elf32_Ehdr *pehdr)
+pmelf_getehdr(Elf_Stream s, Elf_Ehdr *pehdr)
 {
 uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 
 	if ( pmelf_seek(s, 0) ) {
 		return -1;
 	}
-	if ( 1 != SREAD(pehdr, sizeof(*pehdr), 1, s) ) {
+	if ( 1 != SREAD(pehdr, EI_NIDENT, 1, s) ) {
 		return -1;
 	}
 	if ( memcmp(magic, pehdr->e_ident+EI_MAG0, sizeof(magic)) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an ELF file\n");
-		return -1;
-	}
-	if ( pehdr->e_ident[EI_CLASS] != ELFCLASS32 ) {
-		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an 32-bit ELF file\n");
 		return -1;
 	}
 
@@ -78,35 +154,22 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: host/target byte order mismatch but pmelf was configured w/o support for byte-swapping\n");
 		return -2;
 	}
-#else
-	if ( s->needswap ) {
-		e32_swap16( &pehdr->e_type      );
-		e32_swap16( &pehdr->e_machine   );
-		e32_swap32( &pehdr->e_version   );
-		e32_swap32( &pehdr->e_entry     );
-		e32_swap32( &pehdr->e_phoff     );
-		e32_swap32( &pehdr->e_shoff     );
-		e32_swap32( &pehdr->e_flags     );
-		e32_swap16( &pehdr->e_ehsize    );
-		e32_swap16( &pehdr->e_phentsize );
-		e32_swap16( &pehdr->e_phnum     );
-		e32_swap16( &pehdr->e_shentsize );
-		e32_swap16( &pehdr->e_shnum     );
-		e32_swap16( &pehdr->e_shstrndx  );
-	}
 #endif
 
-	if ( pehdr->e_shentsize != sizeof( Elf32_Shdr ) ) {
-		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
-		return -1;
+	switch ( (s->clss = pehdr->e_ident[EI_CLASS]) ) {
+		case ELFCLASS32:
+			return getehdr32_top(s,&pehdr->e32);
+		case ELFCLASS64:
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+			return getehdr64_top(s,&pehdr->e64);
+#else
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: cannot read 64-bit ELF file; pmelf was configured and built without 64-bit support!\n");
+			return -3;
+#endif
+		default:
+			s->clss = ELFCLASSNONE;
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an 32/64-bit ELF file\n");
+			break;
 	}
-
-	if ( pehdr->e_shnum > 0 ) {
-		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {
-			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: shstrndx out of bounds\n");
-			return -1;
-		}
-	}
-	
-	return 0;
+	return -1;
 }

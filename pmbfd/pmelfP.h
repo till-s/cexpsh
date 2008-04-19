@@ -58,13 +58,21 @@
 #define PARANOIA_ON 0
 #undef PARANOIA_ON
 
+#define PMELF_CONFIG_ELF64SUPPORT
+
+/* NOTE: we currently don't fully support 64-bit targets on a 32-bit host.
+ *       otherwise we need to use explicit 64-bit types for sizes and
+ *       offsets.
+ */
+
 struct _Elf_Stream {
 	void    *f;
 	size_t  (*read) (void *buf, size_t size, size_t nmemb, void* stream);
 	size_t  (*write)(const void *buf, size_t size, size_t nmemb, void* stream);
 	int     (*seek) (void* stream, long offset, int whence);
 	int     (*close)(void* s);
-	int  needswap;
+	uint8_t  needswap;
+	uint8_t  clss;
 };
 
 #define SREAD(b,sz,n,s)  (s)->read((b),(sz),(n),(s)->f)
@@ -87,24 +95,94 @@ union {
 	return tester.b[0] ? 1 : 0;
 }
 
-static inline uint16_t e32_swab( uint16_t v )
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
+static inline uint16_t elf_swab( uint16_t v )
 {
 	return ( (v>>8) | (v<<8) );
 }
 
-static inline void e32_swap16( uint16_t *p )
+static inline uint32_t elf_swah( uint32_t v )
 {
-	*p = e32_swab( *p );
+	return elf_swab( v>>16 ) | ( elf_swab( v & 0xffff ) << 16 );
 }
 
-static inline void e32_swap32( uint32_t *p )
+static inline void elf_swap16( uint16_t *p )
+{
+	*p = elf_swab( *p );
+}
+
+static inline void elf_swap32( uint32_t *p )
 {
 register uint16_t vl = *p;
 register uint16_t vh = *p>>16;
-	*p = (e32_swab( vl ) << 16 ) | e32_swab ( vh ); 
+	*p = (elf_swab( vl ) << 16 ) | elf_swab ( vh ); 
 }
+
+static inline void elf_swap64( uint64_t *p )
+{
+register uint32_t vl = *p;
+register uint32_t vh = *p>>32;
+	*p = (((uint64_t)elf_swah( vl )) << 32 ) | elf_swah ( vh ); 
+}
+#endif
 
 #define ARRSTR(arr, idx) ( (idx) <= ElfNumberOf(arr) ? arr[idx] : "unknown" )
 #define ARRCHR(arr, idx) ( (idx) <= ElfNumberOf(arr) ? arr[idx] : '?' )
+
+static inline uint32_t get_shdrsz(Pmelf_Shtab shtab)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == shtab->clss )
+		return sizeof(Elf64_Shdr);
+	else
+#endif
+		return sizeof(Elf32_Shdr);
+}
+
+static inline uint32_t get_symsz(Pmelf_Symtab symtab)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == symtab->clss )
+		return sizeof(Elf64_Sym);
+	else
+#endif
+		return sizeof(Elf32_Sym);
+}
+
+static inline Elf_Shdr *
+get_shtabN(Pmelf_Shtab shtab, uint32_t idx)
+{
+	return (Elf_Shdr *)(shtab->shdrs.p_raw + idx * get_shdrsz(shtab));
+}
+
+static inline Elf_Sym *
+get_symtabN(Pmelf_Symtab symtab, Pmelf_Long idx)
+{
+	return (Elf_Sym *)(symtab->syms.p_raw + idx * get_symsz(symtab));
+}
+
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+#define CREAT_GET_SH(typ,member)	            \
+static inline typ                               \
+get_sh_##member(uint32_t clss, Elf_Shdr *shdr)	\
+{                                               \
+	if ( ELFCLASS64 == clss )                   \
+		return shdr->s64.sh_##member;           \
+	else                                        \
+		return shdr->s32.sh_##member;           \
+}
+#else
+#define CREAT_GET_SH(typ,member)	            \
+static inline typ                               \
+get_sh_##member(uint32_t clss, Elf_Shdr *shdr)	\
+{                                               \
+	return shdr->s32.sh_##member;               \
+}
+#endif
+
+CREAT_GET_SH(uint32_t,type)
+CREAT_GET_SH(Pmelf_Size,size)
+CREAT_GET_SH(uint32_t,link)
+CREAT_GET_SH(uint32_t,info)
 
 #endif

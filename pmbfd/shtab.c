@@ -47,54 +47,94 @@
 #include "pmelfP.h"
 
 void
-pmelf_delshtab(Pmelf_Elf32_Shtab sht)
+pmelf_delshtab(Pmelf_Shtab sht)
 {
 	if ( sht ) {
-		free(sht->shdrs);
+		free(sht->shdrs.p_raw);
 		free((void*)sht->strtab);
 		free(sht);
 	}
 }
 
-Pmelf_Elf32_Shtab
-pmelf_getshtab(Elf_Stream s, Elf32_Ehdr *pehdr)
+Pmelf_Shtab
+pmelf_getshtab(Elf_Stream s, Elf_Ehdr *pehdr)
 {
-Pmelf_Elf32_Shtab rval = 0;
+Pmelf_Shtab rval = 0;
 uint32_t      i;
-Elf32_Shdr    *strsh;
+Elf_Shdr      *strsh;
+Pmelf_Off     e_shoff;
+uint32_t      e_shnum;
+uint32_t      e_shstrndx;
+uint32_t      shdrsz;
 
-	if ( 0 == pehdr->e_shnum )
+	switch ( s->clss ) {
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		case ELFCLASS64:
+			e_shoff    = pehdr->e64.e_shoff;
+			e_shnum    = pehdr->e64.e_shnum;
+			e_shstrndx = pehdr->e64.e_shstrndx;
+			shdrsz     = sizeof(Elf64_Shdr);
+		break;
+#endif
+		case ELFCLASS32:
+			e_shoff    = pehdr->e32.e_shoff;
+			e_shnum    = pehdr->e32.e_shnum;
+			e_shstrndx = pehdr->e32.e_shstrndx;
+			shdrsz     = sizeof(Elf32_Shdr);
+		break;
+		default:
+		return 0;
+	}
+
+	if ( 0 == e_shnum )
 		return 0;
 
-	if ( pmelf_seek(s, pehdr->e_shoff) )
+	if ( pmelf_seek(s, e_shoff) )
 		return 0;
 
 	if ( !(rval = calloc(1, sizeof(*rval))) )
 		return 0;
 
-	if ( !(rval->shdrs = calloc(pehdr->e_shnum, sizeof(*rval->shdrs))) )
+	if ( !(rval->shdrs.p_raw = calloc(e_shnum, shdrsz)) )
 		goto bail;
 
-	rval->nshdrs = pehdr->e_shnum;
+	rval->nshdrs = e_shnum;
+	rval->clss   = s->clss;
 
-	/* slurp the section headers */
-	for ( i=0; i<pehdr->e_shnum; i++ ) {
-		if ( pmelf_getshdr(s, rval->shdrs + i) )
-			goto bail;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == s->clss ) {
+		/* slurp the section headers */
+		for ( i=0; i<e_shnum; i++ ) {
+			if ( pmelf_getshdr64(s, rval->shdrs.p_s64 + i) )
+				goto bail;
+		}
+		strsh = (Elf_Shdr*)&rval->shdrs.p_s64[e_shstrndx];
+		rval->strtablen = strsh->s64.sh_size;
+	}
+	else
+#endif
+	{
+		/* slurp the section headers */
+		for ( i=0; i<e_shnum; i++ ) {
+			if ( pmelf_getshdr32(s, rval->shdrs.p_s32 + i) )
+				goto bail;
+		}
+		strsh = (Elf_Shdr*)&rval->shdrs.p_s32[e_shstrndx];
+		rval->strtablen = strsh->s32.sh_size;
 	}
 
 	/* slurp the string table    */
-	strsh = &rval->shdrs[pehdr->e_shstrndx];
 	if ( ! (rval->strtab = pmelf_getscn( s, strsh, 0, 0, 0 )) ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"(shstrtab)\n");
 		goto bail;
 	}
 
-	rval->strtablen = strsh->sh_size;
+	rval->idx = e_shstrndx;
 
 	return rval;
 
 bail:
+	rval->strtablen = 0;
 	pmelf_delshtab(rval);
 	return 0;
 }

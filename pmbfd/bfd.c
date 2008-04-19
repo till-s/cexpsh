@@ -46,6 +46,7 @@
  */ 
 
 #include "pmbfdP.h"
+#include <errno.h>
 
 static void
 bfd_set_section_name(asection *sect, const char *name)
@@ -1096,7 +1097,10 @@ cleanup:
 void
 bfd_perror(const char *msg)
 {
-	perror(msg);
+	if ( errno )
+		perror(msg);
+	else
+		fprintf(stderr,"%s\n",msg);
 }
 
 const bfd_arch_info_type *

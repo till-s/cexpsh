@@ -72,19 +72,30 @@ static void usage(char *nm)
 	fprintf(stderr,"   -s: print symbol table\n");
 	fprintf(stderr,"   -a: enable all of -h, -s, -S, -g\n");
 	fprintf(stderr,"   -c: enable 'readelf' compatibility\n");
+	fprintf(stderr,"       NOTE: for 64-bit use:\n");
+	fprintf(stderr,"               readelf -WS\n");
+	fprintf(stderr,"               rdelf   -cS\n");
+}
 
+static void
+my_perror(const char *msg)
+{
+	if ( errno )
+		perror("msg");
+	else
+		fprintf(stderr,"%s: failed.\n",msg);
 }
 
 int main(int argc, char ** argv)
 {
-int              rval = 1;
-Elf_Stream       s;
-Elf32_Ehdr       ehdr;
-Pmelf_Elf32_Shtab  shtab = 0;
-Pmelf_Elf32_Symtab symtab = 0;
-int              ch;
-int              doit=0;
-int              compat=0;
+int          rval = 1;
+Elf_Stream   s;
+Elf_Ehdr     ehdr;
+Pmelf_Shtab  shtab = 0;
+Pmelf_Symtab symtab = 0;
+int          ch;
+int          doit=0;
+int          compat=0;
 
 	pmelf_set_errstrm(stderr);
 
@@ -109,12 +120,12 @@ int              compat=0;
 	}
 
 	if ( ! (s = pmelf_newstrm(argv[optind], 0)) ) {
-		perror("Creating ELF stream");
+		my_perror("Creating ELF stream");
 		return 1;
 	}
 
 	if ( pmelf_getehdr( s, &ehdr ) ) {
-		perror("Reading ELF header");
+		my_perror("Reading ELF header");
 		goto bail;
 	}
 

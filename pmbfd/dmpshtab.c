@@ -47,20 +47,29 @@
 #include "pmelfP.h"
 
 void
-pmelf_dump_shtab(FILE *f, Pmelf_Elf32_Shtab shtab, int format)
+pmelf_dump_shtab(FILE *f, Pmelf_Shtab shtab, int format)
 {
 uint32_t i;
-Elf32_Shdr *shdr;
+Elf_Shdr *shdr;
 const char *name, *fmt;
+uint8_t    *p;
+uint32_t   shdrsz = get_shdrsz(shtab);
 
 	if ( !f )
 		f = stdout;
 
 	fprintf(f,"Section Headers:\n");
-	fprintf(f,"  [Nr] %-18s%-16s%-9s%-7s%-7s%2s%4s%3s%4s%3s\n",
-		"Name", "Type", "Addr", "Off", "Size", "ES", "Flg", "Lk", "Inf", "Al");
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( ELFCLASS64 == shtab->clss )
+		fprintf(f,"  [Nr] %-18s%-16s%-17s%-7s%-7s%2s%4s%3s%4s%3s\n",
+			"Name", "Type", "Address", "Off", "Size", "ES", "Flg", "Lk", "Inf", "Al");
+	else
+#endif
+		fprintf(f,"  [Nr] %-18s%-16s%-9s%-7s%-7s%2s%4s%3s%4s%3s\n",
+			"Name", "Type", "Addr", "Off", "Size", "ES", "Flg", "Lk", "Inf", "Al");
 
-	for ( i = 0, shdr = shtab->shdrs; i<shtab->nshdrs; i++, shdr++ ) {
+	for ( i = 0, p = shtab->shdrs.p_raw; i<shtab->nshdrs; i++, p+=shdrsz ) {
+		shdr = (Elf_Shdr*)p;
 		if ( ! (name = pmelf_sec_name(shtab, shdr)) ) {
 			name = "<OUT-OF-BOUND>";
 		}
@@ -69,7 +78,12 @@ const char *name, *fmt;
 		else
 			fmt = "  [%2u] %-18s";
 		fprintf( f, fmt, i, name );
-		pmelf_dump_shdr( f, shdr, format );
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+		if ( ELFCLASS64 == shtab->clss )
+			pmelf_dump_shdr64( f, &shdr->s64, format );
+		else
+#endif
+			pmelf_dump_shdr32( f, &shdr->s32, format );
 	}
 	fprintf(f,"Key to Flags:\n");
 	fprintf(f,"  W (write), A (alloc), X (execute), M (merge), S (strings)\n");

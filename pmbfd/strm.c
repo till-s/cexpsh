@@ -49,7 +49,7 @@
 FILE *pmelf_err = 0;
 
 int
-pmelf_seek(Elf_Stream s, Elf32_Off where)
+pmelf_seek(Elf_Stream s, Pmelf_Off where)
 {
 	return s->seek ? s->seek(s->f, where, SEEK_SET) : -1;
 }

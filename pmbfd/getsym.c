@@ -46,8 +46,9 @@
  */ 
 #include "pmelfP.h"
 
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 int
-pmelf_getsym(Elf_Stream s, Elf32_Sym *psym)
+pmelf_getsym64(Elf_Stream s, Elf64_Sym *psym)
 {
 	if ( 1 != SREAD(psym, sizeof(*psym), 1, s) ) {
 		return -1;
@@ -56,10 +57,43 @@ pmelf_getsym(Elf_Stream s, Elf32_Sym *psym)
 #ifdef PMELF_CONFIG_NO_SWAPSUPPORT
 		return -2;
 #else
-		e32_swap32( &psym->st_name);
-		e32_swap32( &psym->st_value);
-		e32_swap32( &psym->st_size);
-		e32_swap16( &psym->st_shndx);
+		elf_swap32( &psym->st_name);
+		elf_swap16( &psym->st_shndx);
+		elf_swap64( &psym->st_value);
+		elf_swap64( &psym->st_size);
+#endif
+	}
+#ifdef PARANOIA_ON
+	{
+	int x;
+	if ( (x = ELF64_ST_TYPE( psym->st_info )) > STT_MAXSUP ) {
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsym - paranoia: unsupported type %i\n", x);
+		return -1;
+	}
+	if ( (x = ELF64_ST_BIND( psym->st_info )) > STB_MAXSUP ) {
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_getsym - paranoia: unsupported binding %i\n", x);
+		return -1;
+	}
+	}
+#endif
+	return 0;
+}
+#endif
+
+int
+pmelf_getsym32(Elf_Stream s, Elf32_Sym *psym)
+{
+	if ( 1 != SREAD(psym, sizeof(*psym), 1, s) ) {
+		return -1;
+	}
+	if ( s->needswap ) {
+#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
+		return -2;
+#else
+		elf_swap32( &psym->st_name);
+		elf_swap32( &psym->st_value);
+		elf_swap32( &psym->st_size);
+		elf_swap16( &psym->st_shndx);
 #endif
 	}
 #ifdef PARANOIA_ON

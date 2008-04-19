@@ -77,11 +77,11 @@ int32_t        lim;
 		default:
 		return bfd_reloc_notsupported;
 
-		case R_68K_PC8:  pcadd = pc; lim   = -0x0080; sz = 1; break;
-		case R_68K_8:    pcadd =  0; lim   = -0x0100; sz = 1; break;
+		case R_68K_PC8:  pcadd = pc; lim   = -0x00080; sz = 1; break;
+		case R_68K_8:    pcadd =  0; lim   = -0x00100; sz = 1; break;
 
-		case R_68K_PC16: pcadd = pc; lim   = -0x8000; sz = 2; break;
-		case R_68K_16:   pcadd =  0; lim   = -0x1000; sz = 2; break;
+		case R_68K_PC16: pcadd = pc; lim   = -0x08000; sz = 2; break;
+		case R_68K_16:   pcadd =  0; lim   = -0x10000; sz = 2; break;
 
 		case R_68K_PC32: pcadd = pc; lim   = 0;       sz = 4; break;
 		case R_68K_32:   pcadd =  0; lim   = 0;       sz = 4; break;

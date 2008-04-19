@@ -109,6 +109,9 @@ uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 		break;
 	}
 
+	if ( rela->r_offset + sz > bfd_get_section_size(input_section) )
+		return bfd_reloc_outofrange;
+
 	if ( pc & (algn-1)) {
 		ERRPR("pmbfd_perform_relocation_ppc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
 		return bfd_reloc_other;

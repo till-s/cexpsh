@@ -88,7 +88,7 @@
  *       in one place, namely HERE.
  */
 static const char *
-filter(void *ext_sym, void *closure)
+filter32(void *ext_sym, void *closure)
 {
 Elf32_Sym	*sp=ext_sym;
 char		*strtab=closure;
@@ -110,7 +110,7 @@ char		*strtab=closure;
 }
 
 static void
-assign(void *symp, CexpSym cesp, void *closure)
+assign32(void *symp, CexpSym cesp, void *closure)
 {
 Elf32_Sym	*sp=symp;
 CexpType	t;
@@ -153,6 +153,75 @@ int 		s=sp->st_size;
 			break;
 	}
 
+	cesp->value.ptv  = (CexpVal)(uintptr_t)sp->st_value;
+}
+
+static const char *
+filter64(void *ext_sym, void *closure)
+{
+Elf64_Sym	*sp=ext_sym;
+char		*strtab=closure;
+
+	if ( STB_LOCAL == ELF64_ST_BIND(sp->st_info) )
+		return 0;
+
+	switch (ELF64_ST_TYPE(sp->st_info)) {
+	case STT_OBJECT:
+	case STT_FUNC:
+	case STT_NOTYPE:
+	return strtab + sp->st_name;
+
+	default:
+	break;
+	}
+
+	return 0;
+}
+
+static void
+assign64(void *symp, CexpSym cesp, void *closure)
+{
+Elf64_Sym	*sp=symp;
+CexpType	t;
+int 		s=sp->st_size;
+
+	cesp->size = s;
+
+	t=TVoid;
+
+	switch (ELF64_ST_TYPE(sp->st_info)) {
+	case STT_OBJECT:
+		/* determine the type of variable */
+		t = cexpTypeGuessFromSize(s);
+	break;
+
+	case STT_FUNC:
+		t=TFuncP;
+	break;
+
+	case STT_NOTYPE:
+		t=TVoid;
+	break;
+
+	case STT_SECTION:
+		t=TVoid;
+		cesp->flags|=CEXP_SYMFLG_SECT;
+	break;
+
+	default:
+	break;
+
+	}
+
+	cesp->value.type = t;
+
+	switch(ELF64_ST_BIND(sp->st_info)) {
+		case STB_GLOBAL: cesp->flags|=CEXP_SYMFLG_GLBL; break;
+		case STB_WEAK  : cesp->flags|=CEXP_SYMFLG_WEAK; break;
+		default:
+			break;
+	}
+
 	cesp->value.ptv  = (CexpVal)sp->st_value;
 }
 
@@ -167,10 +236,10 @@ static CexpSymTbl
 cexpSlurpElf(char *filename)
 {
 Elf_Stream	elf=0;
-Elf32_Shdr	*shdr=0;
-Elf32_Ehdr  ehdr;
-Pmelf_Elf32_Shtab  shtab  = 0;
-Pmelf_Elf32_Symtab symtab = 0;
+Elf_Shdr	*shdr=0;
+Elf_Ehdr    ehdr;
+Pmelf_Shtab  shtab  = 0;
+Pmelf_Symtab symtab = 0;
 CexpSymTbl	rval=0,csymt=0;
 CexpSym		sane;
 #ifdef USE_ELF_MEMORY
@@ -184,6 +253,7 @@ char		HOST[30];
 #endif
 #endif
 int			fd=-1;
+unsigned    symsz;
 
 	pmelf_set_errstrm(stderr);
 
@@ -243,8 +313,22 @@ int			fd=-1;
 		goto cleanup;
 	
 	/* convert the symbol table */
+	
 
-	if (!(csymt=cexpCreateSymTbl((void*)symtab->syms,sizeof(*symtab->syms),symtab->nsyms,filter,assign,(void*)symtab->strtab)))
+	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
+		csymt=cexpCreateSymTbl(
+				(void*)symtab->syms.p_t64,
+				sizeof(Elf64_Sym), symtab->nsyms,
+				filter64,assign64,
+				(void*)symtab->strtab);
+	} else {
+		csymt=cexpCreateSymTbl(
+				(void*)symtab->syms.p_t32,
+				sizeof(Elf32_Sym), symtab->nsyms,
+				filter32,assign32,
+				(void*)symtab->strtab);
+	}
+	if ( ! csymt )
 		goto cleanup;
 
 
@@ -290,7 +374,7 @@ int			rval=-1;
 		fprintf(stderr,
 				"The ELF file loader doesn't support loading object files, sorry\n");
 		fprintf(stderr,
-				"(only initial symbol table can be loaded) - recompile with BFD support\n");
+				"(only initial symbol table can be loaded) - recompile with --enable-loader\n");
 		return rval;
 	}
 

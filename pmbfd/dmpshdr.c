@@ -164,12 +164,12 @@ const char *fmt;
 
 	fprintf( f, "%016"PRIx64, pshdr->sh_addr);
 	if ( FMT_LONG == format ) {
-		fprintf( f, " %08"PRIx32, pshdr->sh_offset);
-		fprintf( f, " %08"PRIx32, pshdr->sh_size);
+		fprintf( f, " %08"PRIx64, pshdr->sh_offset);
+		fprintf( f, " %08"PRIx64, pshdr->sh_size);
 		fprintf( f, " %08"PRIx32, pshdr->sh_link);
-		fprintf( f, " %05"PRIx32, pshdr->sh_addralign);
-		fprintf( f, " %05"PRIx32, pshdr->sh_entsize);
-		fprintf( f, "\n flags: 0x%08"PRIx32, pshdr->sh_flags);
+		fprintf( f, " %05"PRIx64, pshdr->sh_addralign);
+		fprintf( f, " %05"PRIx64, pshdr->sh_entsize);
+		fprintf( f, "\n flags: 0x%08"PRIx64, pshdr->sh_flags);
 		if ( pshdr->sh_flags ) {
 			fprintf(f, "[");
 			if ( SHF_WRITE & pshdr->sh_flags ) fprintf(f, " WRITE");
@@ -184,14 +184,14 @@ const char *fmt;
 			fprintf(f, " ]");
 		}
 	} else {
-		fprintf( f, " %06"PRIx32, pshdr->sh_offset);
-		fprintf( f, " %06"PRIx32, pshdr->sh_size);
-		fprintf( f, " %02"PRIx32, pshdr->sh_entsize);
+		fprintf( f, " %06"PRIx64, pshdr->sh_offset);
+		fprintf( f, " %06"PRIx64, pshdr->sh_size);
+		fprintf( f, " %02"PRIx64, pshdr->sh_entsize);
 		prflags(fbuf, pshdr->sh_flags);
 		fprintf( f, "%4s",fbuf);
 		fprintf( f, " %2" PRIu32, pshdr->sh_link);
 		fprintf( f, " %3" PRIu32, pshdr->sh_info);
-		fprintf( f, " %2" PRIu32, pshdr->sh_addralign);
+		fprintf( f, " %2" PRIu64, pshdr->sh_addralign);
 	}
 	fprintf(f,"\n");
 }

@@ -52,18 +52,19 @@ pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *i
 {
 Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
 Elf32_Word     val, add;
+Elf32_Rel      *rel = &r->rel32;
 
-	if ( r->rel.r_offset + sizeof(Elf32_Word) > bfd_get_section_size(input_section) )
+	if ( rel->r_offset + sizeof(Elf32_Word) > bfd_get_section_size(input_section) )
 		return bfd_reloc_outofrange;
 
-	pc += r->rel.r_offset;
+	pc += rel->r_offset;
 
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
 
 	val = 0;
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+	switch ( ELF32_R_TYPE(rel->r_info) ) {
 		default:
 		return bfd_reloc_notsupported;
 
@@ -84,7 +85,7 @@ Elf32_Word     val, add;
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+	switch ( ELF32_R_TYPE(r->rel32.r_info) ) {
 		namecase( R_386_NONE     )
 		namecase( R_386_32       )
 		namecase( R_386_PC32     )

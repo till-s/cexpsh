@@ -50,7 +50,8 @@
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
-Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
+Elf32_Word     pc    = bfd_get_section_vma(abfd, input_section);
+Elf32_Rela     *rela = &r->rela32;
 
 unsigned       sz;
 int32_t        val;
@@ -62,7 +63,7 @@ int32_t        lim;
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
-	pc += r->rela.r_offset;
+	pc += rela->r_offset;
 
 	/* I don't have my hands on the 68k ABI document so
 	 * I don't know if there are any alignment requirements.
@@ -71,7 +72,7 @@ int32_t        lim;
 	 * not be an issue.
 	 */
 
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+	switch ( ELF32_R_TYPE(rela->r_info) ) {
 
 		default:
 		return bfd_reloc_notsupported;
@@ -86,7 +87,7 @@ int32_t        lim;
 		case R_68K_32:   pcadd =  0; lim   = 0;       sz = 4; break;
 	}
 
-	if ( r->rela.r_offset + sz > bfd_get_section_size(input_section) )
+	if ( rela->r_offset + sz > bfd_get_section_size(input_section) )
 		return bfd_reloc_outofrange;
 
 	switch (sz) {
@@ -105,7 +106,7 @@ int32_t        lim;
 		break;
 	}
 
-	val = val + bfd_asymbol_value(psym) + r->rela.r_addend - pcadd;
+	val = val + bfd_asymbol_value(psym) + rela->r_addend - pcadd;
 
 	if ( lim && (val < lim || val > -lim - 1) )
 		return bfd_reloc_overflow;
@@ -134,7 +135,7 @@ int32_t        lim;
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+	switch ( ELF32_R_TYPE(r->rela32.r_info) ) {
 		namecase( R_68K_NONE )
 		namecase( R_68K_32 )
 		namecase( R_68K_16 )

@@ -810,16 +810,22 @@ pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab)
 
 /* Write headers to a stream */
 int
-pmelf_putehdr(Elf_Stream s, Elf32_Ehdr *pehdr);
+pmelf_putehdr32(Elf_Stream s, Elf32_Ehdr *pehdr);
+int
+pmelf_putehdr64(Elf_Stream s, Elf64_Ehdr *pehdr);
 
 int
-pmelf_putshdr(Elf_Stream s, Elf32_Shdr *pshdr);
+pmelf_putshdr32(Elf_Stream s, Elf32_Shdr *pshdr);
+int
+pmelf_putshdr64(Elf_Stream s, Elf64_Shdr *pshdr);
 
 int
-pmelf_putsym(Elf_Stream s, Elf32_Sym *psym);
+pmelf_putsym32(Elf_Stream s, Elf32_Sym *psym);
+int
+pmelf_putsym64(Elf_Stream s, Elf64_Sym *psym);
 
 int
-pmelf_write(Elf_Stream s, void *data, Elf32_Word len);
+pmelf_write(Elf_Stream s, void *data, Pmelf_Long len);
 
 #ifdef __cplusplus
 }

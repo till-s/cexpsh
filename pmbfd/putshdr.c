@@ -46,8 +46,35 @@
  */ 
 #include "pmelfP.h"
 
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 int
-pmelf_putshdr(Elf_Stream s, Elf32_Shdr *pshdr)
+pmelf_putshdr64(Elf_Stream s, Elf64_Shdr *pshdr)
+{
+Elf64_Shdr nshdr;
+	if ( s->needswap ) {
+#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
+		return -2;
+#else
+		nshdr = *pshdr;
+		pshdr = &nshdr;
+		elf_swap32( &pshdr->sh_name);
+		elf_swap32( &pshdr->sh_type);
+		elf_swap64( &pshdr->sh_flags);
+		elf_swap64( &pshdr->sh_addr);
+		elf_swap64( &pshdr->sh_offset);
+		elf_swap64( &pshdr->sh_size);
+		elf_swap32( &pshdr->sh_link);
+		elf_swap32( &pshdr->sh_info);
+		elf_swap64( &pshdr->sh_addralign);
+		elf_swap64( &pshdr->sh_entsize);
+#endif
+	}
+	return s->write && 1 == SWRITE( pshdr, sizeof(*pshdr), 1, s) ? 0 : -1;
+}
+#endif
+
+int
+pmelf_putshdr32(Elf_Stream s, Elf32_Shdr *pshdr)
 {
 Elf32_Shdr nshdr;
 	if ( s->needswap ) {

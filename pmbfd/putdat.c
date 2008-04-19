@@ -47,7 +47,7 @@
 #include "pmelfP.h"
 
 int
-pmelf_write(Elf_Stream s, void *data, Elf32_Word len)
+pmelf_write(Elf_Stream s, void *data, Pmelf_Long len)
 {
 	return s->write && (len == SWRITE(data, 1, len, s)) ? 0 : -1;
 }

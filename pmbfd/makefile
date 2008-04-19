@@ -1,8 +1,7 @@
 BFDDIR=/home/till/binutils-2.17/
 BFDHDIR=-I$(BFDDIR)/build/bfd -I$(BFDDIR)/include -I$(BFDDIR)/bfd
 BFDLIBDIR=-L$(BFDDIR)/build/bfd -L$(BFDDIR)/build/libiberty
-#all: bfdod rdelf libpmbfd.a
-all: libpmelf.a rdelf
+all: bfdod rdelf libpmbfd.a
 
 CFLAGS=-Wall -O2 -g
 

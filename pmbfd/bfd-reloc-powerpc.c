@@ -56,14 +56,15 @@ int32_t        val,oval;
 int16_t        sval;
 int32_t        lim;
 uint32_t       msk,lomsk;
-uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
+Elf32_Rela     *rela = &r->rela32;
+uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
-	pc  = bfd_get_section_vma(abfd, input_section) + r->rela.r_offset;
+	pc  = bfd_get_section_vma(abfd, input_section) + rela->r_offset;
 
-	val = bfd_asymbol_value(psym) + r->rela.r_addend;
+	val = bfd_asymbol_value(psym) + rela->r_addend;
 
 	/* gcc seems to only use these...
 	 *
@@ -114,7 +115,7 @@ uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
 	}
 
 
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+	switch ( ELF32_R_TYPE(rela->r_info) ) {
 		case R_PPC_REL24:
 		case R_PPC_REL32:
 			val -= pc;
@@ -144,7 +145,7 @@ uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
 	}
 	val = ( oval & ~msk ) | (val & msk);
 
-	switch ( ELF32_R_TYPE(r->rela.r_info) ) {
+	switch ( ELF32_R_TYPE(rela->r_info) ) {
 		case R_PPC_ADDR16_HA:
 			if ( val & 0x8000 )
 				val+=0x10000;
@@ -171,7 +172,7 @@ uint8_t        type = ELF32_R_TYPE(r->rela.r_info);
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rel.r_info) ) {
+	switch ( ELF32_R_TYPE(r->rela32.r_info) ) {
 		namecase( R_PPC_NONE                )
 		namecase( R_PPC_ADDR32              )
 		namecase( R_PPC_ADDR24              )

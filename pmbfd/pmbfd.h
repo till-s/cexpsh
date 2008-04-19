@@ -58,11 +58,9 @@ extern "C" {
 
 typedef struct bfd_arch_info_type bfd_arch_info_type;
 
-#ifndef BFD64
 typedef unsigned long bfd_vma;
 typedef unsigned long bfd_size_type;
 typedef unsigned long symvalue;
-#endif
 
 typedef void          *PTR;
 
@@ -125,7 +123,7 @@ typedef struct bfd bfd;
 typedef struct sec asection;
 
 typedef struct {
-	const char *name; /* Beware; two asymbols may point to the same name */
+	const char      *name; /* Beware; two asymbols may point to the same name */
 	/* NOTE: To make 'asymbol' smaller the 'val' field has slightly
 	 *       different semantics than demanded by BFD (BFD stores the
 	 *       symbol size of common symbols in 'value').
@@ -136,10 +134,10 @@ typedef struct {
 	 *       to tamper with 'value' w/o going through the proper access
 	 *       macros/routines.
 	 */
-	symvalue   val;
-	uint16_t   flags;
-	uint16_t   secndx;
-	uint32_t   size;
+	symvalue        val;
+	bfd_size_type   size;
+	uint16_t        flags;
+	uint16_t        secndx;
 } asymbol;
 
 #define bfd_asymbol_name(s) ((s)->name)

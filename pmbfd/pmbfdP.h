@@ -79,19 +79,24 @@ struct sec {
 	bfd_vma       vma;
 	unsigned      align_power;
 	flagword      flags;
-	Elf32_Shdr   *shdr;
+	Elf_Shdr      *shdr;
 #define GRP_NULL	0
-	Secndx       grp_next;		/* half-word */
+	Secndx        grp_next;		/* half-word */
 #define RELS_NULL	0
-	Secndx       rels;		    /* half-word */
+	Secndx        rels;		    /* half-word */
 };
 
 /* Index into strtabs */
 #define SYMSTRTAB	0
 
+typedef struct strtab {
+	const char    *strs;
+	unsigned long  size;
+} strtab;
+
 struct bfd {
 	Elf_Stream      s;
-	Elf32_Ehdr      ehdr;
+	Elf_Ehdr        ehdr;
 	const char      *arch;
 #if SECCHUNKSZ == 0
 	asection        *sects;
@@ -100,12 +105,12 @@ struct bfd {
 #endif
 	asymbol         *syms;
 	long            nsyms;
-	const char      **strtabs;
+	strtab          *strtabs;
 	uint32_t        nstrtabs;
 	uint32_t		str_avail;
-	Pmelf_Elf32_Shtab	shtab;
-	Elf32_Shdr      *symsh;	    /* sh of symbol table           */
-	Elf32_Shdr		*symstrs;	/* sh of symbol table stringtab */
+	Pmelf_Shtab	    shtab;
+	Elf_Shdr        *symsh;	    /* sh of symbol table           */
+	Elf_Shdr		*symstrs;	/* sh of symbol table stringtab */
 #if SECCHUNKSZ > 0
 	struct secchunk	*secmemh;
 	struct secchunk *secmemt;
@@ -114,16 +119,86 @@ struct bfd {
 	struct symchunk *symmemt;
 };
 
+#define BFD_ELFCLASS(abfd)  ((abfd)->ehdr.e_ident[EI_CLASS])
+#define BFD_IS_ELF64(abfd) (ELFCLASS64 == BFD_ELFCLASS(abfd))
+
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+
+#define CREAT_GET_SH(typ,member)                \
+static inline typ                               \
+get_sh_##member(bfd *abfd, Elf_Shdr *shdr)      \
+{                                               \
+    if ( BFD_IS_ELF64(abfd) )                   \
+        return shdr->s64.sh_##member;           \
+    else                                        \
+        return shdr->s32.sh_##member;           \
+}
+
+#else
+
+#define CREAT_GET_SH(typ,member)                \
+static inline typ                               \
+get_sh_##member(bfd *abfd, Elf_Shdr *shdr) 		\
+{                                               \
+    return shdr->s32.sh_##member;               \
+}
+
+#endif
+
+CREAT_GET_SH(uint32_t,type)
+CREAT_GET_SH(Pmelf_Size,size)
+CREAT_GET_SH(uint32_t,link)
+CREAT_GET_SH(uint32_t,info)
+CREAT_GET_SH(Pmelf_Off,offset)
+
+static inline uint32_t get_shdrsz(bfd *abfd)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+    if ( BFD_IS_ELF64(abfd) )
+        return sizeof(Elf64_Shdr);
+    else
+#endif
+        return sizeof(Elf32_Shdr);
+}
+
+static inline uint32_t get_symsz(bfd *abfd)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+    if ( BFD_IS_ELF64(abfd) )
+        return sizeof(Elf64_Sym);
+    else
+#endif
+        return sizeof(Elf32_Sym);
+}
+
+static inline uint32_t get_shndx(bfd *abfd, Elf_Shdr *shdr)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+    if ( BFD_IS_ELF64(abfd) )
+        return &shdr->s64 - abfd->shtab->shdrs.p_s64;
+    else
+#endif
+        return &shdr->s32 - abfd->shtab->shdrs.p_s32;
+}
+
+static inline Elf_Shdr *
+get_shtabN(bfd *abfd, uint32_t idx)
+{
+	return (Elf_Shdr *)(abfd->shtab->shdrs.p_raw + idx * get_shdrsz(abfd));
+}
+
 struct pmbfd_areltab {
 	Elf32_Word	entsz;
-	Elf32_Shdr  *shdr;
+	Elf_Shdr    *shdr;
 	uint8_t		data[];
 };
 
 union pmbfd_arelent {
-	Elf32_Rel	rel;
-	Elf32_Rela	rela;
-	char        raw[sizeof(Elf32_Rela)];
+	Elf32_Rel	rel32;
+	Elf32_Rela	rela32;
+	Elf64_Rel   rel64;
+	Elf64_Rel   rela64;
+	char        raw[sizeof(Elf64_Rela)];
 };
 
 #define namecase(rel)	case rel: return #rel;

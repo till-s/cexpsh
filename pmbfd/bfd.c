@@ -140,17 +140,24 @@ asection *bfd_abs_section_ptr = &the_abs_sec;
 asection *bfd_com_section_ptr = &the_com_sec;
 
 static const char *
-elf_sym_name(bfd *abfd, Elf32_Sym *sym)
+elf_sym_name(bfd *abfd, Elf_Sym *sym)
 {
+uint32_t st_name;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) )
+		st_name = sym->t64.st_name;
+	else
+#endif
+		st_name = sym->t32.st_name;
 	/* assume everything is initialized */
-	return sym->st_name >= abfd->symstrs->sh_size ? 0 : &abfd->strtabs[SYMSTRTAB][sym->st_name];
+	return st_name >= abfd->strtabs[SYMSTRTAB].size ? 0 : &abfd->strtabs[SYMSTRTAB].strs[st_name];
 }
 
 #if 0	/* currently unused; leave here in case we need it in the future */
 static char *stralloc(bfd *abfd, uint32_t len)
 {
-char       *rval;
-const char **nst;
+char   *rval;
+strtab *nst;
 	if ( len > STRCHUNKSZ ) {
 		ERRPR("String table implementation limits string length to %u bytes\n", STRCHUNKSZ);
 		return 0;
@@ -161,10 +168,11 @@ const char **nst;
 			return 0;
 		}
 		abfd->strtabs = nst;
+		abfd->strtabs[abfd->nstrtabs].size = STRCHUNKSZ;
 		abfd->nstrtabs++;
 		abfd->str_avail = STRCHUNKSZ;
 	}
-	rval = (char *)&abfd->strtabs[abfd->nstrtabs-1][STRCHUNKSZ - abfd->str_avail];
+	rval = (char *)&abfd->strtabs[abfd->nstrtabs-1].strs[STRCHUNKSZ - abfd->str_avail];
 	abfd->str_avail -= len;
 	return rval;
 }
@@ -359,11 +367,19 @@ unsigned rval;
 long
 bfd_canonicalize_symtab(bfd *abfd, asymbol** psymtab)
 {
-unsigned n;
-Elf32_Sym esym;
+unsigned  n;
+Elf_Sym   esym;
 asymbol   *asym;
 long      rval = -1;
 asection  *symsec;
+
+symvalue      st_value;
+bfd_size_type st_size;
+uint16_t      st_shndx;
+uint8_t       sym_type;
+uint8_t       sym_bind;
+
+const int symsz = get_symsz(abfd);
 
 	if ( !abfd->syms ) {
 		if ( ! (abfd->syms = malloc(sizeof(asymbol)*(abfd->nsyms))) ) {
@@ -371,35 +387,58 @@ asection  *symsec;
 			return -1;
 		}
 		/* seek skipping ELF symbol #0 */
-		if ( pmelf_seek(abfd->s, abfd->symsh->sh_offset + sizeof(esym)) ) {
+		if ( pmelf_seek(abfd->s, get_sh_offset(abfd, abfd->symsh) + symsz) ) {
 			bfd_perror("unable to seek to symbol table");
 			goto bail;
 		}
 		for ( n = 0, asym = abfd->syms; n<abfd->nsyms; n++, asym++ ) {
-			if ( pmelf_getsym(abfd->s, &esym) ) {
-				bfd_perror("unable to read symbol table");
-				goto bail;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+			if ( BFD_IS_ELF64(abfd) ) {
+				if ( pmelf_getsym64(abfd->s, &esym.t64) ) {
+					bfd_perror("unable to read symbol table");
+					goto bail;
+				}
+				st_value = esym.t64.st_value;
+				st_size  = esym.t64.st_size;
+				st_shndx = esym.t64.st_shndx;
+				sym_type = ELF64_ST_TYPE( esym.t64.st_info );
+				sym_bind = ELF64_ST_BIND( esym.t64.st_info );
 			}
+			else
+#endif
+			{
+				if ( pmelf_getsym32(abfd->s, &esym.t32) ) {
+					bfd_perror("unable to read symbol table");
+					goto bail;
+				}
+				st_value = esym.t32.st_value;
+				st_size  = esym.t32.st_size;
+				st_shndx = esym.t32.st_shndx;
+				sym_type = ELF32_ST_TYPE( esym.t32.st_info );
+				sym_bind = ELF32_ST_BIND( esym.t32.st_info );
+			}
+
 			if ( ! (asym->name = elf_sym_name(abfd, &esym)) ) {
 				ERRPR("Bad symbol name; ELF index possibly out of bounds\n");
 				goto bail;
 			}
-			asym->val   = esym.st_value;
-			asym->size  = esym.st_size;
+
+			asym->val   = st_value;
+			asym->size  = st_size;
 			asym->flags = 0;
 
-			if ( ! (symsec = shdr2sec(abfd, esym.st_shndx, 1)) ) {
+			if ( ! (symsec = shdr2sec(abfd, st_shndx, 1)) ) {
 				ERRPR("Symbol %s pointing to NO section (idx %"PRIu16")\n",
-						asym->name, esym.st_shndx);
+						asym->name, st_shndx);
 				goto bail;
 			}
 
-			asym->secndx = esym.st_shndx;
+			asym->secndx = st_shndx;
 
 			/* if the section already has a vma recalculate the offset */
 			asym->val   -= bfd_get_section_vma(abfd, symsec);
 
-			switch ( ELF32_ST_BIND( esym.st_info ) ) {
+			switch ( sym_bind ) {
 				default:
 				break;
 
@@ -410,12 +449,12 @@ asection  *symsec;
 				break;
 
 				case STB_GLOBAL:
-					if ( esym.st_shndx != SHN_UNDEF && esym.st_shndx != SHN_COMMON )
+					if ( st_shndx != SHN_UNDEF && st_shndx != SHN_COMMON )
 						asym->flags |= BSF_GLOBAL;
 				break;
 			}
 
-			switch ( ELF32_ST_TYPE( esym.st_info ) ) {
+			switch ( sym_type ) {
 				case STT_FUNC:		asym->flags |= BSF_FUNCTION;				break;
 				case STT_OBJECT:	asym->flags |= BSF_OBJECT;					break;
 				case STT_FILE:		asym->flags |= BSF_FILE | BSF_DEBUGGING;	break;
@@ -441,7 +480,7 @@ asection  *symsec;
 				 * common symbols (the ELF st_value field holds the
 				 * alignment).
 				 */
-				asym->value = esym.st_size;
+				asym->value = st_size;
 			}
 #endif
 
@@ -469,15 +508,24 @@ bail:
 bfd_boolean
 bfd_check_format(bfd *abfd, bfd_format format)
 {
+uint32_t e_type;
+
+#ifdef PMBFD_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) )
+		e_type = abfd->ehdr.e64.e_type;
+	else
+#endif
+		e_type = abfd->ehdr.e32.e_type;
+
 	switch ( format ) {
 		case bfd_object:
-			if ( ET_REL == abfd->ehdr.e_type
+			if ( ET_REL == e_type
 				/* also accept ET_EXEC for linux test program ... */
-				|| ET_EXEC == abfd->ehdr.e_type )
+				|| ET_EXEC == e_type )
 				return BFD_TRUE;
 			break;
 		case bfd_core:
-			if ( ET_CORE == abfd->ehdr.e_type )
+			if ( ET_CORE == e_type )
 				return BFD_TRUE;
 			break;
 		default:
@@ -499,7 +547,7 @@ static void bfd_cleanup(bfd *abfd, int noclose)
 	}
 	while ( abfd->nstrtabs > 0 ) {
 		abfd->nstrtabs--;
-		free( (void*)abfd->strtabs[ abfd->nstrtabs ] );
+		free( (void*)abfd->strtabs[ abfd->nstrtabs ].strs );
 	}
 	free( abfd->strtabs );
 	abfd->strtabs   = 0;
@@ -579,7 +627,7 @@ bfd_get_section(asymbol *sym)
 file_ptr
 pmbfd_get_section_filepos(bfd *abfd, asection *section)
 {
-	return section->shdr ? section->shdr->sh_offset : -1;
+	return section->shdr ? get_sh_offset(abfd, section->shdr) : -1;
 }
 
 flagword
@@ -603,7 +651,8 @@ bfd_get_section_vma(bfd *bfd, asection *sect)
 bfd_vma
 bfd_get_section_lma(bfd *bfd, asection *sect)
 {
-	return 0x0; /* would need to look into phdr... */
+	/* This is probaby BOGUS;  would need to look into phdr... */
+	return sect->vma; 
 }
 
 bfd_size_type
@@ -629,7 +678,15 @@ bfd_get_symtab_upper_bound(bfd *abfd)
 char *
 bfd_get_target(bfd *abfd)
 {
-	switch ( abfd->ehdr.e_machine ) {
+uint32_t e_machine;
+#ifdef PMBFD_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) ) 
+		e_machine = abfd->ehdr.e64.e_machine;
+	else
+#endif
+		e_machine = abfd->ehdr.e32.e_machine;
+	
+	switch ( e_machine ) {
 		case EM_PPC:	return "elf32-powerpc";
 		case EM_68K:	return "elf32-m68k";
 		case EM_386:	return "elf32-i386";
@@ -744,16 +801,45 @@ struct elf2bfddat {
 
 static void elf2bfdsec(bfd *abfd, asection *sec, void *closure)
 {
-struct elf2bfddat *p    = closure;
-Secndx            idx   = p->idx;
-Elf32_Shdr        *shdr = &abfd->shtab->shdrs[idx];
+struct elf2bfddat *p     = closure;
+Secndx            idx    = p->idx;
+Elf_Shdr          *eshdr = get_shtabN(abfd, idx);
 asection          *s;
 Elf32_Word        *grp;
 Elf32_Word        n;
-Elf32_Sym         sym;
+Elf_Sym           sym;
 int               i;
 flagword          flags = 0;
 const char        *sname;
+
+#ifdef PMELF_CONFIG_ELF64_SUPPORT
+Elf64_Shdr        *shdr;
+Elf64_Shdr        buf;
+#else
+Elf32_Shdr        *shdr;
+#endif
+
+#ifdef PMELF_CONFIG_ELF64_SUPPORT
+	if ( ! BFD_IS_ELF64(abfd) ) {
+		/* must make a copy */
+		buf.sh_name      = eshdr->s32.sh_name;
+		buf.sh_type      = eshdr->s32.sh_type;
+		buf.sh_flags     = eshdr->s32.sh_flags;
+		buf.sh_addr      = eshdr->s32.sh_addr;
+		buf.sh_offset    = eshdr->s32.sh_offset;
+		buf.sh_size      = eshdr->s32.sh_size;
+		buf.sh_link      = eshdr->s32.sh_link;
+		buf.sh_info      = eshdr->s32.sh_info;
+		buf.sh_addralign = eshdr->s32.sh_addralign;
+		buf.sh_entsize   = eshdr->s32.sh_entsize;
+
+		shdr = &buf;
+	} else {
+		shdr = &eshdr->s64;
+	}
+#else
+		shdr = &eshdr->s32;
+#endif
 
 	/* Some ELF sections don't make it into the bfd section table; nevertheless,
 	 * allocate an asection for every ELF section so that we can easily
@@ -763,16 +849,16 @@ const char        *sname;
 	/* mark as bogus */
 	bfd_set_section_flags(abfd, sec, SEC_BOGUS);
 
-	if ( ! (sname = pmelf_sec_name(abfd->shtab, shdr)) ) {
+	if ( ! (sname = pmelf_sec_name(abfd->shtab, eshdr)) ) {
 		ERRPR("No section name; ELF index into shstrtab possibly out of range\n");
 		p->err = 1;
 		return;
 	}
 	bfd_set_section_name(sec, sname);
 	bfd_set_section_size(abfd, sec, shdr->sh_size);
-	bfd_set_section_vma(abfd, sec, shdr->sh_addr);
+	bfd_set_section_vma(abfd,  sec, shdr->sh_addr);
 	bfd_set_section_alignment(abfd, sec, ldz(shdr->sh_addralign));
-	sec->shdr        = shdr;
+	sec->shdr        = eshdr;
 	/* must not touch grp_next since setting up groups
 	 * doesn't follow the order in which we scan the array
 	 * of sections.
@@ -810,7 +896,7 @@ const char        *sname;
 
 		case SHT_DYNSYM:
 						/* hmm - not sure what to do here (should not be used by cexp) */
-						return;
+						break;
 
 		case SHT_SYMTAB_SHNDX:
 						ERRPR("unsupported SHT_SYMTAB_SHNDX section found\n");
@@ -819,80 +905,107 @@ const char        *sname;
 
 		case SHT_STRTAB:
 						/* treat as normal section if not one of our recognized strtabs */
-						if (   (shdr - abfd->shtab->shdrs) == abfd->ehdr.e_shstrndx
-								|| (shdr                   == abfd->symstrs)
+						if (   get_shndx(abfd, eshdr) == abfd->shtab->idx
+								|| (eshdr             == abfd->symstrs)
 						   )
 							return;
 						break;
 
 		case SHT_REL:
 		case SHT_RELA:
-						return;
+						if ( ! (shdr->sh_flags & SHF_ALLOC) )
+							return;
+
+						break;
 
 		case SHT_GROUP:
-						grp = pmelf_getgrp(abfd->s, shdr, 0);
-						if ( !grp ) {
-							p->err = 1;
-							return;
-						}
-						if ( GRP_COMDAT & grp[0] ) {
-							n = shdr->sh_size / sizeof(grp[0]);
-							for (i=1, s=sec; i<n; i++) {
-								/* assume groups do not include 'special' sections
-								 * (like UND/ABS etc.)
-								 */
-								if ( 0 == grp[i] || grp[i] >= abfd->shtab->nshdrs ) {
-									ERRPR("Group member section index possibly out of bounds\n");
-									s->grp_next = GRP_NULL;
-									p->err      = 1;
-									return;
-								}
-								s->grp_next = grp[i];
-								if ( ! (s = elf_next_in_group(s)) ) {
-									ERRPR("Fatal error; should never get here\n");
-									p->err      = 1;
-									return;
-								}
-							}
-							/* BFD provides a closed 'loop' */
-							s->grp_next = idx;
-							flags |= SEC_LINK_ONCE | SEC_LINK_DUPLICATES_DISCARD;
-						}
-						free(grp);
-						/* asection name is group signature */
-						if ( shdr->sh_link != abfd->symsh - abfd->shtab->shdrs ) {
-							ERRPR("Group name symbol not in one-and-only symtab!\n");
-							p->err = 1;
-							return;
-						}
+						{
+						const int symsz = get_symsz(abfd);
+						uint32_t  st_name;
+						uint8_t   sym_type;
 
-						/* need to read the symbol */
-						if ( pmelf_seek(abfd->s, abfd->symsh->sh_offset + sizeof(sym)*shdr->sh_info) ) {
-							bfd_perror("unable to seek to group signature symbol");
-							p->err = 1;
-							return;
-						}
+							grp = pmelf_getgrp(abfd->s, eshdr, 0);
 
-						if ( pmelf_getsym(abfd->s, &sym) ) {
-							bfd_perror("unable to read group signature symbol");
-							p->err = 1;
-							return;
-						}
-
-						/* apparently, ld -r puts the group name into the section name
-						 * and the symbol linked by the group header's sh_link
-						 * has a NULL st_name :-( and is made a section symbol...
-						 */
-						if ( sym.st_name || ELF32_ST_TYPE(sym.st_info) != STT_SECTION ) {
-							const char *esnm;
-							if ( ! (esnm = elf_sym_name(abfd, &sym)) ) {
-								ERRPR("Bad symbol name; index possibly out of bounds\n");
-								p->err = -1;
+							if ( !grp ) {
+								p->err = 1;
 								return;
 							}
-							bfd_set_section_name(sec, esnm);
+							if ( GRP_COMDAT & grp[0] ) {
+								n               = shdr->sh_size / sizeof(grp[0]);
+								for (i=1, s=sec; i<n; i++) {
+									/* assume groups do not include 'special' sections
+									 * (like UND/ABS etc.)
+									 */
+									if ( 0 == grp[i] || grp[i] >= abfd->shtab->nshdrs ) {
+										ERRPR("Group member section index possibly out of bounds\n");
+										s->grp_next = GRP_NULL;
+										p->err      = 1;
+										return;
+									}
+									s->grp_next = grp[i];
+									if ( ! (s = elf_next_in_group(s)) ) {
+										ERRPR("Fatal error; should never get here\n");
+										p->err      = 1;
+										return;
+									}
+								}
+								/* BFD provides a closed 'loop' */
+								s->grp_next = idx;
+								flags |= SEC_LINK_ONCE | SEC_LINK_DUPLICATES_DISCARD;
+							}
+							free(grp);
+							/* asection name is group signature */
+							if ( shdr->sh_link != get_shndx(abfd, abfd->symsh) ) {
+								ERRPR("Group name symbol not in one-and-only symtab!\n");
+								p->err = 1;
+								return;
+							}
+
+							/* need to read the symbol */
+							if ( pmelf_seek(abfd->s, get_sh_offset(abfd, abfd->symsh) + symsz*shdr->sh_info) ) {
+								bfd_perror("unable to seek to group signature symbol");
+								p->err = 1;
+								return;
+							}
+
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+							if ( BFD_IS_ELF64(abfd) ) {
+								if ( pmelf_getsym64(abfd->s, &sym.s64) ) {
+									bfd_perror("unable to read group signature symbol");
+									p->err = 1;
+									return;
+								}
+								st_name = sym.t64.st_name;
+								sym_type = ELF64_ST_TYPE(sym.t64.st_info);
+							}
+							else
+#else
+							{
+								if ( pmelf_getsym32(abfd->s, &sym.t32) ) {
+									bfd_perror("unable to read group signature symbol");
+									p->err = 1;
+									return;
+								}
+								st_name = sym.t32.st_name;
+								sym_type = ELF32_ST_TYPE(sym.t32.st_info);
+							}
+#endif
+
+							/* apparently, ld -r puts the group name into the section name
+							 * and the symbol linked by the group header's sh_link
+							 * has a NULL st_name :-( and is made a section symbol...
+							 */
+							if ( st_name || sym_type != STT_SECTION ) {
+								const char *esnm;
+								if ( ! (esnm = elf_sym_name(abfd, &sym)) ) {
+									ERRPR("Bad symbol name; index possibly out of bounds\n");
+									p->err = -1;
+									return;
+								}
+								bfd_set_section_name(sec, esnm);
+							}
+							flags    |= SEC_GROUP | SEC_EXCLUDE;
 						}
-						flags    |= SEC_GROUP | SEC_EXCLUDE;
 						break;
 
 		default:
@@ -952,12 +1065,23 @@ mark_relocs(bfd *abfd)
 {
 uint32_t   n;
 asection   *tsec;
-Elf32_Shdr *shdr;
+Elf_Shdr   *shdr;
 const char *name;
 int        rval = 0;
+uint32_t   sh_type, sh_info;
+uint8_t    *p;
+uint32_t   shdrsz;
 
-	for ( n = 1, shdr = abfd->shtab->shdrs + n; n<abfd->shtab->nshdrs; n++, shdr++ ) {
-		switch ( shdr->sh_type ) {
+	shdrsz = get_shdrsz(abfd);
+
+	for ( n = 1, p = abfd->shtab->shdrs.p_raw + shdrsz; n<abfd->shtab->nshdrs; n++, p+=shdrsz ) {
+
+		shdr = (Elf_Shdr*)p;
+
+
+		sh_type = get_sh_type(abfd, shdr);
+
+		switch ( sh_type ) {
 			case SHT_REL:
 			case SHT_RELA:
 				break;
@@ -965,30 +1089,31 @@ int        rval = 0;
 				continue;
 		}
 
+		sh_info = get_sh_info(abfd, shdr);
 
-		if ( ! (tsec = shdr2sec(abfd, shdr->sh_info, 0)) ) {
+		if ( ! (tsec = shdr2sec(abfd, sh_info, 0)) ) {
 			if ( !(name = pmelf_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
 			ERRPR("pmbfd: no asection found associated with REL/RELA section %s (sh_info: %"PRId32")\n",
-				name,
-				shdr->sh_info
-			);
+					name,
+					sh_info
+				 );
 			return -1;
 		}
 		if ( SEC_BOGUS == bfd_get_section_flags(abfd, tsec) ) {
 			if ( !(name = pmelf_sec_name(abfd->shtab, shdr)) )
 				name = "<OUT-OF-BOUNDS>";
 			ERRPR("pmbfd: REL/RELA section %s (sh_info: %"PRId32") targeting BOGUS section %s\n",
-				name,
-				shdr->sh_info,
-				bfd_get_section_name(abfd, tsec)
-			);
+					name,
+					sh_info,
+					bfd_get_section_name(abfd, tsec)
+				 );
 			return -1;
 		}
 		if ( RELS_NULL != tsec->rels ) {
 			ERRPR("pmbfd: section %s has more than 1 associated sections with relocations -- currently unsupported, sorry\n",
-				bfd_get_section_name(abfd, tsec)
-			);
+					bfd_get_section_name(abfd, tsec)
+				 );
 			return -1;	      
 		}
 		tsec->rels = n;
@@ -1059,13 +1184,15 @@ int               nrels;
 		goto cleanup;
 	}
 
-	if ( ! (abfd->strtabs = malloc( sizeof(strs))) ) {
+	if ( ! (abfd->strtabs = malloc( sizeof(*abfd->strtabs) )) ) {
 		free((void*)strs);
 		goto cleanup;
 	}
 
 	/* SYMSTRTAB */
-	abfd->strtabs[abfd->nstrtabs++] = strs;
+	abfd->strtabs[abfd->nstrtabs].strs = strs;
+	abfd->strtabs[abfd->nstrtabs].size = get_sh_size(abfd, abfd->symstrs);
+	abfd->nstrtabs++;
 	
 	/* make section table */
 
@@ -1181,20 +1308,35 @@ static asection *
 get_reloc_sec(bfd *abfd, asection *sect)
 {
 asection *rels;
-uint32_t sz;
+unsigned long sz;
+unsigned long sh_entsize;
+uint32_t sh_type;
+
 	if ( RELS_NULL == sect->rels  ||  ! (rels = shdr2sec(abfd, sect->rels, 1)) ) {
 		ERRPR("pmbfd: section (%s) has no relocs\n", bfd_get_section_name(abfd, sect));
 		return 0;
 	}
-	switch ( rels->shdr->sh_type ) {
+
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) ) {
+		sh_entsize = rels->shdr->s64.sh_entsize;
+		sh_type    = rels->shdr->s64.sh_type;
+	} else
+#endif
+	{
+		sh_entsize = rels->shdr->s32.sh_entsize;
+		sh_type    = rels->shdr->s32.sh_type;
+	}
+
+	switch ( sh_type ) {
 		case SHT_REL:  sz = sizeof(Elf32_Rel); break;
 		case SHT_RELA: sz = sizeof(Elf32_Rela); break;
 
 		default:
-		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %"PRIu32")\n", rels->shdr->sh_type);
+		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %"PRIu32")\n", sh_type);
 		return 0;
 	}
-	if ( sz != rels->shdr->sh_entsize ) {
+	if ( sz != sh_entsize ) {
 		ERRPR("pmbfd: reloc section entry size mismatch\n");
 		return 0;
 	}
@@ -1204,15 +1346,27 @@ uint32_t sz;
 long
 pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms)
 {
-asection *rels;
-long     nrels;
+asection   *rels;
+long       nrels;
+Pmelf_Size sh_entsize, sh_size;
 
 	if ( !(rels = get_reloc_sec(abfd, sec)) ) {
 		return -1;
 	}
 
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) ) {
+		sh_entsize = rels->shdr->s64.sh_entsize;
+		sh_size    = rels->shdr->s64.sh_size;
+	} else
+#endif
+	{
+		sh_entsize = rels->shdr->s32.sh_entsize;
+		sh_size    = rels->shdr->s32.sh_size;
+	}
+
 	/* sh_entsize was checked by get_reloc_sec() */
-	nrels = rels->shdr->sh_size / rels->shdr->sh_entsize;
+	nrels = sh_size / sh_entsize;
 
 	/* read relocations */
 	if ( nrels > 0 ) {
@@ -1222,7 +1376,7 @@ long     nrels;
 		}
 	}
 
-	tab->entsz = rels->shdr->sh_entsize;
+	tab->entsz = sh_entsize;
 	tab->shdr  = rels->shdr;
 		
 	return nrels;
@@ -1231,10 +1385,17 @@ long     nrels;
 long
 bfd_get_reloc_upper_bound(bfd *abfd, asection *sect)
 {
-asection *rels = get_reloc_sec(abfd, sect);
+asection   *rels = get_reloc_sec(abfd, sect);
+Pmelf_Size sh_size;
 	if ( !rels ) 
 		return -1;
-	return sizeof(pmbfd_areltab) + rels->shdr->sh_size;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) )
+		sh_size = rels->shdr->s64.sh_size;
+	else
+#endif
+		sh_size = rels->shdr->s32.sh_size;
+	return sizeof(pmbfd_areltab) + sh_size;
 }
 
 pmbfd_arelent *
@@ -1248,7 +1409,12 @@ pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *r)
 {
 Elf32_Word idx;
 
-	idx = ELF32_R_SYM(r->rel.r_info);
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) )
+		idx = ELF64_R_SYM(r->rel64.r_info);
+	else
+#endif
+		idx = ELF32_R_SYM(r->rel32.r_info);
 	if ( idx == 0 || idx > abfd->nsyms )
 		return -1;
 	return idx-1;
@@ -1257,7 +1423,11 @@ Elf32_Word idx;
 bfd_size_type
 pmbfd_reloc_get_address(bfd *abfd, pmbfd_arelent *r)
 {
-	return r->rel.r_offset;
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+	if ( BFD_IS_ELF64(abfd) )
+		return r->rel64.r_offset;
+#endif
+	return r->rel32.r_offset;
 }
 
 symvalue

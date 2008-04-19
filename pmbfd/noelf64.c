@@ -1,4 +1,10 @@
+#include "pmelf.h"
 /* $Id$ */
+
+/* Empty stubs so that applications referring to 64-bit
+ * routines link even if pmelf was only configured to
+ * support 32-bit.
+ */
 
 /* 
  * Authorship
@@ -44,46 +50,43 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
 
-#ifdef PMELF_CONFIG_ELF64SUPPORT
+int
+pmelf_getshdr64(Elf_Stream s, Elf64_Shdr *pshdr)
+{
+	return -3;
+}
+
+int
+pmelf_getsym64(Elf_Stream s, Elf64_Sym *psym)
+{
+	return -3;
+}
+
+void 
+pmelf_dump_shdr64(FILE *f, Elf64_Shdr *pshdr, int format)
+{
+}
+
+void
+pmelf_dump_sym64(FILE *f, Elf64_Sym *sym, Pmelf_Shtab shtab, const char *strtab, unsigned strtablen, int format)
+{
+}
+
+int
+pmelf_putehdr64(Elf_Stream s, Elf64_Ehdr *pehdr)
+{
+	return -3;
+}
+
+int
+pmelf_putshdr64(Elf_Stream s, Elf64_Shdr *pshdr)
+{
+	return -3;
+}
+
 int
 pmelf_putsym64(Elf_Stream s, Elf64_Sym *psym)
 {
-Elf64_Sym nsym;
-	if ( s->needswap ) {
-#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-		return -2;
-#else
-		nsym = *psym;
-		psym = &nsym;
-		elf_swap32( &psym->st_name);
-		elf_swap64( &psym->st_value);
-		elf_swap64( &psym->st_size);
-		elf_swap16( &psym->st_shndx);
-#endif
-	}
-
-	return s->write && 1 == SWRITE( psym, sizeof(*psym), 1, s) ? 0 : -1;
-}
-#endif
-
-int
-pmelf_putsym32(Elf_Stream s, Elf32_Sym *psym)
-{
-Elf32_Sym nsym;
-	if ( s->needswap ) {
-#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-		return -2;
-#else
-		nsym = *psym;
-		psym = &nsym;
-		elf_swap32( &psym->st_name);
-		elf_swap32( &psym->st_value);
-		elf_swap32( &psym->st_size);
-		elf_swap16( &psym->st_shndx);
-#endif
-	}
-
-	return s->write && 1 == SWRITE( psym, sizeof(*psym), 1, s) ? 0 : -1;
+	return -3;
 }

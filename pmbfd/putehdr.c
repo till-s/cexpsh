@@ -46,8 +46,60 @@
  */ 
 #include "pmelfP.h"
 
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 int
-pmelf_putehdr(Elf_Stream s, Elf32_Ehdr *pehdr)
+pmelf_putehdr64(Elf_Stream s, Elf64_Ehdr *pehdr)
+{
+uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
+Elf64_Ehdr nehdr;
+
+	if ( memcmp(magic, pehdr->e_ident+EI_MAG0, sizeof(magic)) ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an ELF file\n");
+		return -1;
+	}
+	if ( pehdr->e_ident[EI_CLASS] != ELFCLASS64 ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an 64-bit ELF file\n");
+		return -1;
+	}
+
+	if ( pehdr->e_ident[EI_VERSION] != EV_CURRENT ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not a version %i ELF file\n", EV_CURRENT);
+		return -1;
+	}
+
+	s->needswap = iamlsb() ^ (pehdr->e_ident[EI_DATA] == ELFDATA2LSB ? 1 : 0);
+
+#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
+	if ( s->needswap ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: host/target byte order mismatch but pmelf was configured w/o support for byte-swapping\n");
+		return -2;
+	}
+#else
+	if ( s->needswap ) {
+		nehdr = *pehdr;
+		pehdr = &nehdr;
+		elf_swap16( &pehdr->e_type      );
+		elf_swap16( &pehdr->e_machine   );
+		elf_swap32( &pehdr->e_version   );
+		elf_swap64( &pehdr->e_entry     );
+		elf_swap64( &pehdr->e_phoff     );
+		elf_swap64( &pehdr->e_shoff     );
+		elf_swap32( &pehdr->e_flags     );
+		elf_swap16( &pehdr->e_ehsize    );
+		elf_swap16( &pehdr->e_phentsize );
+		elf_swap16( &pehdr->e_phnum     );
+		elf_swap16( &pehdr->e_shentsize );
+		elf_swap16( &pehdr->e_shnum     );
+		elf_swap16( &pehdr->e_shstrndx  );
+	}
+#endif
+
+	return s->write && 1 == SWRITE(pehdr, sizeof(*pehdr), 1, s) ? 0 : -1;
+}
+#endif
+
+int
+pmelf_putehdr32(Elf_Stream s, Elf32_Ehdr *pehdr)
 {
 uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 Elf32_Ehdr nehdr;

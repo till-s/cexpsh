@@ -3,11 +3,7 @@ AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@
 
-##BUILT_SOURCES = builddate.h
-
 MOSTLYCLEANFILES =
-
-XSYMS=xsyms
 
 if USETECLA
 TECLA_SRCS       = teclastuff.c
@@ -24,36 +20,41 @@ if USEOPCODES
 SYMF_SRCS       += bfd-disas.c
 SYMLIBP         += -L@BINUTILS@/opcodes/.libs
 SYMLIBS         += -lopcodes
-endif
+endif # USEOPCODES
 SYMINCS          = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-xsyms_SOURCES    = xsyms.c
 xsyms_LDADD      = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-gencore_SOURCES  = gencore.c
 gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
 gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-else
-if USEPMBFD
+else # USEBFD
+if USELOADER
 SYMF_SRCS        = bfdstuff.c
 SYMLIBP          = -Lpmbfd
 SYMLIBS          = -lpmbfd -lpmelf
 SYMINCS          = -I$(srcdir)/pmbfd
-else
-if USELIBELF
+else #USELOADER
+if USEPMBFD
+# ELF symbol file reader only
 SYMF_SRCS        = elfsyms.c
 SYMLIBP          = -Lpmbfd
 SYMLIBS          = -lpmelf
 SYMINCS          = -I$(srcdir)/pmbfd
-else
+else #USEPMBFD
+# no symbol file reader at all
 SYMF_SRCS        = noloader.c
-endif
-endif
-xsyms_SOURCES    = xsyms.c
+endif #USEPMBFD
+endif #USELOADER
 xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
-endif
+endif #USEBFD
 
-SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h help.c $(SYMF_SRCS) $(TECLA_SRCS)
+SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h
+SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
+SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
+SRCS+= help.c $(SYMF_SRCS) $(TECLA_SRCS)
+
+xsyms_SOURCES    = xsyms.c
+gencore_SOURCES  = gencore.c
 
 #MDBG=/home/till/slac/xfm/src/mdbg/mdbg.o
 #MDBGCFLAGS=-DUSE_MDBG -I$(dir $(MDBG))
@@ -65,33 +66,30 @@ SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h  cexpmo
 #BFDLIBP=-L $(BINUT)/$(ARCH)/bfd/.libs/ -L $(BINUT)/$(ARCH)/libiberty/ -L $(BINUT)/$(ARCH)/opcodes/.libs/
 
 
-
-#CONFIGHACKS=-DHAVE_ELF_BFD_H -DHAVE_BFD_DISASSEMBLER -DUSE_TECLA
-
 if DO_CEXPLIB
 
 lib_LIBRARIES=libcexp.a
 include_HEADERS = cexp.h cexpHelp.h
 
-libcexp_a_CFLAGS=$(CONFIGHACKS) $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
+libcexp_a_CFLAGS=$(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
-AM_CPPFLAGS = -I@srcdir@/regexp $(xsyms_CPPFLAGS)
+AM_CPPFLAGS   = -I@srcdir@/regexp $(xsyms_CPPFLAGS)
 
 libcexp_a_DEPENDENCIES=$(SYMDEPS)
 
 if DO_DEMO
-cexp_SOURCES=$(SRCS)
-cexp_CFLAGS= $(CONFIGHACKS) -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
+cexp_SOURCES  =$(SRCS)
+cexp_CFLAGS   = -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
-cexp_LDADD=$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
-cexp_LDFLAGS= $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
-# $(BFDLIBP) -Wl,-Bstatic
-bin_PROGRAMS=cexp
+cexp_LDADD    =$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
+cexp_LDFLAGS  = $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
+bin_PROGRAMS  = cexp
 bin_PROGRAMS += xsyms
-endif
-else
+endif #DO_DEMO
+else #DO_CEXPLIB
+# cross-tools only
 AM_CPPFLAGS = $(xsyms_CPPFLAGS)
 if USEBFD
 bin_PROGRAMS=xsyms gencore
@@ -100,6 +98,7 @@ bin_PROGRAMS=xsyms
 endif
 endif
 
+XSYMS=xsyms
 
 #we can't use automake for this because
 # - we _need_ bison

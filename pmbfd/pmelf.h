@@ -494,6 +494,7 @@ typedef struct {
 	uint8_t     clss;         /* class (64/32-bit) */
 } *Pmelf_Shtab;
 
+/* A Symbol Table         */
 typedef struct {
 	Elf_PSym	syms;         /* Array of symbols  */
 	Pmelf_Long  nsyms;        /* number of entries */

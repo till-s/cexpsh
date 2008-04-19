@@ -81,7 +81,7 @@
 
 #ifdef _PMBFD_
 
-static int cpyscn(Elf_Stream elfi, Elf_Stream elfo, Pmelf_Elf32_Shtab shtab, Elf32_Shdr *shdr)
+static int cpyscn(Elf_Stream elfi, Elf_Stream elfo, Pmelf_Shtab shtab, Elf_Shdr *shdr)
 {
 void *dat = 0;
 int  rval = -1;
@@ -89,7 +89,7 @@ int  rval = -1;
 		fprintf(stderr,"Unable to read %s section\n", pmelf_sec_name(shtab, shdr));
 		return -1;
 	}
-	if ( pmelf_write(elfo, dat, shdr->sh_size) ) {
+	if ( pmelf_write(elfo, dat, shdr->s32.sh_size) ) {
 		fprintf(stderr,"Unable to write %s section\n", pmelf_sec_name(shtab, shdr));
 		goto cleanup;
 	}
@@ -105,17 +105,20 @@ pmelf_copy_symtab(char *ifilen, char *ofilen)
 {
 FILE       *of;
 Elf_Stream elfi=0, elfo=0;
-Elf32_Ehdr ehdr;
-Elf32_Shdr shdrs[4]; /* NULL .shstrtab .symtab .strtab */
-Elf32_Shdr *symsh, *strsh;
-Pmelf_Elf32_Shtab shtab = 0;
-Pmelf_Elf32_Symtab symtab = 0;
-Elf32_Sym  *sym;
+Elf_Ehdr   ehdr;
+union {
+	Elf32_Shdr e32[4];
+	Elf64_Shdr e64[4];
+} shdrs;   /* NULL .shstrtab .symtab .strtab */
+Elf_Shdr   *symsh, *strsh;
+Pmelf_Shtab shtab = 0;
+Pmelf_Symtab symtab = 0;
 int        rval = -1, i;
 char       buf[BUFSIZ];
+int        elf64 = 0;
 
 	/* Do it the ELF way... */
-	memset(shdrs,0,sizeof(shdrs));
+	memset(&shdrs,0,sizeof(shdrs));
 
 	pmelf_set_errstrm(stderr);
 
@@ -133,28 +136,6 @@ char       buf[BUFSIZ];
 	if ( pmelf_find_symhdrs(elfi, shtab, &symsh, &strsh) < 0 ) {
 		goto cleanup;
 	}
-	shdrs[0]           = shtab->shdrs[0];
-
-	shdrs[1].sh_name   = 1; /* .shstrtab */
-	shdrs[1].sh_type   = SHT_STRTAB;
-	shdrs[1].sh_offset = sizeof(ehdr) + sizeof(shdrs);
-	shdrs[1].sh_size   = 27;
-
-	shdrs[2]           = *symsh;
-	shdrs[2].sh_name   = 11;
-	shdrs[2].sh_offset = shdrs[1].sh_offset + shdrs[1].sh_size;
-	shdrs[2].sh_link   = 3;
-
-	shdrs[3]           = *strsh;
-	shdrs[3].sh_name   = 19;
-	shdrs[3].sh_offset = shdrs[2].sh_offset + shdrs[2].sh_size;
-
-	ehdr.e_entry = 0;
-	ehdr.e_phoff = 0;
-	ehdr.e_shoff = sizeof(ehdr);
-	ehdr.e_phnum = 0;
-	ehdr.e_shnum = sizeof(shdrs)/sizeof(shdrs[0]);
-	ehdr.e_shstrndx = 1;
 
 	if ( ! (of = fopen(ofilen,"w")) ) {
 		fprintf(stderr,"pmelf -- Opening %s for writing: %s\n",ofilen, strerror(errno));
@@ -164,38 +145,108 @@ char       buf[BUFSIZ];
 		fclose(of);
 		goto cleanup;
 	}
-	if ( pmelf_putehdr(elfo, &ehdr) ) {
-		goto cleanup;
-	}
-	for ( i = 0; i<ehdr.e_shnum; i++ ) {
-		if ( pmelf_putshdr(elfo, shdrs+i) ) {
+
+	if ( (elf64 = (ELFCLASS64 == ehdr.e_ident[EI_CLASS])) ) {
+		shdrs.e64[0]           = shtab->shdrs.p_s64[0];
+
+		shdrs.e64[1].sh_name   = 1; /* .shstrtab */
+		shdrs.e64[1].sh_type   = SHT_STRTAB;
+		shdrs.e64[1].sh_offset = sizeof(ehdr.e64) + sizeof(shdrs.e64);
+		shdrs.e64[1].sh_size   = 27;
+
+		shdrs.e64[2]           = symsh->s64;
+		shdrs.e64[2].sh_name   = 11;
+		shdrs.e64[2].sh_offset = shdrs.e64[1].sh_offset + shdrs.e64[1].sh_size;
+		shdrs.e64[2].sh_link   = 3;
+
+		shdrs.e64[3]           = strsh->s64;
+		shdrs.e64[3].sh_name   = 19;
+		shdrs.e64[3].sh_offset = shdrs.e64[2].sh_offset + shdrs.e64[2].sh_size;
+
+		ehdr.e64.e_entry = 0;
+		ehdr.e64.e_phoff = 0;
+		ehdr.e64.e_shoff = sizeof(ehdr.e64);
+		ehdr.e64.e_phnum = 0;
+		ehdr.e64.e_shnum = sizeof(shdrs.e64)/sizeof(shdrs.e64[0]);
+		ehdr.e64.e_shstrndx = 1;
+		if ( pmelf_putehdr64(elfo, &ehdr.e64) ) {
 			goto cleanup;
 		}
+		for ( i = 0; i<ehdr.e64.e_shnum; i++ ) {
+			if ( pmelf_putshdr64(elfo, shdrs.e64+i) ) {
+				goto cleanup;
+			}
+		}
+	} else {
+		shdrs.e32[0]           = shtab->shdrs.p_s32[0];
+
+		shdrs.e32[1].sh_name   = 1; /* .shstrtab */
+		shdrs.e32[1].sh_type   = SHT_STRTAB;
+		shdrs.e32[1].sh_offset = sizeof(ehdr.e32) + sizeof(shdrs.e32);
+		shdrs.e32[1].sh_size   = 27;
+
+		shdrs.e32[2]           = symsh->s32;
+		shdrs.e32[2].sh_name   = 11;
+		shdrs.e32[2].sh_offset = shdrs.e32[1].sh_offset + shdrs.e32[1].sh_size;
+		shdrs.e32[2].sh_link   = 3;
+
+		shdrs.e32[3]           = strsh->s32;
+		shdrs.e32[3].sh_name   = 19;
+		shdrs.e32[3].sh_offset = shdrs.e32[2].sh_offset + shdrs.e32[2].sh_size;
+
+		ehdr.e32.e_entry = 0;
+		ehdr.e32.e_phoff = 0;
+		ehdr.e32.e_shoff = sizeof(ehdr.e32);
+		ehdr.e32.e_phnum = 0;
+		ehdr.e32.e_shnum = sizeof(shdrs.e32)/sizeof(shdrs.e32[0]);
+		ehdr.e32.e_shstrndx = 1;
+		if ( pmelf_putehdr32(elfo, &ehdr.e32) ) {
+			goto cleanup;
+		}
+		for ( i = 0; i<ehdr.e32.e_shnum; i++ ) {
+			if ( pmelf_putshdr32(elfo, shdrs.e32+i) ) {
+				goto cleanup;
+			}
+		}
 	}
+
 	if (   pmelf_write(elfo,"",1)
-	    || pmelf_write(elfo,".shstrtab",10)
-	    || pmelf_write(elfo,".symtab",8)
-	    || pmelf_write(elfo,".strtab",8) )
+			|| pmelf_write(elfo,".shstrtab",10)
+			|| pmelf_write(elfo,".symtab",8)
+			|| pmelf_write(elfo,".strtab",8) )
 	{
 		fprintf(stderr,"pmelf -- unable to write .shstrtab: %s\n", strerror(errno));
 		goto cleanup;
 	}
 
-	for ( i=0, sym=symtab->syms; i<symtab->nsyms; i++, sym++ ) {
-		if ( sym->st_shndx != SHN_UNDEF && sym->st_shndx < shtab->nshdrs ) {
-		/*
-			sym->st_value += shtab->shdrs[sym->st_shndx].sh_addr;
-		 */
-			sym->st_shndx = SHN_ABS;
+	if ( elf64 ) {
+		Elf64_Sym *sym;
+		for ( i=0, sym=symtab->syms.p_t64; i<symtab->nsyms; i++, sym++ ) {
+			if ( sym->st_shndx != SHN_UNDEF && sym->st_shndx < shtab->nshdrs ) {
+				/*
+				   sym->st_value += shtab->shdrs[sym->st_shndx].sh_addr;
+				   */
+				sym->st_shndx = SHN_ABS;
+			}
+		}
+	} else {
+		Elf32_Sym *sym;
+		for ( i=0, sym=symtab->syms.p_t32; i<symtab->nsyms; i++, sym++ ) {
+			if ( sym->st_shndx != SHN_UNDEF && sym->st_shndx < shtab->nshdrs ) {
+				/*
+				   sym->st_value += shtab->shdrs[sym->st_shndx].sh_addr;
+				   */
+				sym->st_shndx = SHN_ABS;
+			}
 		}
 	}
 
-	if ( pmelf_write(elfo, symtab->syms, symsh->sh_size) ) {
+	if ( pmelf_write(elfo, symtab->syms.p_raw, elf64 ? symsh->s64.sh_size : symsh->s32.sh_size) ) {
 		fprintf(stderr,"pmelf -- unable to write .symtab\n");
 		goto cleanup;
 	}
 
-	if ( cpyscn(elfi, elfo, shtab, strsh) ) 
+	if ( cpyscn(elfi, elfo, shtab, (Elf_Shdr*)strsh) ) 
 		goto cleanup;
 
 	ofilen = 0;

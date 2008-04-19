@@ -55,6 +55,8 @@ AM_ENABLE_MULTILIB([Makefile],[..])
 dnl install multilibs into MULTISUBDIR
 AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
 
+AM_CONDITIONAL(BUILD_UTILS, test "$host_os" != "rtems")
+
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)
 AC_OUTPUT

@@ -44,6 +44,7 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
+
 #ifdef USE_REAL_BFD
 #include <sys/types.h>
 #include <bfd.h>
@@ -191,7 +192,7 @@ char   *sep = "";
 static void
 usage(char *nm)
 {
-	fprintf(stderr,"usage: %s [-thH]\n",nm);
+	fprintf(stderr,"usage: %s [-thH] <elf_file>\n",nm);
 	fprintf(stderr,"       -t : print symbol table\n");
 	fprintf(stderr,"       -h : print section table\n");
 	fprintf(stderr,"       -H : this message\n");
@@ -233,7 +234,7 @@ int doit=0;
 	}
 
 	if ( optind >= argc ) {
-		fprintf(stderr,"Need filename arg\n");
+		usage(argv[0]);
 		return 1;
 	}
 	if ( !(f=fopen(argv[optind],"r")) ) {

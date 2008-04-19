@@ -20,6 +20,12 @@ if NO_64BIT
 libpmelf_a_SOURCES+=noelf64.c
 endif
 
+if BUILD_UTILS
+bin_PROGRAMS=rdelf bfdod
+rdelf_LDADD=-L. -lpmelf
+bfdod_LDADD=-L. -lpmbfd -lpmelf
+endif
+
 libpmbfd_a_SOURCES=bfd.c
 EXTRA_libpmbfd_a_SOURCES=$(wildcard $(srcdir)/bfd-reloc-*.c)
 if HAVE_RELOCS

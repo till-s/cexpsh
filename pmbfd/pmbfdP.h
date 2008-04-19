@@ -122,6 +122,9 @@ struct bfd {
 #define BFD_ELFCLASS(abfd)  ((abfd)->ehdr.e_ident[EI_CLASS])
 #define BFD_IS_ELF64(abfd) (ELFCLASS64 == BFD_ELFCLASS(abfd))
 
+#define PMELF_CONFIG_ELF64SUPPORT
+#warning XXXXX
+
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 
 #define CREAT_GET_SH(typ,member)                \
@@ -197,7 +200,7 @@ union pmbfd_arelent {
 	Elf32_Rel	rel32;
 	Elf32_Rela	rela32;
 	Elf64_Rel   rel64;
-	Elf64_Rel   rela64;
+	Elf64_Rela  rela64;
 	char        raw[sizeof(Elf64_Rela)];
 };
 

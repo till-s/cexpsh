@@ -83,6 +83,8 @@ static const bfd_arch_info_type myarch = {
 	"elf32-i386"
 #elif defined(__m68k__)
 	"elf32-m68k"
+#elif defined(__x86_64__)
+	"elf64-x86_64"
 #else
 #error "Undefined architecture"
 #endif
@@ -510,7 +512,7 @@ bfd_check_format(bfd *abfd, bfd_format format)
 {
 uint32_t e_type;
 
-#ifdef PMBFD_CONFIG_ELF64SUPPORT
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 	if ( BFD_IS_ELF64(abfd) )
 		e_type = abfd->ehdr.e64.e_type;
 	else
@@ -679,7 +681,7 @@ char *
 bfd_get_target(bfd *abfd)
 {
 uint32_t e_machine;
-#ifdef PMBFD_CONFIG_ELF64SUPPORT
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 	if ( BFD_IS_ELF64(abfd) ) 
 		e_machine = abfd->ehdr.e64.e_machine;
 	else
@@ -690,6 +692,7 @@ uint32_t e_machine;
 		case EM_PPC:	return "elf32-powerpc";
 		case EM_68K:	return "elf32-m68k";
 		case EM_386:	return "elf32-i386";
+		case EM_X86_64: return "elf64-x86_64";
 		default:
 			switch ( abfd->ehdr.e_ident[EI_DATA] ) {
 				case ELFDATA2LSB: return "elf32-little";
@@ -812,14 +815,14 @@ int               i;
 flagword          flags = 0;
 const char        *sname;
 
-#ifdef PMELF_CONFIG_ELF64_SUPPORT
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 Elf64_Shdr        *shdr;
 Elf64_Shdr        buf;
 #else
 Elf32_Shdr        *shdr;
 #endif
 
-#ifdef PMELF_CONFIG_ELF64_SUPPORT
+#ifdef PMELF_CONFIG_ELF64SUPPORT
 	if ( ! BFD_IS_ELF64(abfd) ) {
 		/* must make a copy */
 		buf.sh_name      = eshdr->s32.sh_name;
@@ -970,7 +973,7 @@ Elf32_Shdr        *shdr;
 
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 							if ( BFD_IS_ELF64(abfd) ) {
-								if ( pmelf_getsym64(abfd->s, &sym.s64) ) {
+								if ( pmelf_getsym64(abfd->s, &sym.t64) ) {
 									bfd_perror("unable to read group signature symbol");
 									p->err = 1;
 									return;
@@ -1308,7 +1311,7 @@ static asection *
 get_reloc_sec(bfd *abfd, asection *sect)
 {
 asection *rels;
-unsigned long sz;
+unsigned long sz,rel_sz, rela_sz;
 unsigned long sh_entsize;
 uint32_t sh_type;
 
@@ -1321,16 +1324,20 @@ uint32_t sh_type;
 	if ( BFD_IS_ELF64(abfd) ) {
 		sh_entsize = rels->shdr->s64.sh_entsize;
 		sh_type    = rels->shdr->s64.sh_type;
+		rel_sz     = sizeof(Elf64_Rel);
+		rela_sz    = sizeof(Elf64_Rela);
 	} else
 #endif
 	{
 		sh_entsize = rels->shdr->s32.sh_entsize;
 		sh_type    = rels->shdr->s32.sh_type;
+		rel_sz     = sizeof(Elf32_Rel);
+		rela_sz    = sizeof(Elf32_Rela);
 	}
 
 	switch ( sh_type ) {
-		case SHT_REL:  sz = sizeof(Elf32_Rel); break;
-		case SHT_RELA: sz = sizeof(Elf32_Rela); break;
+		case SHT_REL:  sz = rel_sz;  break;
+		case SHT_RELA: sz = rela_sz; break;
 
 		default:
 		ERRPR("pmbfd: reloc section not of type REL/RELA! (but %"PRIu32")\n", sh_type);

@@ -3,7 +3,7 @@ BFDHDIR=-I$(BFDDIR)/build/bfd -I$(BFDDIR)/include -I$(BFDDIR)/bfd
 BFDLIBDIR=-L$(BFDDIR)/build/bfd -L$(BFDDIR)/build/libiberty
 all: bfdod rdelf libpmbfd.a
 
-CFLAGS=-Wall -O2 -g
+CFLAGS=-Wall -O2 -g -m64
 
 PMELF_SRCS =symname.c secname.c dmpgrps.c
 PMELF_SRCS+=strm.c mstrm.c fstrm.c

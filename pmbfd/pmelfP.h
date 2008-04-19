@@ -47,6 +47,10 @@
 #ifndef PMELF_PRIVATE_H
 #define PMELF_PRIVATE_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,8 +61,6 @@
 
 #define PARANOIA_ON 0
 #undef PARANOIA_ON
-
-#define PMELF_CONFIG_ELF64SUPPORT
 
 /* NOTE: we currently don't fully support 64-bit targets on a 32-bit host.
  *       otherwise we need to use explicit 64-bit types for sizes and

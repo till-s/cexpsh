@@ -48,6 +48,10 @@
 #ifndef PMBFD_P_H
 #define PMBFD_P_H
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include "pmelf.h"
 #include "pmbfd.h"
 
@@ -121,9 +125,6 @@ struct bfd {
 
 #define BFD_ELFCLASS(abfd)  ((abfd)->ehdr.e_ident[EI_CLASS])
 #define BFD_IS_ELF64(abfd) (ELFCLASS64 == BFD_ELFCLASS(abfd))
-
-#define PMELF_CONFIG_ELF64SUPPORT
-#warning XXXXX
 
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 

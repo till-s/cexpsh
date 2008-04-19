@@ -16,6 +16,9 @@ libpmelf_a_SOURCES+=getshdr.c
 libpmelf_a_SOURCES+=putshdr.c
 libpmelf_a_SOURCES+=getehdr.c
 libpmelf_a_SOURCES+=putehdr.c
+if NO_64BIT
+libpmelf_a_SOURCES+=noelf64.c
+endif
 
 libpmbfd_a_SOURCES=bfd.c
 EXTRA_libpmbfd_a_SOURCES=$(wildcard $(srcdir)/bfd-reloc-*.c)

@@ -77,13 +77,13 @@ Elf64_Word     v32;
 		default:
 		return bfd_reloc_notsupported;
 
-		case R_X86_64_PC32: sz = 4;  lim = -(1L<<32);
+		case R_X86_64_PC32: sz = 4;  lim = -(1LL<<32);
 		case R_X86_64_PC64:
                          val = -pc;
 		break;
 
-		case R_X86_64_32:   sz = 4;  lim = -(1L<<32); break;
-		case R_X86_64_32S:  sz = 4;  lim = -(1L<<31); break;
+		case R_X86_64_32:   sz = 4;  lim = -(1LL<<32); break;
+		case R_X86_64_32S:  sz = 4;  lim = -(1LL<<31); break;
 		case R_X86_64_64:	 
 		break;
 	}

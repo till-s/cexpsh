@@ -141,7 +141,11 @@ const char *name;
 	else
 		fprintf(f," %5"PRIu32, sym->st_size);
 
-	fprintf(f," %-8s%-7s%-8s",
+	/*
+     * visibility should not be printed with -3s but -8s 
+     * in order to fit but that's what readelf does :-(
+     */
+	fprintf(f," %-8s%-7s%-3s ",
 			ARRSTR(pmelf_st_type_s, ELF32_ST_TYPE(sym->st_info)),
 			ARRSTR(pmelf_st_bind_s, ELF32_ST_BIND(sym->st_info)),
 			ARRSTR(pmelf_st_vis_s,  ELF32_ST_VISIBILITY(sym->st_other))

@@ -59,7 +59,7 @@
 #include <cexp_regex.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <inttypes.h>
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 #include "cexplock.h"
@@ -259,7 +259,7 @@ int			max=24;
 		while (s->name && *pmax) {
       		if (cexp_regexec(rc,s->name)) {
 				if (!mfound) {
-					if (f) fprintf(f,"=====  In module '%s' (0x%08x) =====:\n",m->name, (unsigned)m);
+					if (f) fprintf(f,"=====  In module '%s' (0x%08"PRIxPTR") =====:\n",m->name, (uintptr_t)m);
 					mfound=m; /* print module name only once */
 					(*pmax)--;
 				}
@@ -324,10 +324,10 @@ CexpModule m = mod ? mod : cexpSystemModule;
 static void
 modPrintInfo(CexpModule m, FILE *f, void *closure)
 {
-int		level = (int)closure;
+intptr_t	level = (intptr_t)closure;
 CexpSym	*psects;
-	fprintf(f,"Module '%s' (0x%08x):\n",
-				m->name, (unsigned)m);
+	fprintf(f,"Module '%s' (0x%08"PRIxPTR"):\n",
+				m->name, (uintptr_t)m);
 	if ( level > 0 )
 		fprintf(f,"Full path '%s'\n",m->fileName);
 	if ( level > 1 ) {
@@ -345,14 +345,14 @@ CexpSym	*psects;
 	if ( level > 2 && ( psects = m->section_syms ) ) {
 		fprintf(f,"  Section load info:\n");
 		for ( ; *psects; psects++ )
-			fprintf(f,"  @0x%08x: %s\n", (unsigned)(*psects)->value.ptv, (*psects)->name);
+			fprintf(f,"  @0x%08"PRIxPTR": %s\n", (uintptr_t)(*psects)->value.ptv, (*psects)->name);
 	}
 }
 
 CexpModule
 cexpModuleInfo(CexpModule mod, int level, FILE *f)
 {
-	return cexpModIterate(mod, f, modPrintInfo, (void*)level);
+	return cexpModIterate(mod, f, modPrintInfo, (void*)(intptr_t)level);
 }
 
 static void
@@ -366,13 +366,13 @@ CexpSym	*psects;
 
 	if ( !prefix )
 		prefix="add-symbol-file ";
-	else if ( 0xffffffff == (unsigned)prefix )
+	else if ( ((intptr_t)-1) == (intptr_t)prefix )
 		prefix=0;
 
 	fprintf(f,"%s%s 0x%08lx", prefix ? prefix : "", m->name, m->text_vma);
 	if ( ( psects = m->section_syms ) ) {
 		for ( ; *psects; psects++ )
-			fprintf(f," -s%s 0x%08x", (*psects)->name, (unsigned)(*psects)->value.ptv);
+			fprintf(f," -s%s 0x%08"PRIxPTR, (*psects)->name, (uintptr_t)(*psects)->value.ptv);
 	}
 	fputc('\n',f);
 }
@@ -407,7 +407,7 @@ CexpModule	m,found=0;
 			if (!found)
 				found=m;
 			if (f)
-				fprintf(f,"0x%08x: %s\n",(unsigned)m, m->name);
+				fprintf(f,"0x%08"PRIxPTR": %s\n",(uintptr_t)m, m->name);
 			else
 				break;
 		}

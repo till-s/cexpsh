@@ -47,6 +47,11 @@
 
 #include "pmbfdP.h"
 
+/* FIXME: this is not complete but includes just what 
+ *        gcc/linux on x86_64 seem to be using...
+ *        (However, the spec says that the 8/16-bit relocs
+ *        are not svr4 abi compliant anyways.)
+ */
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
@@ -153,4 +158,3 @@ pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 	}
 	return "UNKNOWN";
 }
-

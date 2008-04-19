@@ -85,11 +85,13 @@ static int cpyscn(Elf_Stream elfi, Elf_Stream elfo, Pmelf_Shtab shtab, Elf_Shdr 
 {
 void *dat = 0;
 int  rval = -1;
+Pmelf_Size sz;
 	if ( !(dat=pmelf_getscn(elfi,shdr,0,0,0)) ) {
 		fprintf(stderr,"Unable to read %s section\n", pmelf_sec_name(shtab, shdr));
 		return -1;
 	}
-	if ( pmelf_write(elfo, dat, shdr->s32.sh_size) ) {
+	sz = ELFCLASS64 == shtab->clss ? shdr->s64.sh_size : shdr->s32.sh_size;
+	if ( pmelf_write(elfo, dat, sz ) ) {
 		fprintf(stderr,"Unable to write %s section\n", pmelf_sec_name(shtab, shdr));
 		goto cleanup;
 	}
@@ -246,7 +248,7 @@ int        elf64 = 0;
 		goto cleanup;
 	}
 
-	if ( cpyscn(elfi, elfo, shtab, (Elf_Shdr*)strsh) ) 
+	if ( cpyscn(elfi, elfo, shtab, strsh) ) 
 		goto cleanup;
 
 	ofilen = 0;

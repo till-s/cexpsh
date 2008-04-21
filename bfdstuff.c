@@ -102,9 +102,10 @@
 #include "elf-bfd.h"
 #endif
 
-#define reloc_get_address(abfd, r) ((r)->address)
-#define reloc_get_name(abfd,r)     ((r)->howto->name)
-#define bfd_asymbol_set_value(s,v) ((s)->value = (v))
+#define reloc_get_address(abfd, r)       ((r)->address)
+#define reloc_get_name(abfd,r)           ((r)->howto->name)
+#define bfd_asymbol_set_value(s,v)       ((s)->value = (v))
+#define bfd_set_output_section(s, os)    ((s)->output_section = (os))
 
 #endif
 
@@ -753,8 +754,25 @@ long		err;
 			r=cr[i];
 			ppsym = r->sym_ptr_ptr;
 #else
-			r=pmbfd_reloc_next(abfd, cr, r);
-			ppsym = ld->st + pmbfd_reloc_get_sym_idx(abfd, r);
+			r        = pmbfd_reloc_next(abfd, cr, r);
+
+			{
+			long idx = pmbfd_reloc_get_sym_idx(abfd, r);
+
+				if ( idx < 0 ) {
+					union {
+						unsigned long l;
+						char          c[sizeof(unsigned long)];
+					} *p = (void*)r;
+					fprintf(stderr,"Bad symbol index in reloc detected (section %s)\n",
+							bfd_get_section_name(abfd,sect));
+					fprintf(stderr,"[%u] 0x%08lx: 0x%08lx 0x%08lx\n",
+						i, p->l, (p+1)->l, (p+2)->l);
+					ld->errors++;
+					continue;
+				}
+				ppsym = ld->st + idx;
+			}
 #endif
 			symsect=bfd_get_section(*ppsym);
 			if (   bfd_is_und_section(symsect) ||					

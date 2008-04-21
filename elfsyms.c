@@ -381,6 +381,15 @@ int			rval=-1;
 	if ((new_module->symtbl=cexpSlurpElf(filename))) {
 		rval=0;
 	}
+#ifdef HAVE_BFD_DISASSEMBLER
+#ifndef USE_PMBFD
+#error "This configuration should never happen"
+#endif
+	{
+		extern void cexpDisassemblerInstall(void*);
+		cexpDisassemblerInstall(0);
+	}
+#endif
 	return rval;
 }
 

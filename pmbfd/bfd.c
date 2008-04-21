@@ -126,7 +126,7 @@ static const bfd_arch_info_type myarch = {
 #elif defined(__x86_64__)
 	arch_name: "elf64-x86_64",
 	arch:      bfd_arch_i386,
-	mach:      bfd_mach_i386_64,
+	mach:      bfd_mach_x86_64,
 	elf_id:    EM_X86_64,
 #else
 #error "Undefined architecture"

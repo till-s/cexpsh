@@ -26,7 +26,8 @@ rdelf_LDADD=-L. -lpmelf
 bfdod_LDADD=-L. -lpmbfd -lpmelf
 endif
 
-libpmbfd_a_SOURCES=bfd.c
+libpmbfd_a_SOURCES =bfd.c
+libpmbfd_a_SOURCES+=opcodesup.c
 EXTRA_libpmbfd_a_SOURCES=$(wildcard $(srcdir)/bfd-reloc-*.c)
 if HAVE_RELOCS
 libpmbfd_a_LIBADD=$(RELOCS:%.c=%.$(OBJEXT))

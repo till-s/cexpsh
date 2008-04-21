@@ -42,6 +42,7 @@ SYMLIBP         += -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty
 SYMLIBS         += -lbfd
 if USEOPCODES
 SYMLIBS         += -lopcodes
+SYMLIBP         += -L@BINUTILS@/opcodes/.libs
 endif
 SYMLIBS         += -liberty
 

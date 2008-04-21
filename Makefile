@@ -90,9 +90,9 @@ bootstrap-xsyms bootstrap-cexp:
 	$(ACLOCAL) && $(AUTOCONF) && $(AUTOHEADER) && $(AUTOMAKE) -ac$(AUTOFORCE)
 #	ln -s binutils binutils-x
 bootstrap: bootstrap-cexp
-	(cd libtecla; $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE) -ac$(AUTOFORCE))
-	(cd regexp;   $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE) -ac$(AUTOFORCE))
-	(cd pmbfd;    $(ACLOCAL) && $(AUTOCONF) && $(AUTOMAKE) -ac$(AUTOFORCE))
+	(cd libtecla; $(ACLOCAL) && $(AUTOCONF)   && $(AUTOMAKE) -ac$(AUTOFORCE))
+	(cd regexp;   $(ACLOCAL) && $(AUTOCONF)   && $(AUTOMAKE) -ac$(AUTOFORCE))
+	(cd pmbfd;    $(ACLOCAL) && $(AUTOHEADER) && $(AUTOCONF) && $(AUTOMAKE) -ac$(AUTOFORCE))
 
 clean-xsyms:
 	$(RM) xsyms

@@ -65,7 +65,10 @@
 #define BFD_FALSE 0
 
 struct bfd_arch_info_type {
-	const char *arch_name;
+	const char            *arch_name;
+	enum bfd_architecture arch;
+	unsigned long         mach;
+	unsigned              elf_id;
 };
 
 #define SEC_BOGUS (-1)
@@ -99,28 +102,28 @@ typedef struct strtab {
 } strtab;
 
 struct bfd {
-	Elf_Stream      s;
-	Elf_Ehdr        ehdr;
-	const char      *arch;
+	Elf_Stream         s;
+	Elf_Ehdr           ehdr;
+	const bfd_arch_info_type *arch;
 #if SECCHUNKSZ == 0
-	asection        *sects;
-	uint32_t        nsects;
-	uint32_t		maxsects;
+	asection           *sects;
+	uint32_t           nsects;
+	uint32_t		   maxsects;
 #endif
-	asymbol         *syms;
-	long            nsyms;
-	strtab          *strtabs;
-	uint32_t        nstrtabs;
-	uint32_t		str_avail;
-	Pmelf_Shtab	    shtab;
-	Elf_Shdr        *symsh;	    /* sh of symbol table           */
-	Elf_Shdr		*symstrs;	/* sh of symbol table stringtab */
+	asymbol            *syms;
+	long               nsyms;
+	strtab             *strtabs;
+	uint32_t           nstrtabs;
+	uint32_t		   str_avail;
+	Pmelf_Shtab	       shtab;
+	Elf_Shdr           *symsh;	    /* sh of symbol table           */
+	Elf_Shdr		   *symstrs;	/* sh of symbol table stringtab */
 #if SECCHUNKSZ > 0
-	struct secchunk	*secmemh;
-	struct secchunk *secmemt;
+	struct secchunk	   *secmemh;
+	struct secchunk    *secmemt;
 #endif
-	struct symchunk	*symmemh;
-	struct symchunk *symmemt;
+	struct symchunk	   *symmemh;
+	struct symchunk    *symmemt;
 };
 
 #define BFD_ELFCLASS(abfd)  ((abfd)->ehdr.e_ident[EI_CLASS])

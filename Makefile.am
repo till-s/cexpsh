@@ -12,40 +12,64 @@ TECLALIBS        = -ltecla_r
 TECLAINCS        = -I@srcdir@/@LIBTECLA@
 endif
 
-if USEBFD
-SYMF_SRCS        = bfdstuff.c
-SYMLIBP          = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty
-SYMLIBS          = -lbfd -liberty
-if USEOPCODES
-SYMF_SRCS       += bfd-disas.c
-SYMLIBP         += -L@BINUTILS@/opcodes/.libs
-SYMLIBS         += -lopcodes
-endif # USEOPCODES
-SYMINCS          = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-xsyms_LDADD      = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
-gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
-else # USEBFD
+SYMF_SRCS        =
+SYMLIBP          =
+SYMLIBS          =
+SYMINCS          =
+
 if USELOADER
-SYMF_SRCS        = bfdstuff.c
-SYMLIBP          = -Lpmbfd
-SYMLIBS          = -lpmbfd -lpmelf
-SYMINCS          = -I$(srcdir)/pmbfd
-else #USELOADER
+SYMF_SRCS       += bfdstuff.c
+else
 if USEPMBFD
 # ELF symbol file reader only
-SYMF_SRCS        = elfsyms.c
-SYMLIBP          = -Lpmbfd
-SYMLIBS          = -lpmelf
-SYMINCS          = -I$(srcdir)/pmbfd
-else #USEPMBFD
-# no symbol file reader at all
-SYMF_SRCS        = noloader.c
-endif #USEPMBFD
+SYMF_SRCS       += elfsyms.c
+else
+# no symbol file reader at all,
+# builtin symtab only
+SYMF_SRCS       += noloader.c
+endif
 endif #USELOADER
-xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
+
+if USEOPCODES
+SYMF_SRCS       += bfd-disas.c
+endif
+
+
+if USEBFD
+SYMINCS         += -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+SYMLIBP         += -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty
+
+SYMLIBS         += -lbfd
+if USEOPCODES
+SYMLIBS         += -lopcodes
+endif
+SYMLIBS         += -liberty
+
+xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+xsyms_LDADD      = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+gencore_CPPFLAGS = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
+gencore_LDADD    = -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty -lbfd -liberty
+
+else # USEBFD
+SYMINCS         += -I$(srcdir)/pmbfd
+SYMLIBP         += -Lpmbfd
+
+if USEOPCODES
+SYMINCS         += -I$(srcdir)/@BINUTILS@/include -I@BINUTILS@/bfd
+SYMLIBP         += -L@BINUTILS@/opcodes/.libs -L@BINUTILS@/libiberty
+SYMLIBS         += -lopcodes -liberty -lpmbfd
+else
+if USELOADER
+SYMLIBS         += -lpmbfd
+endif
+endif
+
+if USEPMBFD
+SYMLIBS         += -lpmelf
+endif
+
 xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
+xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 endif #USEBFD
 
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h
@@ -104,7 +128,7 @@ XSYMS=xsyms
 # - we _need_ bison
 # - our naming convention
 
-cexpsyms.o: cexp.tab.h
+cexpsyms.o: cexp.tab.h cexpsyms.c
 
 cexp.tab.c cexp.tab.h: cexp.y
 	bison -v -d -p cexp $^

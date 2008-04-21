@@ -214,17 +214,29 @@ fi
 # loader = no,  bfd = no,  pmbfd = yes -> ELF symbol file only, using pmbfd
 # loader = no,  bfd = no,  pmbfd = no  -> no symbol file reader; must use builtin symbol table
 
-# opcodes can only be used if we have BFD
-if test "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no"; then
-	AC_MSG_ERROR([you can not --enable-opcodes w/o BFD installed and enabled])
+dnl # opcodes can only be used if we have BFD
+dnl if test "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no"; then
+dnl 	AC_MSG_ERROR([you can not --enable-opcodes w/o BFD installed and enabled])
+dnl fi
+
+if test ! "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no" ; then
+	AC_MSG_ERROR([cannot disable both BFD and pmbfd but still provide the disassemble])
 fi
 
 # pick default
 if test ! "${enable_opcodes+set}" = "set"; then
-	if test "${enable_bfd}" = "yes"; then
-		enable_opcodes=yes
+	if test -d $srcdir/binutils/opcodes; then
+		if test "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no"; then
+			enable_opcodes = no
+		else
+			enable_opcodes=yes
+		fi
 	else
 		enable_opcodes=no
+	fi
+else
+	if test ! -d $srcdir/binutils/opcodes -a "${enable_opcodes}" = "yes"; then
+		AC_MSG_ERROR([you must install libopcodes sources or --disable-opcodes])
 	fi
 fi
 
@@ -290,9 +302,25 @@ fi
 if test "$enable_bfd" = "yes"; then
 	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
-	if test "$enable_opcodes" != "no"; then
-		AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
+fi
+
+if test "$enable_opcodes" != "no"; then
+	if test "$enable_bfd" != "yes"; then
+		AC_CONFIG_SUBDIRS(binutils/libiberty)
+		AC_CONFIG_SUBDIRS(binutils/opcodes)
+		# mock up a few things opcodes needs...
+		mkdir -p binutils/bfd
+        case "${srcdir}" in
+        /* | [A-Za-z]:[\\/]* ) # absolute path
+          ln -s $srcdir/pmbfd/pmbfd.h binutils/bfd/bfd.h
+          ;;
+        *) # otherwise relative
+          ln -s ../../$srcdir/pmbfd/pmbfd.h binutils/bfd/bfd.h
+          ;;
+        esac
+		echo 999 > binutils/bfd/libtool-soversion
 	fi
+	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 fi
 
 # don't recall what these were for...
@@ -329,8 +357,8 @@ if test "${enable_multilib+set}" != "set" ; then
 	multilib=no
 fi
 # cannot use multilibs with BFD
-if test "${enable_bfd}" != "no" -a "${multilib}" != "no" ; then
-	AC_MSG_ERROR([cannot build multilibbed BFD; please configure with --disable-multilib])
+if test \( "${enable_bfd}" != "no" -o "${enable_opcodes}" != "no" \) -a "${multilib}" != "no" ; then
+	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib])
 fi
 
 # when building the cross tools (xsyms, gencore) we don't want to install

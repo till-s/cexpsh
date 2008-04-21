@@ -59,14 +59,33 @@ extern "C" {
 typedef struct bfd_arch_info_type bfd_arch_info_type;
 
 typedef unsigned long bfd_vma;
+typedef          long bfd_signed_vma;
 typedef unsigned long bfd_size_type;
 typedef unsigned long symvalue;
 
-typedef void          *PTR;
+/*
+ * Here's a trick: 
+ * BFD ansidecl.h defines PTR void*
+ * and it is sometimes included before bfd.h
+ * sometimes after.
+ * If we define PTR here then ansidecl.h included
+ * after bfd.h would redefine it.
+ * By making this a typedef, including ansidecl.h
+ * afterwards does no harm. OTOH, if ansidecl.h was
+ * included before us then its definition masks
+ * our typedef ;-)
+ */
+#ifndef PTR
+typedef void *PTR;
+#endif
+
+#define TRUE  1
+#define FALSE 0
 
 typedef long          file_ptr;
 
 typedef unsigned int flagword;
+typedef uint8_t      bfd_byte;
 
 struct bfd;
 
@@ -158,18 +177,76 @@ extern asection *bfd_abs_section_ptr;
 extern asection *bfd_und_section_ptr;
 extern asection *bfd_com_section_ptr;
 
-#if 0
 enum bfd_architecture {
 	bfd_arch_unknown,
 	bfd_arch_obscure,
 	bfd_arch_m68k         =  2,
+#define bfd_mach_m68000                         1
+#define bfd_mach_m68008                         2
+#define bfd_mach_m68010                         3
+#define bfd_mach_m68020                         4
+#define bfd_mach_m68030                         5
+#define bfd_mach_m68040                         6
+#define bfd_mach_m68060                         7
+#define bfd_mach_cpu32                          8
+#define bfd_mach_mcf_isa_a_nodiv                9
+#define bfd_mach_mcf_isa_a                     10
+#define bfd_mach_mcf_isa_a_mac                 11
+#define bfd_mach_mcf_isa_a_emac                12
+#define bfd_mach_mcf_isa_aplus                 13
+#define bfd_mach_mcf_isa_aplus_mac             14
+#define bfd_mach_mcf_isa_aplus_emac            15
+#define bfd_mach_mcf_isa_b_nousp               16
+#define bfd_mach_mcf_isa_b_nousp_mac           17
+#define bfd_mach_mcf_isa_b_nousp_emac          18
+#define bfd_mach_mcf_isa_b                     19
+#define bfd_mach_mcf_isa_b_mac                 20
+#define bfd_mach_mcf_isa_b_emac                21
+#define bfd_mach_mcf_isa_b_float               22
+#define bfd_mach_mcf_isa_b_float_mac           23
+#define bfd_mach_mcf_isa_b_float_emac          24
 	bfd_arch_i386         =  8,
-	bfd_arch_powerpc      = 20
+#define bfd_mach_i386_i386	                    1
+#define bfd_mach_i386_i8086                     2
+#define bfd_mach_i386_i386_intel_syntax         3
+#define bfd_mach_x86_64                        64
+#define bfd_mach_x86_64_intel_syntax           65
+	bfd_arch_powerpc      = 20,
+#define bfd_mach_ppc                           32
+#define bfd_mach_ppc64                         64
+#define bfd_mach_ppc_403                      403
+#define bfd_mach_ppc_403gc                   4030
+#define bfd_mach_ppc_505                      505
+#define bfd_mach_ppc_601                      601
+#define bfd_mach_ppc_602                      602
+#define bfd_mach_ppc_603                      603
+#define bfd_mach_ppc_ec603e                  6031
+#define bfd_mach_ppc_604                      604
+#define bfd_mach_ppc_620                      620
+#define bfd_mach_ppc_630                      630
+#define bfd_mach_ppc_750                      750
+#define bfd_mach_ppc_860                      860
+#define bfd_mach_ppc_a35                       35
+#define bfd_mach_ppc_rs64ii                   642
+#define bfd_mach_ppc_rs64iii                  643
+#define bfd_mach_ppc_7400                    7400
+#define bfd_mach_ppc_e500                     500
+	bfd_arch_rs6000        = 21
+#define bfd_mach_rs6lk                       6000
+#define bfd_mach_rs6lk_rs1                   6001
+#define bfd_mach_rs6lk_rsc                   6002
+#define bfd_mach_rs6lk_rs2                   6003
 };
-#endif
 
 enum bfd_flavour {
+	bfd_target_unknown_flavour = 0,
 	bfd_target_elf_flavour = 5
+};
+
+enum bfd_endian {
+	BFD_ENDIAN_BIG,
+	BFD_ENDIAN_LITTLE,
+	BFD_ENDIAN_UNKNOWN
 };
 
 typedef int bfd_boolean;
@@ -191,6 +268,16 @@ typedef enum bfd_reloc_status {
 	bfd_reloc_undefined,  /* reloc. against undef. symbol    */
 	bfd_reloc_dangerous
 } bfd_reloc_status_type;
+
+enum bfd_architecture bfd_get_arch(bfd *abfd);
+
+unsigned long bfd_get_mach(bfd *abfd);
+
+int
+bfd_big_endian(bfd *abfd);
+
+int
+bfd_little_endian(bfd *abfd);
 
 bfd*
 bfd_asymbol_bfd(asymbol *sym);
@@ -354,6 +441,29 @@ pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *reloc);
 
 symvalue
 pmbfd_asymbol_set_value(asymbol *sym, symvalue v);
+
+/* experimental stuff to keep libopcodes happy */
+#define BFD_DEFAULT_TARGET_SIZE  32
+
+#define CONST_STRNEQ(s1,s2) (0 == strncmp((s1),(s2),sizeof(s2)-1))
+static inline int
+sprintf_vma(char *s, bfd_vma vma)
+{
+	return sprintf(s,"0x%08lx",vma);
+}
+
+/* Byte swapping */
+
+/* Read big endian into host order    */
+bfd_vma bfd_getb32(const void *p);
+/* Read little endian into host order */
+bfd_vma bfd_getl32(const void *p);
+
+#define bfd_octets_per_byte(abfd) (1)
+
+
+/* CPU-specific instruction sets      */
+unsigned bfd_m68k_mach_to_features (int);
 
 /* Not in BFD; implemented so we can create a 'objdump'-compatible printout */
 file_ptr

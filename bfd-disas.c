@@ -75,6 +75,10 @@
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
 
+#ifdef USE_PMBFD
+#include "pmbfd.h"
+#endif
+
 #include "dis-asm.h"
 
 static disassembler_ftype	bfdDisassembler  = 0;
@@ -203,6 +207,15 @@ cexpDisassemblerInstall(bfd *abfd)
 {
 	if (bfdDisassembler)
 		return; /* has been installed already */
+
+#ifdef USEPMBFD
+	/* Special hack; the disassembler asks BFD for 
+	 * target properties. If pmbfd receives a NULL
+	 * BFD handle then it returns the host machine's
+	 * data which is what we want here...
+	 */
+	abfd = 0;
+#endif
 
 	if (!(bfdDisassembler = disassembler(abfd))) {
 		bfd_perror("Warning: no disassembler found");

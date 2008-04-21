@@ -75,16 +75,59 @@ struct symchunk {
 };
 #endif
 
+static const bfd_arch_info_type arches[] = {
+	{
+	arch_name: "elf32-powerpc",
+	arch:      bfd_arch_powerpc,
+	elf_id:    EM_PPC,
+	mach:      0 /* unknown */,
+	},
+	{
+	arch_name: "elf32-i386",
+	arch:      bfd_arch_i386,
+	elf_id:    EM_386,
+	mach:      0 /* unknown */,
+	},
+	{
+	arch_name: "elf32-m68k",
+	arch:      bfd_arch_m68k,
+	elf_id:    EM_68K,
+	mach:      0 /* unknown */,
+	},
+	{
+	arch_name: "elf64-x86_64",
+	arch:      bfd_arch_i386,
+	mach:      bfd_mach_x86_64,
+	elf_id:    EM_X86_64,
+	},
+};
+
 static const bfd_arch_info_type myarch = {
-	arch_name:
 #if defined(__PPC__)
-	"elf32-powerpc"
+	arch_name: "elf32-powerpc",
+	arch:      bfd_arch_powerpc,
+	mach:      bfd_mach_ppc,
+	elf_id:    EM_PPC,
 #elif defined(__i386__)
-	"elf32-i386"
+	arch_name: "elf32-i386",
+	arch:      bfd_arch_i386,
+	mach:      bfd_mach_i386_i386,
+	elf_id:    EM_386,
 #elif defined(__m68k__)
-	"elf32-m68k"
+	arch_name: "elf32-m68k",
+	arch:      bfd_arch_m68k,
+#if defined(__mcoldfire__)
+/* keep this *very* simple for now */
+	mach:      bfd_mach_mcf_isa_a_nodiv,
+#else
+	mach:      bfd_mach_m68000,
+#endif
+	elf_id:    EM_68K,
 #elif defined(__x86_64__)
-	"elf64-x86_64"
+	arch_name: "elf64-x86_64",
+	arch:      bfd_arch_i386,
+	mach:      bfd_mach_i386_64,
+	elf_id:    EM_X86_64,
 #else
 #error "Undefined architecture"
 #endif
@@ -118,8 +161,70 @@ static uint32_t msk[]={
 const char *
 bfd_printable_name(bfd *abfd)
 {
-	return abfd->arch;
+const bfd_arch_info_type *a;
+	/* special hack so we don't need to open a BFD to learn
+	 * our own architecture...
+	 */
+	a = abfd ? abfd->arch : &myarch;
+
+	if ( !a || !a->arch_name)
+		return "unknown";
+
+	return a->arch_name;
 }
+
+enum bfd_architecture
+bfd_get_arch(bfd *abfd)
+{
+const bfd_arch_info_type *a;
+	/* special hack so we don't need to open a BFD to learn
+	 * our own architecture...
+	 */
+	a = abfd ? abfd->arch : &myarch;
+	return a ? a->arch : bfd_arch_unknown;
+}
+
+unsigned long bfd_get_mach(bfd *abfd)
+{
+const bfd_arch_info_type *a;
+	/* special hack so we don't need to open a BFD to learn
+	 * our own architecture...
+	 */
+	a = abfd ? abfd->arch : &myarch;
+	return a ? a->mach : 0;
+}
+
+
+static inline int iamlsb()
+{
+union {
+    char b[2];
+    short s;
+} tester = { s: 1 };
+
+    return tester.b[0] ? 1 : 0;
+}
+
+int
+bfd_big_endian(bfd *abfd)
+{
+	if ( abfd ) {
+		return abfd->ehdr.e_ident[EI_DATA] == ELFDATA2MSB;
+	}
+	/* special hack; if abfd == 0 we supply our own endianness */
+	return ! iamlsb();
+}
+
+int
+bfd_little_endian(bfd *abfd)
+{
+	if ( abfd ) {
+		return abfd->ehdr.e_ident[EI_DATA] == ELFDATA2LSB;
+	}
+	/* special hack; if abfd == 0 we supply our own endianness */
+	return iamlsb();
+}
+
 
 static int inited = 0;
 
@@ -389,7 +494,12 @@ const int symsz = get_symsz(abfd);
 			return -1;
 		}
 		/* seek skipping ELF symbol #0 */
-		if ( pmelf_seek(abfd->s, get_sh_offset(abfd, abfd->symsh) + symsz) ) {
+		if ( pmelf_seek(abfd->s, get_sh_offset(abfd, abfd->symsh)
+#ifdef SKIP_FIRST_NULL_SYMBOL
+		     + symsz
+#endif
+		     )
+		   ) {
 			bfd_perror("unable to seek to symbol table");
 			goto bail;
 		}
@@ -495,6 +605,14 @@ const int symsz = get_symsz(abfd);
 
 	/* tag with final NULL */
 	psymtab[n] = 0;
+
+	/* Relocations MAY refer to the first symbol which
+	 * is always undefined.
+	 * As per Sun document, such relocations actually
+	 * mean '0' -- we can simply achieve that by letting
+	 * the first symbol refer to the ABS section.
+	 */
+	bfd_set_section(psymtab[0], bfd_abs_section_ptr);
 
 	rval = abfd->nsyms;
 
@@ -677,30 +795,39 @@ bfd_get_symtab_upper_bound(bfd *abfd)
 	return (abfd->nsyms + 1) * sizeof(asymbol *);
 }
 
-char *
-bfd_get_target(bfd *abfd)
+static const struct bfd_arch_info_type *
+find_arch(bfd *abfd)
 {
+int i;
 uint32_t e_machine;
+
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 	if ( BFD_IS_ELF64(abfd) ) 
 		e_machine = abfd->ehdr.e64.e_machine;
 	else
 #endif
 		e_machine = abfd->ehdr.e32.e_machine;
-	
-	switch ( e_machine ) {
-		case EM_PPC:	return "elf32-powerpc";
-		case EM_68K:	return "elf32-m68k";
-		case EM_386:	return "elf32-i386";
-		case EM_X86_64: return "elf64-x86_64";
+
+	for ( i=0; i<sizeof(arches)/sizeof(arches[0]); i++ ) {
+		if ( arches[i].elf_id == e_machine )
+			return arches+i;
+	}
+	return 0;
+}
+
+char *
+bfd_get_target(bfd *abfd)
+{
+const struct bfd_arch_info_type *a;
+
+	if ( (a = find_arch(abfd)) )
+		return (char*)a->arch_name;
+
+	switch ( abfd->ehdr.e_ident[EI_DATA] ) {
+		case ELFDATA2LSB: return "elf32-little";
+		case ELFDATA2MSB: return "elf32-big";
 		default:
-			switch ( abfd->ehdr.e_ident[EI_DATA] ) {
-				case ELFDATA2LSB: return "elf32-little";
-				case ELFDATA2MSB: return "elf32-big";
-				default:
-				break;
-			}
-			break;
+		break;
 	}
 	return "unknown";
 }
@@ -1170,7 +1297,18 @@ int               nrels;
 		goto cleanup;
 	}
 
-	abfd->arch = bfd_get_target(abfd);
+	if ( !strcmp(myarch.arch_name, bfd_get_target(abfd)) ) {
+		/* assume it's our own architecture */
+		abfd->arch = &myarch;
+	} else {
+		/* cook up something */
+		const bfd_arch_info_type *a;
+		if ( !(a = find_arch(abfd)) ) {
+			ERRPR("bfd_openstreamr(): unsupported target architecture: %s\n",bfd_get_target(abfd));
+			goto cleanup;
+		}
+		abfd->arch = a;
+	}
 
 	if ( ! (abfd->shtab = pmelf_getshtab(abfd->s, &abfd->ehdr)) ) {
 		goto cleanup;
@@ -1179,8 +1317,10 @@ int               nrels;
 	if ( (abfd->nsyms = pmelf_find_symhdrs(abfd->s, abfd->shtab, &abfd->symsh, &abfd->symstrs)) < 2 ) {
 		goto cleanup;
 	}
+#ifdef SKIP_FIRST_NULL_SYMBOL
 	/* ignore symbol #0 */
 	abfd->nsyms--;
+#endif
 
 	/* get string table */
 	if ( ! (strs = pmelf_getscn( abfd->s, abfd->symstrs, 0, 0, 0)) ) {
@@ -1422,9 +1562,16 @@ Elf32_Word idx;
 	else
 #endif
 		idx = ELF32_R_SYM(r->rel32.r_info);
-	if ( idx == 0 || idx > abfd->nsyms )
+
+	if ( idx >= abfd->nsyms )
 		return -1;
-	return idx-1;
+
+#ifdef SKIP_FIRST_NULL_SYMBOL
+	if ( idx == 0 )
+		return -1;
+	idx--;
+#endif
+	return idx;
 }
 
 bfd_size_type

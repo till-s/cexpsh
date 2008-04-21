@@ -23,9 +23,10 @@ AC_ARG_ENABLE(byteswap,
 		[disable support for byte swapping (byte-swapping
 		is only required to access non-native ELF files)]),
 	[],
-	if test "${host_os}" = "rtems"; then
+	[case $host_os in
+	*[[rR]][[tT]][[eE]][[mM]][[sS]]*)
 		enable_byteswap=no
-	fi
+	esac]
 )
 
 if test "${enable_pmelf64}" = "yes"; then
@@ -55,7 +56,7 @@ AM_ENABLE_MULTILIB([Makefile],[..])
 dnl install multilibs into MULTISUBDIR
 AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
 
-AM_CONDITIONAL(BUILD_UTILS, test "$host_os" != "rtems")
+AM_CONDITIONAL(BUILD_UTILS, [case "$host_os" in *[[rR]][[tT]][[eE]][[mM]][[sS]]*) false;; *) true;; esac])
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)

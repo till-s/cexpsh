@@ -59,7 +59,15 @@
 #include <cexp_regex.h>
 #include <stdlib.h>
 #include <string.h>
+/* FIXME: would like to use uintptr_t but some RTEMS versions
+ *        make this long long (64-bit) even on a 32-bit machine :-(
+ *        which makes the output look bad. Hopefully this can
+ *        be fixed in the future...
 #include <inttypes.h>
+ */
+typedef unsigned long myuintptr_t;
+#define MYPRIxPTR "lx"
+
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 #include "cexplock.h"
@@ -259,7 +267,7 @@ int			max=24;
 		while (s->name && *pmax) {
       		if (cexp_regexec(rc,s->name)) {
 				if (!mfound) {
-					if (f) fprintf(f,"=====  In module '%s' (0x%08"PRIxPTR") =====:\n",m->name, (uintptr_t)m);
+					if (f) fprintf(f,"=====  In module '%s' (0x%08"MYPRIxPTR") =====:\n",m->name, (myuintptr_t)m);
 					mfound=m; /* print module name only once */
 					(*pmax)--;
 				}
@@ -326,8 +334,8 @@ modPrintInfo(CexpModule m, FILE *f, void *closure)
 {
 intptr_t	level = (intptr_t)closure;
 CexpSym	*psects;
-	fprintf(f,"Module '%s' (0x%08"PRIxPTR"):\n",
-				m->name, (uintptr_t)m);
+	fprintf(f,"Module '%s' (0x%08"MYPRIxPTR"):\n",
+				m->name, (myuintptr_t)m);
 	if ( level > 0 )
 		fprintf(f,"Full path '%s'\n",m->fileName);
 	if ( level > 1 ) {
@@ -345,7 +353,7 @@ CexpSym	*psects;
 	if ( level > 2 && ( psects = m->section_syms ) ) {
 		fprintf(f,"  Section load info:\n");
 		for ( ; *psects; psects++ )
-			fprintf(f,"  @0x%08"PRIxPTR": %s\n", (uintptr_t)(*psects)->value.ptv, (*psects)->name);
+			fprintf(f,"  @0x%08"MYPRIxPTR": %s\n", (myuintptr_t)(*psects)->value.ptv, (*psects)->name);
 	}
 }
 
@@ -372,7 +380,7 @@ CexpSym	*psects;
 	fprintf(f,"%s%s 0x%08lx", prefix ? prefix : "", m->name, m->text_vma);
 	if ( ( psects = m->section_syms ) ) {
 		for ( ; *psects; psects++ )
-			fprintf(f," -s%s 0x%08"PRIxPTR, (*psects)->name, (uintptr_t)(*psects)->value.ptv);
+			fprintf(f," -s%s 0x%08"MYPRIxPTR, (*psects)->name, (myuintptr_t)(*psects)->value.ptv);
 	}
 	fputc('\n',f);
 }
@@ -407,7 +415,7 @@ CexpModule	m,found=0;
 			if (!found)
 				found=m;
 			if (f)
-				fprintf(f,"0x%08"PRIxPTR": %s\n",(uintptr_t)m, m->name);
+				fprintf(f,"0x%08"MYPRIxPTR": %s\n",(myuintptr_t)m, m->name);
 			else
 				break;
 		}
@@ -597,6 +605,7 @@ CexpSym s;
 	const bfd_arch_info_type *ai = 0;
 	char	      *tn = 0;
 	const char **tgts = 0;
+#ifndef USE_PMBFD
 		/* must open a BFD for the default target */
 		if ( !(tn=malloc(L_tmpnam)) || !tmpnam(tn) || !(abfd=bfd_openw(tn,"default")) ) {
 			fprintf(stderr,"cexpLoadBuiltinSymtab(): unable to open a dummy BFD for determining disassembler arch\n");
@@ -616,11 +625,19 @@ CexpSym s;
 		}
 
 		abfd->arch_info = ai;
+#else
+		/*
+		 * pmbfd can deal with the NULL BFD that the opcode
+		 * library passes...
+		 */
+#endif
 		cexpDisassemblerInstall(abfd);
 
 cleanup:
+#ifndef USE_PMBFD
 		if ( !ai )
 			fprintf(stderr,"Unable to determine target CPU architecture -- skipping disassembler installation\n");
+#endif
 		if ( abfd )
 			bfd_close_all_done(abfd);
 		if ( tn ) {

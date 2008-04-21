@@ -66,6 +66,7 @@
 #include <inttypes.h>
  */
 typedef unsigned long myuintptr_t;
+typedef          long myintptr_t;
 #define MYPRIxPTR "lx"
 
 #include "cexpmodP.h"
@@ -332,7 +333,7 @@ CexpModule m = mod ? mod : cexpSystemModule;
 static void
 modPrintInfo(CexpModule m, FILE *f, void *closure)
 {
-intptr_t	level = (intptr_t)closure;
+myintptr_t	level = (myintptr_t)closure;
 CexpSym	*psects;
 	fprintf(f,"Module '%s' (0x%08"MYPRIxPTR"):\n",
 				m->name, (myuintptr_t)m);
@@ -360,7 +361,7 @@ CexpSym	*psects;
 CexpModule
 cexpModuleInfo(CexpModule mod, int level, FILE *f)
 {
-	return cexpModIterate(mod, f, modPrintInfo, (void*)(intptr_t)level);
+	return cexpModIterate(mod, f, modPrintInfo, (void*)(myintptr_t)level);
 }
 
 static void
@@ -374,7 +375,7 @@ CexpSym	*psects;
 
 	if ( !prefix )
 		prefix="add-symbol-file ";
-	else if ( ((intptr_t)-1) == (intptr_t)prefix )
+	else if ( ((myintptr_t)-1) == (myintptr_t)prefix )
 		prefix=0;
 
 	fprintf(f,"%s%s 0x%08lx", prefix ? prefix : "", m->name, m->text_vma);

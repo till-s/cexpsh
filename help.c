@@ -136,16 +136,16 @@ RETURNS: mod->next",
 		cexp_main,(int argc, char **argv)
 	),
 	HELP(
-"Cexp builtin routines are:\n\n\
-    lkup                 - lookup a symbol\n\
-    lkaddr               - find the address closest to a symbol\n\
-    cexpModuleLoad       - load an object file\n\
-    cexpModuleUnload     - remove a module from the running system\n\
-    cexpModuleName       - return a module name given its handle\n\
-    cexpModuleFindByName - find a module given its name\n\
-    cexpModuleInfo       - dump info about one or all modules\n"
+"A few Cexp builtin routines are:\n\n\
+    lkup                   - lookup a symbol\n\
+    lkaddr                 - find the address closest to a symbol\n\
+    cexpModuleLoad         - load an object file\n\
+    cexpModuleUnload       - remove a module from the running system\n\
+    cexpModuleName         - return a module name given its handle\n\
+    cexpModuleFindByName   - find a module given its name\n\
+    cexpModuleInfo         - dump info about one or all modules\n"
 	DISAS_HELP
-"    cexpsh(\"commandline\")  - run cexp recursively - e.g. for evaluating a script\n\n\
+"    cexpsh(\"scriptfile\")   - run cexp recursively - e.g. for evaluating a script\n\n\
 Use 'symbol.help(level)' for getting info about a symbol:\n\n\
     lkup.help(1)\n\n\
 Type a C expression, e.g.\n\n\

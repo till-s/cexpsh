@@ -150,7 +150,16 @@ char *rval,*cp;
 	fd = fileno(stdin);
 	if ( isatty(fd) && 0 ==tcgetattr(fd, &told) ) {
 		tnew = told;
+		/* missing in rtems :-(
 		cfmakeraw(&tnew);	
+		*/
+		tnew.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP
+			            | INLCR | IGNCR | ICRNL | IXON);
+		tnew.c_oflag &= ~OPOST;
+		tnew.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+		tnew.c_cflag &= ~(CSIZE | PARENB);
+		tnew.c_cflag |= CS8;
+
 		tcsetattr(fd, TCSANOW, &tnew);
 	} else {
 		fd = -1;

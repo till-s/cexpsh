@@ -205,13 +205,13 @@ enum bfd_architecture {
 #define bfd_mach_mcf_isa_b_float               22
 #define bfd_mach_mcf_isa_b_float_mac           23
 #define bfd_mach_mcf_isa_b_float_emac          24
-	bfd_arch_i386         =  8,
+	bfd_arch_i386         =  9,
 #define bfd_mach_i386_i386	                    1
 #define bfd_mach_i386_i8086                     2
 #define bfd_mach_i386_i386_intel_syntax         3
 #define bfd_mach_x86_64                        64
 #define bfd_mach_x86_64_intel_syntax           65
-	bfd_arch_powerpc      = 20,
+	bfd_arch_powerpc      = 21,
 #define bfd_mach_ppc                           32
 #define bfd_mach_ppc64                         64
 #define bfd_mach_ppc_403                      403

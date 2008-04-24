@@ -243,9 +243,20 @@ int        elf64 = 0;
 		}
 	}
 
-	if ( pmelf_write(elfo, symtab->syms.p_raw, elf64 ? symsh->s64.sh_size : symsh->s32.sh_size) ) {
-		fprintf(stderr,"pmelf -- unable to write .symtab\n");
-		goto cleanup;
+	if ( elf64 ) {
+		for ( i=0; i<symtab->nsyms; i++ ) {
+			if ( pmelf_putsym64(elfo, &symtab->syms.p_t64[i]) ) {
+				fprintf(stderr,"pmelf -- unable to write .symtab\n");
+			goto cleanup;
+			}
+		}
+	} else {
+		for ( i=0; i<symtab->nsyms; i++ ) {
+			if ( pmelf_putsym32(elfo, &symtab->syms.p_t32[i]) ) {
+				fprintf(stderr,"pmelf -- unable to write .symtab\n");
+			goto cleanup;
+			}
+		}
 	}
 
 	if ( cpyscn(elfi, elfo, shtab, strsh) ) 

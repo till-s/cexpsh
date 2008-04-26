@@ -159,12 +159,19 @@ typedef epicsThreadPrivateId	CexpContextOSD;
 
 #elif defined(__rtems__)
 
-#ifdef RTEMS_TODO_DONE /* see cexplock.h comment */
+#ifdef HAVE_RTEMS_HEADERS /* see cexplock.h comment */
+
 #include <rtems.h>
+
+#if __RTEMS_MAJOR__ < 4 || ( __RTEMS_MAJOR__ == 4 && __RTEMS_MINOR__ < 7 )
+#error "Using a notepad is currently unsupported - it must be initialized to 0 at task creation and your version of RTEMS is too old to do that"
+#endif
+
 #else
 #define RTEMS_SELF	0
 
 #ifdef CEXP_RTEMS_NOTEPAD
+/* RTEMS >= 4.7 does zero the notepads but we can't check the version w/o headers */
 #error Using a notepad is currently unsupported - it must be initialized to 0 at task creation and I dont know how to do that
 #endif
 
@@ -217,7 +224,7 @@ typedef CexpContext CexpContextOSD;
 #define cexpContextRegister()		do { \
 										rtems_task_variable_add(\
 										RTEMS_SELF,\
-										&cexpCurrentContext,\
+										(void**)&cexpCurrentContext,\
 										0 /* context is part of the stack, hence\
 										   * released automatically\
 										   */); \
@@ -225,7 +232,7 @@ typedef CexpContext CexpContextOSD;
 #define cexpContextUnregister()		do { \
 										rtems_task_variable_delete(\
 										RTEMS_SELF,\
-										&cexpCurrentContext); \
+										(void**)&cexpCurrentContext); \
 									} while (0)
 #define cexpContextGetCurrent(pc)	do { *(pc) = cexpCurrentContext;	} while (0)
 #define cexpContextSetCurrent(c)	do { cexpCurrentContext=(c);		} while (0)

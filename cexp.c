@@ -63,12 +63,18 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/param.h>
-#if defined(__rtems__) && !defined(RTEMS_TODO_DONE)
+#if defined(__rtems__)
+#if !defined(HAVE_RTEMS_HEADERS)
 #include "rtems-hackdefs.h"
 #else
-#include <termios.h>
+#include <rtems.h>
+#include <sys/termios.h>
 #include <sys/ioctl.h>
 #endif
+#else  /* __rtems__ */
+#include <termios.h>
+#include <sys/ioctl.h>
+#endif /*__rtems__*/
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>

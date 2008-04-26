@@ -23,6 +23,7 @@ AM_MAINTAINER_MODE
 
 # Check for critical programs we need for building
 AC_PROG_CC
+AC_PROG_CXX
 AC_SUBST(GCC)
 AC_PROG_CPP
 AC_CHECK_PROGS(HOSTCC, gcc cc)
@@ -44,28 +45,28 @@ AC_ARG_ENABLE(cexp,
 AC_ARG_ENABLE(bfd,
 	AC_HELP_STRING([--disable-bfd],
 		[whether to disable using the BFD library; use pmbfd/pmelf
-		 instead even if BFD is installed])
+		 instead even if (patched) BFD/binutils sources are installed])
 )
 
 AC_ARG_ENABLE(opcodes,
 	AC_HELP_STRING([--disable-opcodes],
 		[disable using the opcodes library; removes disassembler support.
-		(only if BFD is installed and enabled)])
-)
-
-AC_ARG_ENABLE(pmbfd,
-	AC_HELP_STRING([--disable-pmbfd],
-		[dont use the pmbfd/pmelf library; if you disable both,
-		 bfd and pmbfd/pmelf then you must create and link a 'built-in'
-		 symbol table])
+		(only if (patched) 'binutils' sources are installed)])
 )
 
 AC_ARG_ENABLE(loader,
 	AC_HELP_STRING([--disable-loader],
-		[disable the dynamic loader; using pmbfd/pmelf you can still read
+		[remove the dynamic loader; using pmelf you can still read
 		the symbol table from an ELF file (unless you also say
-		--disable-pmbfd; in this case you must create and link a
+		--disable-elfsyms; in this case you must create and link a
 		'built-in' symbol table)])
+)
+
+AC_ARG_ENABLE(elfsyms,
+	AC_HELP_STRING([--disable-elfsyms],
+		[remove support for loading an ELF symbol file;
+		 you must create and link a 'built-in'
+		 symbol table])
 )
 
 AC_ARG_ENABLE(YYDEBUG,
@@ -93,15 +94,78 @@ AC_ARG_WITH(rtems-notepad,
 						   [use RTEMS notepad $withval for storing context info])
 )
 
+AC_ARG_WITH(rtems-top,
+	AC_HELP_STRING([--with-rtems-top=<rtems installation topdir>],
+		[point to RTEMS installation (only relevant if --host=XXX-rtems)]),
+		[case "${host_os}" in *rtems* )
+			AC_DEFINE_UNQUOTED(HAVE_RTEMS_HEADERS,1,[use RTEMS headers])
+		;; esac],
+		[case "${host_os}" in *rtems* )
+			AC_MSG_ERROR([use --with-rtems-top to point to your RTEMS installation])
+		;; esac]
+)
+
+AC_ARG_ENABLE(rtemsbsps,
+	AC_HELP_STRING([--enable-rtemsbsp="bsp1 bsp2 ..."],
+		[BSPs to include in build (ignore bsps not found in RTEMS installation)])
+)
+
+case "${host_os}" in *rtems* )
+AC_MSG_CHECKING([Checking RTEMS installation])
+if test ! -d $with_rtems_top/${host_cpu}-rtems/ ; then
+	AC_MSG_ERROR([Looking for headers: directory $with_rtems_top/${host_cpu}-rtems/ not found])
+fi
+AC_MSG_RESULT([ok])
+AC_MSG_CHECKING([Checking for RTEMS BSPs])
+if test ! "${enable_rtemsbsp+set}" = "set" ; then
+	enable_rtemsbsp=`ls $with_rtems_top/${host_cpu}-rtems/`
+fi
+rtemsbsps=""
+for bspcand in $enable_rtemsbsp
+do
+	echo $bspcand
+	if test -d $with_rtems_top/${host_cpu}-rtems/$bspcand/lib/include ; then
+		rtemsbsps="$rtemsbsps $bspcand"
+	fi
+done
+if test "$rtemsbsps"xx = xx; then
+	AC_MSG_ERROR([No RTEMS BSPs found])
+fi
+AC_MSG_RESULT([found $rtemsbsps])
+
+rtems_bsp=mvme3100
+
+eval `make -f - rtems_makevars <<'EOF_'
+include /tmp/box/powerpc-rtems/mvme3100/Makefile.inc
+include $(RTEMS_CUSTOM)
+include $(CONFIG.CC)
+
+rtems_makevars:
+	@echo rtems_cpu_cflags=\'$(CPU_CFLAGS)\'
+	@echo rtems_gcc_specs=\'$(GCCSPECS)\'
+EOF_
+`
+AC_SUBST(rtems_libdir,[$with_rtems_top/${host_cpu}-rtems/$rtems_bsp/lib])
+AC_SUBST(rtems_gcc_specs,[$rtems_gcc_specs])
+AC_SUBST(rtems_cpu_cflags,[$rtems_cpu_cflags])
+AC_SUBST(rtems_includedir,[-I$with_rtems_top/${host_cpu}-rtems/$rtems_bsp/lib/include])
+AC_SUBST(rtems_extra_includedir,[])
+;; esac
+
 # VALIDATE OPTIONS
 
 # Validate the --enable-cexp setting:
+AC_MSG_NOTICE([Validating configuration options])
 
-if test "${enable_cexp}" = "no" -a "${enable_loader+set}" = "set"; then
+if test "${enable_cexp}" = "no" && test "${enable_loader+set}" = "set"; then
 	AC_MSG_ERROR([you must not use --enable-loader or --disable-loader together with --disable-cexp])
 fi
 
-if test "$target-system" != "$host-system" ; then
+if test "${enable_cexp}" = "no" && test "${enable_opcodes+set}" = "set"; then
+	AC_MSG_ERROR([you must not use --enable-opcodes or --disable-opcodes together with --disable-cexp])
+fi
+
+if test ! "$target_os" = "$host_os" ; then
 	if test "${enable_cexp}" = "yes"; then
 		AC_MSG_ERROR([you cannot --enable-cexp for a target; --target is for xsyms only])
 	fi
@@ -121,156 +185,156 @@ if test ! -f $srcdir/cexp.y ; then
 	fi
 fi
 
-
-# Matrix of all configuration possibilities of --enable-bfd, --enable-pmbfd, --enable-loader
-#
-#                                       loader  unset             off              on
-#
-#bfd     pmbfd    BFD installed        
-#unset   unset          no           -> pmbfd:= on,  l:=on *| pmbfd:=on bfd:=off*| pmbfd:=on bfd:=off *|
-#                                       bfd:=off
-#on      unset          no           -> error              *| error             *| error              *|
-#off     unset          no           -> pmbfd:= on,  l:=on *| pmbfd:=on         *| pmbfd:=on          *|
-#unset   on             no           -> bfd  := off, l:=on *| bfd := off        *| bfd:=off           *|
-#on      on             no           -> error              *| error             *| error              *|
-#off     on             no           ->              l:=on *| ok                *|  ok                *|
-#unset   off            no           -> bfd  := off, l:=off*| bfd:=off          *| error              *|
-#on      off            no           -> error              *| error             *| error              *|
-#off     off            no           ->              l:=off*| ok                *| error              *|
-#unset   unset          yes          -> pmbfd:= off,
-#                                       bfd:=on,     l:=on *| bfd:=off pmbfd:=on*| bfd:=on, pmbfd:=off*|
-#on      unset          yes          -> pmbfd:= off, l:=on *| error             *| pmbfd:=off         *|
-#off     unset          yes          -> pmbfd:= on,  l:=on *| pmbfd:=on         *| pmbfd:=on          *|
-#unset   on             yes          -> bfd  := off, l:=on *| bfd:=off          *| bfd:=off           *|
-#on      on             yes          -> error              *| error             *| error              *|
-#off     on             yes          ->              l:=on *| ok                *|  ok                *|
-#unset   off            yes          -> bfd  := on   l:=on *| bfd:=off          *|  bfd:=on           *|
-#on      off            yes          ->              l:=on *| error             *|  ok                *|
-#off     off            yes          ->              l:=off*| ok                *| error              *|
-
-# Check valid combinations of --enable-bfd, --enable-pmbfd, --enable-loader
-# and pick suitable defaults for unset options.
-if test ! -d $srcdir/binutils/bfd ; then
-	# BFD not installed; 
-	if test "${enable_bfd}" = "yes"; then
-		AC_MSG_ERROR([cannot use BFD; 'binutils' sources not found in cexp top directory (install and patch first)])
-	fi
-	# make sure it is switched off
-	enable_bfd=no
+AC_MSG_CHECKING([Check if you have binutils sources installed in 'binutils' (don't forget to patch!)])
+#check if they installed bfd/opcodes
+if test -d $srcdir/binutils/ ; then
+	binutils_installed=yes
 else
-	# both: --enable-bfd --enable-pmbfd given
-	if test "${enable_bfd}" = "yes" -a "${enable_pmbfd}" = "yes"; then
-		AC_MSG_ERROR([cannot use both, BFD and pmbfd; please disable either of them])
-	fi
-	# using BFD without loader doesn't make sense
-	if test "${enable_bfd}" = "yes" -a "${enable_loader}" = "no"; then
-		AC_MSG_ERROR([enabling BFD but disabling the loader doesn't make sense])
-	fi
+	binutils_installed=no
 fi
+AC_MSG_RESULT([$binutils_installed])
 
+AC_MSG_CHECKING([Whether we could use BFD if needed])
+if test "$binutils_installed" = "yes" && test ! "$enable_bfd" = "no" ; then
+	have_bfd=yes
+else
+	have_bfd=no
+fi
+AC_MSG_RESULT([$have_bfd])
 
-if test ! "${enable_bfd+set}" = "set"; then
-	# neither --enable-bfd nor --disable-bfd was given; pick a default:
-	# unless the loader is explicitly disabled we enable BFD -- except
-	# if pmbfd is explicitly asked for.
-	if test "${enable_pmbfd}" = "yes" -o "${enable_loader}" = "no"; then
-		enable_bfd=no
+AC_MSG_CHECKING([Check if we could use pmbfd])
+#canonicalize x86 cpus
+pmbfd_cpu=$host_cpu
+case "$pmbfd_cpu" in
+	i?86 ) pmbfd_cpu=i386
+	;;
+esac
+# do we have relocations for our CPU arch ?
+# Only relevant if we use the loader; the ELF symbol file reader should
+# work anyways.
+if test -f $srcdir/pmbfd/bfd-reloc-"$pmbfd_cpu".c ; then
+	have_pmbfd=yes
+	AC_MSG_RESULT([yes])
+else
+	have_pmbfd=no
+	if test "$have_bfd" = "yes" ; then
+		AC_MSG_RESULT([no. Relocations for CPU $pmbfd_cpu not implemented, sorry. Will use BFD.])
 	else
-		enable_bfd=yes
+		AC_MSG_RESULT([no. Relocations for CPU $pmbfd_cpu not implemented, sorry. You must install (and not disable) BFD sources to use the loader.])
 	fi
 fi
 
-# cannot ask for the loader and disable both, pmbfd + BFD
-if test "${enable_loader}" = "yes" -a "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no"; then
-	AC_MSG_ERROR([you cannot enable the loader with both BFD and pmbfd disabled])
-fi
 
-if test ! "${enable_loader+set}" = "set"; then
-	# neither --enable-loader nor --disable-loader given; pick a default
-	if test "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no"; then
-		enable_loader=no
-	else
-		enable_loader=yes
-	fi
-fi
-
-# finally we need to find out if we should use pmbfd...
-if test ! "${enable_pmbfd+set}" = "set"; then
-	if test "${enable_loader}" = "yes"; then
-		if test "${enable_bfd}" = "yes"; then
-			enable_pmbfd=no
-		else
-			enable_pmbfd=yes
-		fi
-	else
-		enable_pmbfd=yes
-	fi
-fi
-
-# At this point we have cooked down to the following valid combinations
+# matrix of legal configurations
 #
-# loader = yes, bfd = yes, pmbfd = no  -> loader using BFD
-# loader = yes, bfd = no,  pmbfd = yes -> loader using pmbfd
-# loader = no,  bfd = no,  pmbfd = yes -> ELF symbol file only, using pmbfd
-# loader = no,  bfd = no,  pmbfd = no  -> no symbol file reader; must use builtin symbol table
+# --enable-loader --enable-elfsyms  bfd installed or pmbfd
+#                                   support available
+#
+#   unset           unset           yes         --> enable_loader=yes; enable_elfsyms=no
+#   unset           unset           no          --> enable_loader=no;  enable_elfsyms=yes
+#   no              unset           yes         -->                    enable_elfsyms=yes
+#   no              unset           no          -->       (*)          enable_elfsyms=yes
+#   yes             unset           yes         -->                    enable_elfsyms=no;
+#   yes             unset           no          --> ERROR(no BFD support available)
+#   unset           no              yes         --> enable_loader=yes;
+#   unset           no              no          --> enable_loader=no;
+#   no              no              yes         --> OK
+#   no              no              no          --> OK
+#   yes             no              yes         --> OK
+#   yes             no              no          --> ERROR(no BFD support available)
+#   unset           yes             yes         --> enable_loader=no;
+#   unset           yes             no          --> enable_loader=no;
+#   no              yes             yes         --> OK
+#   no              yes             no          --> OK
+#   yes             yes             yes         --> ERROR(cannot enable both)
+#   yes             yes             no          --> ERROR(cannot enable both)
 
-dnl # opcodes can only be used if we have BFD
-dnl if test "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no"; then
-dnl 	AC_MSG_ERROR([you can not --enable-opcodes w/o BFD installed and enabled])
-dnl fi
 
-if test ! "${enable_opcodes}" = "yes" -a "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no" ; then
-	AC_MSG_ERROR([cannot disable both BFD and pmbfd but still provide the disassemble])
+AC_MSG_CHECKING([Checking consistency of configuration options --enable-loader and --enable-elfsyms])
+
+if test "$enable_loader" = "yes" && test "$enable_elfsyms" = "yes"; then
+	AC_MSG_ERROR([Using both, --enable-loader and --enable-elfsyms, does not make sense (loader supersedes elfsyms)])
 fi
 
-# pick default
-if test ! "${enable_opcodes+set}" = "set"; then
-	if test -d $srcdir/binutils/opcodes; then
-		if test "${enable_bfd}" = "no" -a "${enable_pmbfd}" = "no"; then
-			enable_opcodes = no
+if test ! "$enable_loader" = "no" ; then
+	if test "$have_bfd" = "yes" || test "$have_pmbfd" = "yes" ; then
+		if test "$enable_elfsyms" = "yes" ; then
+			enable_loader=no
 		else
-			enable_opcodes=yes
+			enable_loader=yes
+			enable_elfsyms=no
 		fi
+	else
+		if test "$enable_loader" = "yes"; then
+			AC_MSG_ERROR([BFD sources not installed and pmbfd doesn't support your CPU; unable to enable the loader]) 
+		else
+			enable_loader=no
+			if test ! "$enable_elfsyms" = "no" ; then
+				enable_elfsyms=yes
+			fi
+		fi
+	fi
+else
+# enable_loader = no
+	if test ! "${enable_elfsyms}" = "no"; then
+		enable_elfsyms=yes;
+	fi
+fi
+AC_MSG_RESULT([passed])
+
+AC_MSG_NOTICE([enable_loader: $enable_loader, enable_elfsyms: $enable_elfsyms])
+
+AC_MSG_NOTICE([Check whether we should use the disassembler (opcodes)])
+if test ! "${target_os}" = "${host_os}" ; then
+	if test "${enable_opcodes}" = "yes"; then
+		AC_MSG_ERROR([cannot --enable-opcodes when building cross tools])
 	else
 		enable_opcodes=no
 	fi
-else
-	if test ! -d $srcdir/binutils/opcodes -a "${enable_opcodes}" = "yes"; then
-		AC_MSG_ERROR([you must install libopcodes sources or --disable-opcodes])
-	fi
 fi
 
+if test "${enable_opcodes}" = "yes"; then
+	if test "$binutils_installed" = "no"; then
+		AC_MSG_ERROR([You need to install (patched) binutils sources (containing 'opcodes' library into 'binutils' subdirectory])
+	fi
+else
+	if test ! "${enable_opcodes}" = "no"; then
+		enable_opcodes=yes
+	fi
+fi
+AC_MSG_RESULT([$enable_opcodes])
+
 # cannot use both line editors
-if test "${enable_readline}" = "yes" -a "${enable_tecla}" = "yes"; then
+if test "${enable_readline}" = "yes" && test "${enable_tecla}" = "yes"; then
 	AC_MSG_ERROR([can only use one of --enable-tecla, --enable-readline])
 fi
 
 # if target==host, we build CEXP; either for the build host
 # or for a different one otherwise, we build 'xsyms' only...
-if test "$target-system" != "$host-system" ; then
+if test ! "$target_os" = "$host_os" ; then
 	# gencore needs stdint -- but that requires real BFD
 	AC_CHECK_HEADER([stdint.h])
 	AH_TEMPLATE([HAVE_TYPE_UINT32_T])
 	AC_CHECK_TYPE(uint32_t,[AC_DEFINE([HAVE_TYPE_UINT32_T])],[AC_CHECK_SIZEOF([unsigned int])])
 fi
 
-if test "$enable_cexp" != "no" ; then
+if test ! "$enable_cexp" = "no" ; then
 
 	# for gencore:
 	AC_CHECK_HEADERS([sys/mman.h])
 
-	if test "$enable_YYDEBUG" != "no" ; then
+	if test ! "$enable_YYDEBUG" = "no" ; then
 		AC_DEFINE(YYDEBUG,1,[  --enable-YYDEBUG whether to enable YYDEBUG])
 	fi
 
 	AC_CONFIG_SUBDIRS(regexp)
 
 	# check for line editor
-	if test "$enable_tecla" != "no" ; then
+	if test ! "$enable_tecla" = "no" ; then
 		AC_CONFIG_SUBDIRS(libtecla)
 		AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
 		AC_CHECK_LIB(curses,tgetnum,[LIBS="$LIBS -lcurses"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
-	else if test "${enable_readline}" != "no" ; then
+	else if test ! "${enable_readline}" = "no" ; then
 		AC_CHECK_HEADER(readline/readline.h)
 		if test "${ac_cv_header_readline_readline_h}" = "yes" ; then
 			AC_DEFINE(USE_GNU_READLINE,1,[whether to use the GNU readline library])
@@ -282,30 +346,43 @@ if test "$enable_cexp" != "no" ; then
 
 fi
 
-# check if relocations for our CPU are implemented by pmbfd
-if test "$enable_pmbfd" = "yes"; then
-	pmbfd_cpu=$host_cpu
-	case "$pmbfd_cpu" in
-		i*86 ) pmbfd_cpu=i386
-		;;
-	esac
-	# try to use 'pmbfd' -- do we have relocations for our CPU arch ?
-	# Only relevant if we use the loader; the ELF symbol file reader should
-	# work anyways.
-	if test "${enable_loader}" = "yes" -a ! -f $srcdir/pmbfd/bfd-reloc-"$pmbfd_cpu".c ; then
-		AC_MSG_ERROR([pmbfd relocations for $pmbfd_cpu not implemented, sorry Provide an implementation or install BFD])
+# based on the features requested, check which bfd library to use
+
+if test "$enable_elfsyms" = "yes" ; then
+	enable_bfd=no
+	enable_pmbfd=yes
+else
+	if test "$enable_loader" = "yes" || test "$enable_opcodes" = "yes" ; then
+		if test "$have_bfd" = "yes"; then
+			enable_bfd=yes
+			enable_pmbfd=no
+		else
+			enable_bfd=no
+			enable_pmbfd=yes
+		fi
+	else
+		enable_bfd=no
+		enable_pmbfd=no
 	fi
-	AC_CONFIG_SUBDIRS(pmbfd)
-	AC_DEFINE(USE_PMBFD,1,[should we use our "poor man's BFD implentation?"])
 fi
+
+AC_MSG_NOTICE([enable_bfd: $enable_bfd, enable_pmbfd: $enable_pmbfd])
 
 if test "$enable_bfd" = "yes"; then
 	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
+else
+	# must configure pmbfd if host_os = build_os so that
+	# xsyms can use it
+	# all files in cexp testing for USE_PMBFD are configured away if
+	# neither enable_bfd nor enable_pmbfd is 'yes'
+	if test "$enable_pmbfd" = "yes" || test "$host_os" = "$build_os" ; then
+		AC_CONFIG_SUBDIRS(pmbfd)
+		AC_DEFINE(USE_PMBFD,1,[should we use our "poor man's BFD implentation?"])	fi
 fi
 
-if test "$enable_opcodes" != "no"; then
-	if test "$enable_bfd" != "yes"; then
+if test ! "$enable_opcodes" = "no"; then
+	if test ! "$enable_bfd" = "yes"; then
 		AC_CONFIG_SUBDIRS(binutils/libiberty)
 		AC_CONFIG_SUBDIRS(binutils/opcodes)
 		# mock up a few things opcodes needs...
@@ -326,14 +403,16 @@ fi
 # don't recall what these were for...
 AC_HAVE_FUNCS(rcmd vsnprintf)
 
-AM_CONDITIONAL(DO_CEXPLIB, test "$enable_cexp"    != "no")
+AM_CONDITIONAL(DO_CEXPLIB, [test ! "$enable_cexp"    = "no"])
 # if host=target AND host=build, then to the demo
-AM_CONDITIONAL(DO_DEMO,    test "$host-system" = "$build-system" -a "$host-system" = "$target-system")
-AM_CONDITIONAL(USEBFD,     test "$enable_bfd"     != "no")
-AM_CONDITIONAL(USETECLA,   test "$enable_tecla"   != "no")
-AM_CONDITIONAL(USEOPCODES, test "$enable_opcodes" != "no")
-AM_CONDITIONAL(USELOADER,  test "$enable_loader"  != "no")
-AM_CONDITIONAL(USEPMBFD,   test "$enable_pmbfd"   != "no")
+AM_CONDITIONAL(DO_DEMO,    [test ! "$host_os" = "$build_os" && test "$host_os" = "$target_os"])
+AM_CONDITIONAL(USEBFD,     [test ! "$enable_bfd"     = "no"])
+AM_CONDITIONAL(USETECLA,   [test ! "$enable_tecla"   = "no"])
+AM_CONDITIONAL(USEOPCODES, [test ! "$enable_opcodes" = "no"])
+AM_CONDITIONAL(USELOADER,  [test ! "$enable_loader"  = "no"])
+AM_CONDITIONAL(USEPMBFD,   [test ! "$enable_pmbfd"   = "no"])
+AM_CONDITIONAL(USEELFSYMS, [test ! "$enable_elfsyms" = "no"])
+AM_CONDITIONAL(OS_RTEMS,   [case "$host_os" in *rtems* ) : ;; *) false ;; esac])
 
 AH_VERBATIM(NO_THREAD_PROTECTION,[
 /* Disable thread protection on OS other than RTEMS */
@@ -353,17 +432,17 @@ AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
 # are not built there.
 # To work around, we simply set the default to 'no' so the user must
 # say --enable-multilib to get them.
-if test "${enable_multilib+set}" != "set" ; then
+if test ! "${enable_multilib+set}" = "set" ; then
 	multilib=no
 fi
 # cannot use multilibs with BFD
-if test \( "${enable_bfd}" != "no" -o "${enable_opcodes}" != "no" \) -a "${multilib}" != "no" ; then
-	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib])
+if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test ! "${multilib}" = "no" ; then
+	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib (or --disable-bfd --disable-opcodes)])
 fi
 
 # when building the cross tools (xsyms, gencore) we don't want to install
 # the whole crap from the subdirectories
-if test "$target-system" != "$host-system" ; then
+if test ! "$target_os" = "$host_os" ; then
 	AC_SUBST(THESUBDIRS,['$(patsubst %,'"$subdirs"',$(filter-out install%,$@))'])
 else
 	AC_SUBST(THESUBDIRS,["$subdirs"])

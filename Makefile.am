@@ -20,7 +20,7 @@ SYMINCS          =
 if USELOADER
 SYMF_SRCS       += bfdstuff.c
 else
-if USEPMBFD
+if USEELFSYMS
 # ELF symbol file reader only
 SYMF_SRCS       += elfsyms.c
 else
@@ -39,11 +39,11 @@ if USEBFD
 SYMINCS         += -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
 SYMLIBP         += -L@BINUTILS@/bfd/.libs -L@BINUTILS@/libiberty
 
-SYMLIBS         += -lbfd
 if USEOPCODES
 SYMLIBS         += -lopcodes
 SYMLIBP         += -L@BINUTILS@/opcodes/.libs
 endif
+SYMLIBS         += -lbfd
 SYMLIBS         += -liberty
 
 xsyms_CPPFLAGS   = -I@srcdir@/@BINUTILS@/include -I@srcdir@/@BINUTILS@/bfd -I@BINUTILS@/bfd
@@ -55,6 +55,8 @@ else # USEBFD
 SYMINCS         += -I$(srcdir)/pmbfd
 SYMLIBP         += -Lpmbfd
 
+if USEPMBFD
+
 if USEOPCODES
 SYMINCS         += -I$(srcdir)/@BINUTILS@/include -I@BINUTILS@/bfd
 SYMLIBP         += -L@BINUTILS@/opcodes/.libs -L@BINUTILS@/libiberty
@@ -64,10 +66,9 @@ if USELOADER
 SYMLIBS         += -lpmbfd
 endif
 endif
-
-if USEPMBFD
 SYMLIBS         += -lpmelf
-endif
+
+endif #USEPMBFD
 
 xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
@@ -92,6 +93,12 @@ gencore_SOURCES  = gencore.c
 
 
 if DO_CEXPLIB
+
+if OS_RTEMS
+CC+=@rtems_gcc_specs@
+CXX+=@rtems_gcc_specs@
+CPPFLAGS+=@rtems_cpu_cflags@ @rtems_includedir@ @rtems_extra_includedir@
+endif
 
 lib_LIBRARIES=libcexp.a
 include_HEADERS = cexp.h cexpHelp.h
@@ -121,7 +128,7 @@ bin_PROGRAMS=xsyms gencore
 else
 bin_PROGRAMS=xsyms
 endif
-endif
+endif #DO_CEXPLIB
 
 XSYMS=xsyms
 

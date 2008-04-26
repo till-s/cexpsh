@@ -54,6 +54,12 @@ int        j;
 Pmelf_Off  sh_size;
 Pmelf_Off  ne;
 
+#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
+	if ( s->needswap )
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error (pmelf_getgrp()): host/target byte order mismatch but pmelf was configured w/o support for byte-swapping\n");
+		return 0;
+#endif
+
 	switch ( s->clss ) {
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 		case ELFCLASS64:
@@ -86,15 +92,13 @@ Pmelf_Off  ne;
 	if ( ! (buf = pmelf_getscn(s, psect, data, 0, 0)) )
 		return 0;
 
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 	if ( s->needswap ) {
-#ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-		return -2;
-#else
 		for ( j=0; j < ne; j++ ) {
 			elf_swap32( &buf[j] );
 		}
-#endif
 	}
+#endif
 
 	return buf;
 }

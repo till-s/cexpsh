@@ -222,7 +222,7 @@ int 		s=sp->st_size;
 			break;
 	}
 
-	cesp->value.ptv  = (CexpVal)sp->st_value;
+	cesp->value.ptv  = (CexpVal)(uintptr_t)sp->st_value;
 }
 
 #define  USE_ELF_MEMORY
@@ -372,7 +372,7 @@ int			rval=-1;
 
 	if (cexpSystemModule) {
 		fprintf(stderr,
-				"The ELF file loader doesn't support loading object files, sorry\n");
+				"The ELF symbol file loader doesn't support loading object files, sorry\n");
 		fprintf(stderr,
 				"(only initial symbol table can be loaded) - recompile with --enable-loader\n");
 		return rval;

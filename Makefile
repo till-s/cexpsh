@@ -64,7 +64,7 @@ cexp.tab.c cexp.tab.h: cexp.y
 cexp.c: ;
 
 gentab: gentab.c
-	$(CC) -O -o $@ $^
+	$(HOSTCC) -O -o $@ $^
 
 jumptab.c: gentab
 	if ./$^ > $@; then true ; else $(RM) $@ $^; exit 1; fi
@@ -127,7 +127,7 @@ distclean: clean
 ##################################################################
 #     
 xsyms: xsyms.c xsyms-bfd.c
-	@($(CC) -o $@ -I/usr/include/libelf xsyms.c -lelf && echo $@ built with libelf ) || ( echo 'build using libelf failed; trying libbfd' &&  $(CC) -o $@ xsyms-bfd.c -lbfd -liberty && echo $@ built with libbfd )
+	@($(HOSTCC) -o $@ -I/usr/include/libelf xsyms.c -lelf && echo $@ built with libelf ) || ( echo 'build using libelf failed; trying libbfd' &&  $(CC) -o $@ xsyms-bfd.c -lbfd -liberty && echo $@ built with libbfd )
 
 install:
 	@echo You must install 'xsyms' manually

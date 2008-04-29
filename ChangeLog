@@ -1,4 +1,8 @@
 Changes since CEXP-1.5
+ 2008/4/29:
+ - Added toplevel Makefile rules 'rtemsbsp'/'rtemsbsp-install' which
+   read Makefile.inc and configure the package using CPU flags and
+   setting prefix/exec_prefix/includedir to match std. RTEMS layout.
  2008/4/17:
  - new LICENSE; we now use the SLAC license instead of the EPICS open
    license.

@@ -63,7 +63,26 @@ play with the demo:
   ./xsyms cexp cexp.sym
   ./cexp -s cexp.sym
 
-b) Target library and cross xsyms tool
+b) Build Cexp target library and cross xsyms tool for a specific
+   RTEMS BSP
+
+   setenv RTEMS_MAKEFILE_PATH <dir where BSP's Makefile.inc is located>
+   make   rtemsbsp
+   make   rtemsbsp-install
+
+Note that the rule only performes the 'configure' step once, i.e.,
+at the same time the 'build-' directories are created. If a 'build-TARCH'
+directory is already present, 'configure' is not re-run. You have to
+remove it (either manually or by executing 'make clean' from the top-directory)
+in order to re-configure.
+
+The CEXP target library can be installed using the 'make rtemsbsp-install' rule.
+
+The cross 'xsyms' tool needs to be installed manually
+
+	install  build-X-<cpu>-rtems/xsyms <cross_toolchain_bindir>/<cpu>-rtems-xsyms
+
+c) Target library and cross xsyms tool
 
   make cross-TARCH
 
@@ -71,7 +90,7 @@ configures CEXP for running on target architecture 'TARCH' in a
 'build-TARCH' subdirectory. The 'cross-xsyms' tool is configured
 and built in a 'build-X-TARCH' subdirectory. E.g.,
 
-  make cross-powerpc-rtems TGT_CONFIG_OPTS='--prefix=/opt/rtems --with-multi-subdir=m750'
+  make cross-powerpc-rtems TGT_CONFIG_OPTS='--prefix=/opt/rtems CFLAGS=-msoft-float'
 
 Note that the rule only performes the 'configure' step once, i.e.,
 at the same time the 'build-' directories are created. If a 'build-TARCH'

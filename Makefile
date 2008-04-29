@@ -20,6 +20,10 @@ all:
 		echo Possible Targets are; \
 		echo '         "host": Build DEMO CEXP to run on the host (--> host-arch == target-arch )';\
 		echo ;\
+		echo '     "rtemsbsp": Cross-build CEXP for a specific RTEMS BSP. The environment variable';\
+		echo '                 RTEMS_MAKEFILE_PATH must point to the directory where the';\
+		echo '                 specific BSPs Makefile.inc is located.';\
+		echo ;\
 		echo '   "cross-ARCH": Cross-build CEXP to run on ARCH; build "xsyms"-tool to run on host,';\
 		echo '                 generating symbol files for ARCH.';\
 		echo '                 You may specify additional "configure" options on the command line (see example).';\
@@ -135,23 +139,54 @@ host:
 	( cd build-host ; ../configure $(TGT_CONFIG_OPTS) --disable-nls )
 	$(MAKE) -C build-host
 
+HOSTCC:=$(CC)
+
+#if RTEMS_MAKEFILE_PATH is set then 
+#build for a particular BSP
+ifdef RTEMS_MAKEFILE_PATH
+include $(RTEMS_MAKEFILE_PATH)/Makefile.inc
+include $(RTEMS_CUSTOM)
+include $(CONFIG.CC)
+CFLAGARG="CFLAGS=$(CPU_CFLAGS)"
+ifndef RTEMS_SITE_INSTALLDIR
+#traditional RTEMS install
+ifeq ($(filter,--prefix,$(TGT_CONFIG_OPTS))xx,xx)
+PREFIXARG=--prefix=$(PROJECT_ROOT)
+endif
+ifeq ($(filter,--exec-prefix,$(TGT_CONFIG_OPTS))xx,xx)
+EXCPREFIXARG=--exec-prefix='$(prefix)/$(RTEMS_CPU)-rtems/$(RTEMS_BSP)'
+endif
+ifeq ($(filter,--includedir,$(TGT_CONFIG_OPTS))xx,xx)
+INCDIRARG=--includedir='$(prefix)/$(RTEMS_CPU)-rtems/$(RTEMS_BSP)/lib/include'
+endif
+endif
+rtemsbsp: cross-$(RTEMS_CPU)-rtems
+	@echo or 'make rtemsbsp-install'
+rtemsbsp-install: rtemsbsp install-$(RTEMS_CPU)-rtems
+else
+rtemsbsp%:
+	$(error you must set RTEMS_MAKEFILE_PATH=<dir where Makefile.inc of your BSP lives> either on the commandline or in the environment)
+endif
+
+
 cross-%:
 	@if [ ! -d build-$* ] ; then \
 		mkdir build-$*; \
 		echo CONFIGURING FOR CROSS BUILD TO ARCHITECTURE $*; \
-		( cd build-$*; ../configure CC=$*-gcc --host=$* $(TGT_CONFIG_OPTS) --disable-nls --disable-multilib --with-newlib); \
+		( cd build-$*; ../configure CC=$*-gcc $(CFLAGARG) --host=$* $(TGT_CONFIG_OPTS) --disable-nls --disable-multilib --with-newlib $(PREFIXARG) $(EXCPREFIXARG) $(INCDIRARG) ); \
 	fi
 	@echo MAKING CROSS BUILD TO ARCHITECTURE $*
 	$(MAKE) -C build-$*
 	@if [ ! -d build-X-$* ] ; then \
 		mkdir build-X-$*; \
 		echo CONFIGURING CROSS xsyms UTILITY FOR TARGET $*; \
-		( cd build-X-$*; ../configure --target=$* --disable-nls ); \
+		( cd build-X-$*; ../configure CC=$(HOSTCC) --target=$* --disable-nls ); \
 	fi
 	@echo MAKING xsyms FOR TARGET $*
 	$(MAKE) -C build-X-$*
 	@echo 'DONE you should install build-X-$*/xsyms manually to <dir>/$*-xsyms'
 	@echo to install CEXP, run 'make install-$*'
+
 	
 install-%:
 	$(MAKE) -C build-$* install

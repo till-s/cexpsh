@@ -54,7 +54,12 @@ play with the demo:
 
   cd build.host
   ./xsyms cexp cexp.sym
-  ./cexp -s cexp.sym
+  ./cexp -s ./cexp.sym
+
+Note that the symbol table is like any other object file
+searched for using the PATH environment variable. E.g., if
+'.' is not in your PATH you must specify the path to cexp.sym
+explicitly.
 
 b) Build Cexp target library and cross xsyms tool for a specific
    RTEMS BSP
@@ -223,7 +228,7 @@ Running the Cexp Demo on a Host
 Invoke the executable telling it to read symbols from the executable
 file:
 
-    ./cexp -s cexp
+    ./cexp -s ./cexp
 
 You now can type expressions etc. See 'README' for details about using
 CEXP.

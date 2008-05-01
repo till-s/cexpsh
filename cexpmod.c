@@ -63,7 +63,14 @@
 #endif
 
 #ifdef HAVE_BFD_DISASSEMBLER
+/* Oh well; rtems/score/types.h defines boolean and bfd
+ * defines boolean as well :-( Can't you people use names
+ * less prone to clashes???
+ * We redefine bfd's boolean here
+ */
+#define  boolean bfdddd_bbboolean
 #include <bfd.h>
+#undef   boolean
 extern void cexpDisassemblerInstall(bfd *abfd);
 #endif
 

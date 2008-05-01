@@ -88,6 +88,7 @@
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
 #endif
+#undef   boolean
 
 #define NumberOf(arr) (sizeof(arr)/sizeof(arr[0]))
 

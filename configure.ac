@@ -44,6 +44,9 @@ AH_TEMPLATE([HAVE_TYPE_UINT32_T])
 AC_CHECK_TYPE(uint32_t,[AC_DEFINE([HAVE_TYPE_UINT32_T])],[AC_CHECK_SIZEOF([unsigned int])])
 fi
 
+AH_TEMPLATE([HAVE_RTEMS_H])
+AC_CHECK_HEADER([rtems.h],[AC_DEFINE([HAVE_RTEMS_H],1,[If we found RTEMS headers; otherwise ugly hacks will be used!])])
+
 dnl is this a 'xsyms' only checkout?
 if test ! -f $srcdir/cexp.y ; then
 	enable_cexp=no

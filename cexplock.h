@@ -78,9 +78,10 @@ cexpEventCreate(CexpEvent *id)
 
 #elif defined(__rtems__)
 
-#if defined(RTEMS_TODO_DONE) /* avoid pulling in <rtems.h> until we can do this in a BSP independent way */
+#if defined(HAVE_RTEMS_H)
 #include <rtems.h>
 #else
+/* avoid pulling in <rtems.h> until we can do this in a BSP independent way */
 #define rtems_id unsigned long
 long rtems_semaphore_obtain();
 long rtems_semaphore_release();

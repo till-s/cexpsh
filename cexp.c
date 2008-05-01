@@ -45,6 +45,9 @@
  * this notice affixed to any distribution by the recipient that contains a
  * copy or derivative of this software.
  */
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -57,15 +60,16 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/param.h>
-#if defined(__rtems__) && !defined(RTEMS_TODO_DONE)
+#if defined(__rtems__)
+#if defined(HAVE_RTEMS_H)
+#include <sys/termios.h>
+#include <sys/ioctl.h>
+#else
 #include "rtems-hackdefs.h"
+#endif
 #else
 #include <termios.h>
 #include <sys/ioctl.h>
-#endif
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
 #endif
 
 #ifdef HAVE_SIGNALS

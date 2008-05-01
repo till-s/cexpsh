@@ -119,10 +119,10 @@ CexpSymRec key;
 #ifdef HAVE_RCMD
 #include <sys/time.h>
 #include <errno.h>
+#if !defined(HAVE_RTEMS_H) && defined(__rtems__)
 /* avoid pulling in networking headers under __rtems__
  * until BSP stuff is separated out from the core
  */
-#if !defined(RTEMS_TODO_DONE) && defined(__rtems__)
 #define	AF_INET	2
 extern char *inet_ntop();
 extern int	socket();

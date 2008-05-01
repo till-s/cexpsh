@@ -2,6 +2,8 @@
  * compiling termios related code without specifying a BSP
  */
 
+#warning 'THIS HEADER SHOULD NOT BE USED'
+
 /*-
  * Copyright (c) 1982, 1986, 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
@@ -45,6 +47,15 @@
 
 #ifndef	RTEMS_HACKDEFS_H
 #define RTEMS_HACKDEFS_H
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef HAVE_RTEMS_H
+/* configure has found real headers but we're still using the hacks?? */
+#error "Never use these hacks -- use real RTEMS headers instead!"
+#endif
 
 #include <stdint.h>
 

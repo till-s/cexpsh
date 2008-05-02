@@ -146,33 +146,53 @@ ifdef RTEMS_MAKEFILE_PATH
 include $(RTEMS_MAKEFILE_PATH)/Makefile.inc
 include $(RTEMS_CUSTOM)
 include $(CONFIG.CC)
-CFLAGARG="CFLAGS=$(CPU_CFLAGS)"
+
+CFLAGARG='CFLAGS=
+CFLAGARG+=$(CPU_CFLAGS)
+ifeq (multilibbuild$(shell if test -d $(PROJECT_ROOT)/$(RTEMS_CPU)-rtems/include; then echo YES; fi),multilibbuildYES)
+CFLAGARG+=-B$(PROJECT_ROOT)/$(RTEMS_CPU)-rtems/lib
+CPPFLAGARG='CPPFLAGS=-isystem $(PROJECT_ROOT)/$(RTEMS_CPU)-rtems/include'
+endif
+CFLAGARG+='
+
+
 ifndef RTEMS_SITE_INSTALLDIR
 #traditional RTEMS install
 ifeq ($(filter,--prefix,$(TGT_CONFIG_OPTS))xx,xx)
-PREFIXARG=--prefix=$(PROJECT_ROOT)
+PREFIXARG=--prefix='$(PROJECT_ROOT)'
 endif
 ifeq ($(filter,--exec-prefix,$(TGT_CONFIG_OPTS))xx,xx)
-EXCPREFIXARG=--exec-prefix='$(prefix)/$(RTEMS_CPU)-rtems/$(RTEMS_BSP)'
+EXCPREFIXARG=--exec-prefix='$(PROJECT_RELEASE)'
 endif
 ifeq ($(filter,--includedir,$(TGT_CONFIG_OPTS))xx,xx)
-INCDIRARG=--includedir='$(prefix)/$(RTEMS_CPU)-rtems/$(RTEMS_BSP)/lib/include'
+INCDIRARG=--includedir='$(PROJECT_INCLUDE)'
 endif
+GCCSPECSARG=$(GCCSPECS)
 endif
+
+# Clear critical variables that may have been set by the RTEMS
+# Makefiles when building the host demo
+host:CC=
+host:CFLAGS=
+host:LDFLAGS=
+host:LIBS=
+host:CPPFLAGS=
+host:CPP=
+
 rtemsbsp: cross-$(RTEMS_CPU)-rtems
 	@echo or 'make rtemsbsp-install'
 rtemsbsp-install: rtemsbsp install-$(RTEMS_CPU)-rtems
+
 else
 rtemsbsp%:
 	$(error you must set RTEMS_MAKEFILE_PATH=<dir where Makefile.inc of your BSP lives> either on the commandline or in the environment)
 endif
 
-
 cross-%:
 	@if [ ! -d build-$* ] ; then \
 		mkdir build-$*; \
 		echo CONFIGURING FOR CROSS BUILD TO ARCHITECTURE $*; \
-		( cd build-$*; ../configure CC=$*-gcc $(CFLAGARG) --host=$* $(TGT_CONFIG_OPTS) --disable-nls --disable-multilib --with-newlib $(PREFIXARG) $(EXCPREFIXARG) $(INCDIRARG) ); \
+		( cd build-$*; ../configure CC='$*-gcc $(GCCSPECSARG)' $(CFLAGARG) $(CPPFLAGARG) --host=$* $(TGT_CONFIG_OPTS) --disable-nls --disable-multilib --with-newlib $(PREFIXARG) $(EXCPREFIXARG) $(INCDIRARG) ); \
 	fi
 	@echo MAKING CROSS BUILD TO ARCHITECTURE $*
 	$(MAKE) -C build-$*

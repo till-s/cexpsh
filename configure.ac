@@ -127,7 +127,7 @@ dnl			AC_HAVE_LIBRARY(elf,we_have_native_libelf=yes)
 		if test "$we_have_native_libelf" != "yes" ; then
 dnl	     AC_CONFIG_SUBDIRS needs a literal arg :-(
 			if test ! -d $srcdir/$LIBELF ; then
-				AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY")
+				AC_MSG_ERROR("YOU NEED TO INSTALL a $LIBELF source tree TO THE SOURCE DIRECTORY (or --disable-libelf)")
 			fi
 			AC_CONFIG_SUBDIRS(libelf-0.8.2)
 		fi

@@ -1,6 +1,7 @@
 AUTOMAKE_OPTIONS = foreign no-installinfo no-installman
 lib_LIBRARIES    = libpmelf.a libpmbfd.a
-libpmelf_a_SOURCES = symname.c secname.c putdat.c dmpgrps.c
+libpmelf_a_SOURCES = pmelfP.h attP.h
+libpmelf_a_SOURCES+=symname.c secname.c putdat.c dmpgrps.c
 libpmelf_a_SOURCES+=strm.c fstrm.c mstrm.c
 libpmelf_a_SOURCES+=dmpsym.c dmpsymtab.c
 libpmelf_a_SOURCES+=dmpshdr.c dmpshtab.c
@@ -16,6 +17,17 @@ libpmelf_a_SOURCES+=getshdr.c
 libpmelf_a_SOURCES+=putshdr.c
 libpmelf_a_SOURCES+=getehdr.c
 libpmelf_a_SOURCES+=putehdr.c
+libpmelf_a_SOURCES+=attpbfasmatch.c
+libpmelf_a_SOURCES+=attpbfasdestroy.c
+libpmelf_a_SOURCES+=attpbfasread.c
+libpmelf_a_SOURCES+=attpbfasprint.c
+libpmelf_a_SOURCES+=attpbfaprint.c
+libpmelf_a_SOURCES+=attpbprinttag.c
+libpmelf_a_SOURCES+=attset.c
+libpmelf_a_SOURCES+=attprint.c
+libpmelf_a_SOURCES+=attvendfind.c
+libpmelf_a_SOURCES+=guleb128.c getwrd.c
+libpmelf_a_SOURCES+=att-gnu-powerpc.c
 if NO_64BIT
 libpmelf_a_SOURCES+=noelf64.c
 endif
@@ -23,7 +35,15 @@ endif
 if BUILD_UTILS
 bin_PROGRAMS=rdelf bfdod
 rdelf_LDADD=-L. -lpmelf
+rdelf_DEPENDENCIES=libpmelf.a
 bfdod_LDADD=-L. -lpmbfd -lpmelf
+bfdod_DEPENDENCIES=libpmelf.a libpmbfd.a
+endif
+
+if BUILD_TESTS
+bin_PROGRAMS=test_attr
+test_attr_LDADD=-L. -lpmelf
+test_attr_DEPENDENCIES=libpmelf.a
 endif
 
 libpmbfd_a_SOURCES =bfd.c

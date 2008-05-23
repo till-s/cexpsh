@@ -29,6 +29,12 @@ AC_ARG_ENABLE(byteswap,
 	esac]
 )
 
+AC_ARG_ENABLE(tests,
+	AC_HELP_STRING([--enable-test],
+		[enable test programs])
+)
+
+
 if test "${enable_pmelf64}" = "yes"; then
 	AC_DEFINE([PMELF_CONFIG_ELF64SUPPORT],1,[enable support for 64-bit ELF files])
 fi
@@ -57,6 +63,7 @@ dnl install multilibs into MULTISUBDIR
 AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
 
 AM_CONDITIONAL(BUILD_UTILS, [case "$host_os" in *[[rR]][[tT]][[eE]][[mM]][[sS]]*) false;; *) true;; esac])
+AM_CONDITIONAL(BUILD_TESTS, [test "$enable_tests" = "yes"])
 
 AC_CONFIG_FILES(Makefile)
 AM_CONFIG_HEADER(config.h)

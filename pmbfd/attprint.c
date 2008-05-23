@@ -44,69 +44,23 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
+#include <pmelf.h>
+#include <pmelfP.h>
+#include <attrP.h>
+#include <stdio.h>
 
-typedef struct _Elf_Memstream {
-	struct _Elf_Stream s;
-	char               *buf;
-	size_t             len;
-	unsigned long      pos;
-} *Elf_Memstream;
-
-static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
+/*
+ * Print single attribute (if file_attribute_print method is available)
+ *
+ * RETURNS: number of characters printed (zero if no print method available).
+ *
+ * NOTE: representation of 'att' must be as expected by the vendor
+ *       file_attribute_print() method.
+ */
+int
+pmelf_print_attribute(Pmelf_attribute_tbl *patbl, FILE *f, Elf32_Word tag, void *att)
 {
-Elf_Memstream s = p;
-size_t        l = size*nelms;
-
-	if ( s->pos + l > s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
-
-	memcpy(buf, &s->buf[s->pos], l);
-	s->pos += l;
-	return nelms;
-}
-
-static int mseek(void *p, long offset, int whence)
-{
-Elf_Memstream s = p;
-	if ( SEEK_SET != whence ) {
-		errno = ENOTSUP;
-		return -1;
-	}
-	if ( offset < 0 || offset >= s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
-	s->pos = offset;
+	if ( patbl->pv->file_attribute_print )
+		return patbl->pv->file_attribute_print(patbl, f, tag, att);
 	return 0;
-}
-
-Elf_Stream
-pmelf_memstrm(void *buf, size_t len)
-{
-Elf_Memstream s;
-
-	if ( len < 1 )
-		return 0;
-
-	if ( ! (s = calloc(1, sizeof(*s))) ) {
-		return 0;
-	}
-
-	if ( ! (s->s.name = strdup("<memory>")) ) {
-		free(s);
-		return 0;
-	}
-
-	s->s.f = s;
-	s->buf = buf;
-	s->len = len;
-	s->pos = 0;
-
-	s->s.read = (void*)mrd;
-	s->s.seek = (void*)mseek;
-
-	return &s->s;
 }

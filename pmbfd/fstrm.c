@@ -62,6 +62,16 @@ Elf_Stream s;
 			fclose(nf);
 		return 0;
 	}
+
+	if ( ! name )
+		name = "<unknown>";
+	if ( ! (s->name = strdup(name)) ) {
+		if ( nf )
+			fclose( nf );
+		free(s);
+		return 0;
+	}
+
 	s->f    = f;
 	s->read = (void*)fread;
 	s->seek = (void*)fseek;

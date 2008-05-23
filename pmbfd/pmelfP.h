@@ -69,6 +69,7 @@
 
 struct _Elf_Stream {
 	void    *f;
+	char    *name;
 	size_t  (*read) (void *buf, size_t size, size_t nmemb, void* stream);
 	size_t  (*write)(const void *buf, size_t size, size_t nmemb, void* stream);
 	int     (*seek) (void* stream, long offset, int whence);

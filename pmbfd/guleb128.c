@@ -44,69 +44,45 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
+#include <pmelf.h>
+#include <pmelfP.h>
+#include <attrP.h>
+#include <stdio.h>
 
-typedef struct _Elf_Memstream {
-	struct _Elf_Stream s;
-	char               *buf;
-	size_t             len;
-	unsigned long      pos;
-} *Elf_Memstream;
-
-static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
+/* Decode 'uleb128'-encoded number from memory
+ * buffer (of size 'sz').
+ *
+ * RETURNS: Number of bytes read or -1 on failure
+ *          (attempt to read beyond buffer size).
+ *
+ *          Decoded number is deposited in *p.
+ *
+ * NOTE:    Decoded number is only 32-bits but
+ *          the encoded number could be longer
+ *          (if buffer is not exhausted).
+ *          Only the least-significant 32-bits
+ *          are deposited in '*p' in this case.
+ */
+int
+pmelf_guleb128(const uint8_t *s, Elf32_Word *p, int sz)
 {
-Elf_Memstream s = p;
-size_t        l = size*nelms;
+int     	shft,n;
+uint8_t     v;
+Elf32_Word  rval;
+	
+	rval = 0;
+	shft = 0;
+	n    = 0;
 
-	if ( s->pos + l > s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
+	do {
+		if ( sz <= n )
+			return -1;
+		rval |= ( (v = s[n++]) & 0x7f) << shft;
+		shft += 7;
+	} while ( v & 0x80 );
 
-	memcpy(buf, &s->buf[s->pos], l);
-	s->pos += l;
-	return nelms;
+	*p = rval;
+
+	return n;
 }
 
-static int mseek(void *p, long offset, int whence)
-{
-Elf_Memstream s = p;
-	if ( SEEK_SET != whence ) {
-		errno = ENOTSUP;
-		return -1;
-	}
-	if ( offset < 0 || offset >= s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
-	s->pos = offset;
-	return 0;
-}
-
-Elf_Stream
-pmelf_memstrm(void *buf, size_t len)
-{
-Elf_Memstream s;
-
-	if ( len < 1 )
-		return 0;
-
-	if ( ! (s = calloc(1, sizeof(*s))) ) {
-		return 0;
-	}
-
-	if ( ! (s->s.name = strdup("<memory>")) ) {
-		free(s);
-		return 0;
-	}
-
-	s->s.f = s;
-	s->buf = buf;
-	s->len = len;
-	s->pos = 0;
-
-	s->s.read = (void*)mrd;
-	s->s.seek = (void*)mseek;
-
-	return &s->s;
-}

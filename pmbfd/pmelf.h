@@ -191,6 +191,7 @@ typedef union {
 #define SHT_GROUP			17
 #define SHT_SYMTAB_SHNDX	18
 #define SHT_MAXSUP			18
+#define SHT_GNU_ATTRIBUTES  0x6ffffff5
 #define SHT_GNU_VERSION     0x6fffffff
 #define SHT_GNU_VERSION_R   0x6ffffffe
 #define SHT_LOPROC			0x70000000
@@ -534,7 +535,8 @@ pmelf_get_section_name(Pmelf_Shtab stab, uint32_t index)
 /* Create a new stream; if 'name' is given then
  * the named file is opened and used for the stream.
  * Alternatively, an open FILE stream may be passed.
- * The name is unused in this case.
+ * The name is unused in this case (except for informative
+ * purposes in error messages).
  * 
  * RETURNS: new stream of NULL on error.
  *
@@ -843,6 +845,106 @@ pmelf_dump_symtab(FILE *f, Pmelf_Symtab symtab, Pmelf_Shtab shtab, int format);
  */
 int
 pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab);
+
+/*
+ * Object file attributes (stored in '.gnu.attributes' sections of type
+ * SHT_GNU_ATTRIBUTES). They describe ABI compatibility features of object
+ * files.
+ */
+typedef struct Pmelf_attribute_set_ Pmelf_attribute_set;
+
+typedef struct Pmelf_attribute_vendor_ Pmelf_attribute_vendor;
+
+/*
+ * Vendors implemented so far
+ */
+
+extern Pmelf_attribute_vendor pmelf_attributes_vendor_gnu_ppc;
+
+/*
+ * Provide a compile-time constant if there is an implementation
+ */
+#if defined(__PPC__) && defined(_CALL_SYSV)
+#define PMELF_ATTRIBUTE_VENDOR (&pmelf_attributes_vendor_gnu_ppc)
+#endif
+
+/*
+ * Try to find a vendor for 'machine/osabi' at run-time.
+ * (Using this routine will trigger linkage of all implemented
+ * vendors)
+ */
+Pmelf_attribute_vendor *
+pmelf_attributes_vendor_find_gnu(Elf32_Word machine, Elf32_Word osabi);
+
+/* register a vendor (attribute parser + filter) */
+int
+pmelf_attributes_vendor_register(Pmelf_attribute_vendor *pv);
+	
+/* retrieve name of a vendor (pointer to constant string) */
+const char * const
+pmelf_attributes_vendor_name(Pmelf_attribute_vendor *pv);
+
+/* Create attribute set reading from an ELF stream.
+ *
+ * 's'       : stream object
+ *
+ * 'psect'   : section header of type SHT_GNU_ATTRIBUTES (".gnu.attributes")
+ * 
+ * RETURNS   : attribute set or NULL on error.
+ *
+ * NOTE      : the stream and section header are not referenced anymore
+ *             after this routine returns and may therefore be safely
+ *             destroyed.
+ */
+Pmelf_attribute_set *
+pmelf_create_attribute_set(Elf_Stream s, Elf_Shdr *psect);
+
+/* Create attribute set from a static memory buffer.
+ *
+ * 'b'       : pointer to buffer
+ *
+ * 'bsize'   : size of data/buffer in bytes
+ * 
+ * 'needswap': if nonzero, assume that endian-ness of the data does not match the
+ *             endian-ness of the executing CPU and hence data need to be swapped
+ *
+ * 'obj_name': a name to associate with this buffer (mainly used in error messages)
+ *
+ * RETURNS   : attribute set or NULL on error.
+ *
+ * NOTE      : It is the responsibility of the caller to manage this buffer and
+ *             make sure it 'lives' as long as the attribute set since the
+ *             latter uses pointers into the buffer.
+ *             Data layout in the buffer is expected to be in ARM aeabi format
+ *             (which is used by the GNU toolchain).
+ */
+Pmelf_attribute_set *
+pmelf_read_attribute_set(const uint8_t *b, unsigned bsize, int needswap, const char *obj_name);
+
+/*
+ * Destroy attribute set and release all associated resources
+ */
+void
+pmelf_destroy_attribute_set(Pmelf_attribute_set *pa);
+
+/*
+ * Dump information contained in an attribute set to FILE 'f'
+ * (may be NULL resulting in stdout being used).
+ */
+void
+pmelf_print_attribute_set(Pmelf_attribute_set *pa, FILE *f);
+
+/*
+ * Compare two attribute sets.
+ *
+ * RETURNS: zero if the sets describe compatible objects, negative
+ *          if an incompatibility is found indicating that they
+ *          may not be linked.
+ *
+ * NOTE:    positive return values are reserved for future use.
+ */
+int
+pmelf_match_attribute_set(Pmelf_attribute_set *pa, Pmelf_attribute_set *pb);
 
 /* Write headers to a stream */
 int

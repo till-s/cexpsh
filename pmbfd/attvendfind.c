@@ -44,69 +44,16 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
 
-typedef struct _Elf_Memstream {
-	struct _Elf_Stream s;
-	char               *buf;
-	size_t             len;
-	unsigned long      pos;
-} *Elf_Memstream;
+#include <pmelf.h>
+#include <pmelfP.h>
+#include <attrP.h>
 
-static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
+Pmelf_attribute_vendor *
+pmelf_attributes_vendor_find_gnu(Elf32_Word machine, Elf32_Word osabi)
 {
-Elf_Memstream s = p;
-size_t        l = size*nelms;
-
-	if ( s->pos + l > s->len ) {
-		errno = EINVAL;
-		return -1;
+	if ( EM_PPC == machine && ELFOSABI_SYSV == osabi ) {
+		return &pmelf_attributes_vendor_gnu_ppc;
 	}
-
-	memcpy(buf, &s->buf[s->pos], l);
-	s->pos += l;
-	return nelms;
-}
-
-static int mseek(void *p, long offset, int whence)
-{
-Elf_Memstream s = p;
-	if ( SEEK_SET != whence ) {
-		errno = ENOTSUP;
-		return -1;
-	}
-	if ( offset < 0 || offset >= s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
-	s->pos = offset;
 	return 0;
-}
-
-Elf_Stream
-pmelf_memstrm(void *buf, size_t len)
-{
-Elf_Memstream s;
-
-	if ( len < 1 )
-		return 0;
-
-	if ( ! (s = calloc(1, sizeof(*s))) ) {
-		return 0;
-	}
-
-	if ( ! (s->s.name = strdup("<memory>")) ) {
-		free(s);
-		return 0;
-	}
-
-	s->s.f = s;
-	s->buf = buf;
-	s->len = len;
-	s->pos = 0;
-
-	s->s.read = (void*)mrd;
-	s->s.seek = (void*)mseek;
-
-	return &s->s;
 }

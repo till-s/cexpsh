@@ -44,69 +44,45 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
+#include <pmelf.h>
+#include <pmelfP.h>
+#include <attrP.h>
+#include <stdio.h>
 
-typedef struct _Elf_Memstream {
-	struct _Elf_Stream s;
-	char               *buf;
-	size_t             len;
-	unsigned long      pos;
-} *Elf_Memstream;
-
-static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
+/*
+ * Generic routine to dump an attribute table to file 'f';
+ * uses 'file_attribute_print' method to dump individual 
+ * attributes.
+ */
+void
+pmelf_pub_file_attributes_print(Pmelf_attribute_tbl *patbl, FILE *f)
 {
-Elf_Memstream s = p;
-size_t        l = size*nelms;
+int                  i,idx;
+const char           *tn;
+Pmelf_attribute_list *e;
 
-	if ( s->pos + l > s->len ) {
-		errno = EINVAL;
-		return -1;
+	if ( !f )
+		f = stdout;
+	fprintf(f,"VENDOR: %s\n", patbl->pv->name);
+	fprintf(f,"Fixed Table:\n");
+#ifdef DEBUG
+	fprintf(f,"  Slots available: %u, used: %u\n", patbl->avail, patbl->idx);
+#endif
+	idx = -1;
+	for ( i=0; i <= patbl->pv->max_tag; i++ ) {
+		if ( (idx = patbl->map[i]) ) {
+			pmelf_print_attribute(patbl, f, i, &patbl->vals.p_pub[idx]);
+		}
 	}
-
-	memcpy(buf, &s->buf[s->pos], l);
-	s->pos += l;
-	return nelms;
-}
-
-static int mseek(void *p, long offset, int whence)
-{
-Elf_Memstream s = p;
-	if ( SEEK_SET != whence ) {
-		errno = ENOTSUP;
-		return -1;
+	if ( idx < 0 ) {
+		fprintf(f,"<EMPTY>\n");
 	}
-	if ( offset < 0 || offset >= s->len ) {
-		errno = EINVAL;
-		return -1;
+	fprintf(f,"\nVariable Table:\n");
+	if ( !patbl->lst ) {
+		fprintf(f,"<EMPTY>\n");
+	} else {
+		for ( e=patbl->lst; e; e=e->next ) {
+			pmelf_print_attribute(patbl, f, e->att.pub.tag, &e->att.pub.val);
+		}
 	}
-	s->pos = offset;
-	return 0;
-}
-
-Elf_Stream
-pmelf_memstrm(void *buf, size_t len)
-{
-Elf_Memstream s;
-
-	if ( len < 1 )
-		return 0;
-
-	if ( ! (s = calloc(1, sizeof(*s))) ) {
-		return 0;
-	}
-
-	if ( ! (s->s.name = strdup("<memory>")) ) {
-		free(s);
-		return 0;
-	}
-
-	s->s.f = s;
-	s->buf = buf;
-	s->len = len;
-	s->pos = 0;
-
-	s->s.read = (void*)mrd;
-	s->s.seek = (void*)mseek;
-
-	return &s->s;
 }

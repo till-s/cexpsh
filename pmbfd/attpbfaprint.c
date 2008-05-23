@@ -44,69 +44,26 @@
  * 
  * ------------------ SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
-#include "pmelfP.h"
+#include <pmelf.h>
+#include <pmelfP.h>
+#include <attrP.h>
+#include <stdio.h>
 
-typedef struct _Elf_Memstream {
-	struct _Elf_Stream s;
-	char               *buf;
-	size_t             len;
-	unsigned long      pos;
-} *Elf_Memstream;
-
-static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
+/*
+ * Generic routine to print an attribute in 'public' representation w/o any deeper knowledge
+ * about what it means, i.e., output is basically numerical.
+ *
+ * RETURNS: number of chars printed.
+ */
+int
+pmelf_pub_file_attribute_print(Pmelf_attribute_tbl *patbl, FILE *f, Elf32_Word tag, void *att)
 {
-Elf_Memstream s = p;
-size_t        l = size*nelms;
+int                 rval = 0;
+Pmelf_pub_attribute   *a = att;
 
-	if ( s->pos + l > s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
+	rval += fprintf(f,"Tag: ");
+	rval += pmelf_pub_print_tag(patbl, f, tag);
+	rval +=	fprintf(f,", ival: %9u, sval: %s\n", a->i, a->s ? a->s : "<NONE>");
 
-	memcpy(buf, &s->buf[s->pos], l);
-	s->pos += l;
-	return nelms;
-}
-
-static int mseek(void *p, long offset, int whence)
-{
-Elf_Memstream s = p;
-	if ( SEEK_SET != whence ) {
-		errno = ENOTSUP;
-		return -1;
-	}
-	if ( offset < 0 || offset >= s->len ) {
-		errno = EINVAL;
-		return -1;
-	}
-	s->pos = offset;
-	return 0;
-}
-
-Elf_Stream
-pmelf_memstrm(void *buf, size_t len)
-{
-Elf_Memstream s;
-
-	if ( len < 1 )
-		return 0;
-
-	if ( ! (s = calloc(1, sizeof(*s))) ) {
-		return 0;
-	}
-
-	if ( ! (s->s.name = strdup("<memory>")) ) {
-		free(s);
-		return 0;
-	}
-
-	s->s.f = s;
-	s->buf = buf;
-	s->len = len;
-	s->pos = 0;
-
-	s->s.read = (void*)mrd;
-	s->s.seek = (void*)mseek;
-
-	return &s->s;
+	return rval;
 }

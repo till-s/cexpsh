@@ -59,7 +59,8 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#define ERRPR(x...) fprintf(stderr,x)
+#define ERRPR(x...) fprintf(stderr,"Error: "x)
+#define WRNPR(x...) fprintf(stderr,"Warning: "x)
 
 #define BFD_TRUE  1
 #define BFD_FALSE 0
@@ -102,28 +103,29 @@ typedef struct strtab {
 } strtab;
 
 struct bfd {
-	Elf_Stream         s;
-	Elf_Ehdr           ehdr;
+	Elf_Stream               s;
+	Elf_Ehdr                 ehdr;
 	const bfd_arch_info_type *arch;
 #if SECCHUNKSZ == 0
-	asection           *sects;
-	uint32_t           nsects;
-	uint32_t		   maxsects;
+	asection                 *sects;
+	uint32_t                 nsects;
+	uint32_t		         maxsects;
 #endif
-	asymbol            *syms;
-	long               nsyms;
-	strtab             *strtabs;
-	uint32_t           nstrtabs;
-	uint32_t		   str_avail;
-	Pmelf_Shtab	       shtab;
-	Elf_Shdr           *symsh;	    /* sh of symbol table           */
-	Elf_Shdr		   *symstrs;	/* sh of symbol table stringtab */
+	asymbol                  *syms;
+	long                     nsyms;
+	strtab                   *strtabs;
+	uint32_t                 nstrtabs;
+	uint32_t		         str_avail;
+	Pmelf_Shtab	             shtab;
+	Elf_Shdr                 *symsh;     /* sh of symbol table            */
+	Elf_Shdr		         *symstrs;   /* sh of symbol table stringtab  */
+	Elf_Shdr                 *att_sh;    /* sh of .gnu.attributes section */
 #if SECCHUNKSZ > 0
-	struct secchunk	   *secmemh;
-	struct secchunk    *secmemt;
+	struct secchunk	         *secmemh;
+	struct secchunk          *secmemt;
 #endif
-	struct symchunk	   *symmemh;
-	struct symchunk    *symmemt;
+	struct symchunk	         *symmemh;
+	struct symchunk          *symmemt;
 };
 
 #define BFD_ELFCLASS(abfd)  ((abfd)->ehdr.e_ident[EI_CLASS])

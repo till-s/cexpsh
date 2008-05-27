@@ -1,16 +1,4 @@
-dnl strip $Name$ from cvs tag and also a possible 'Cexp_' prefix
-m4_define(
-	cexpversion,
-	m4_bregexp(
-		[$Name$],
-		[\([$]Name:[ ]*\)\([cC][eE][xX][pP]_?\)?\([^$]*\)[$]],
-		\3))
-
-m4_define(
-	CEXPVERSION,
-	m4_if(cexpversion,,[untagged],cexpversion))
-
-m4_undefine([cexpversion])
+m4_define([CEXPVERSION],AC_RTEMS_TILL_CVSTAG([$Name$]))
 
 AC_INIT(cexp, CEXPVERSION, <strauman@slac.stanford.edu>)
 
@@ -35,6 +23,13 @@ BINUTILS=binutils
 AC_SUBST(BINUTILS)
 LIBTECLA=libtecla
 AC_SUBST(LIBTECLA)
+
+# Must add this BEFORE AC_RTEMS_TILL_SETUP
+# so that the dummy-top 'config.status' also
+# knows how to make a config.h
+AM_CONFIG_HEADER(config.h)
+
+AC_RTEMS_TILL_SETUP(domultilib)
 
 # Optional features
 AC_ARG_ENABLE(cexp,
@@ -93,64 +88,6 @@ AC_ARG_WITH(rtems-notepad,
 		                   $withval,
 						   [use RTEMS notepad $withval for storing context info])
 )
-
-AC_ARG_WITH(rtems-top,
-	AC_HELP_STRING([--with-rtems-top=<rtems installation topdir>],
-		[point to RTEMS installation (only relevant if --host=XXX-rtems)]),
-		[case "${host_os}" in *rtems* )
-			AC_DEFINE_UNQUOTED(HAVE_RTEMS_HEADERS,1,[use RTEMS headers])
-		;; esac],
-		[case "${host_os}" in *rtems* )
-			AC_MSG_ERROR([use --with-rtems-top to point to your RTEMS installation])
-		;; esac]
-)
-
-AC_ARG_ENABLE(rtemsbsps,
-	AC_HELP_STRING([--enable-rtemsbsp="bsp1 bsp2 ..."],
-		[BSPs to include in build (ignore bsps not found in RTEMS installation)])
-)
-
-case "${host_os}" in *rtems* )
-AC_MSG_CHECKING([Checking RTEMS installation])
-if test ! -d $with_rtems_top/${host_cpu}-rtems/ ; then
-	AC_MSG_ERROR([Looking for headers: directory $with_rtems_top/${host_cpu}-rtems/ not found])
-fi
-AC_MSG_RESULT([ok])
-AC_MSG_CHECKING([Checking for RTEMS BSPs])
-if test ! "${enable_rtemsbsp+set}" = "set" ; then
-	enable_rtemsbsp=`ls $with_rtems_top/${host_cpu}-rtems/`
-fi
-rtemsbsps=""
-for bspcand in $enable_rtemsbsp
-do
-	echo $bspcand
-	if test -d $with_rtems_top/${host_cpu}-rtems/$bspcand/lib/include ; then
-		rtemsbsps="$rtemsbsps $bspcand"
-	fi
-done
-if test "$rtemsbsps"xx = xx; then
-	AC_MSG_ERROR([No RTEMS BSPs found])
-fi
-AC_MSG_RESULT([found $rtemsbsps])
-
-rtems_bsp=mvme3100
-
-eval `make -f - rtems_makevars <<'EOF_'
-include /tmp/box/powerpc-rtems/mvme3100/Makefile.inc
-include $(RTEMS_CUSTOM)
-include $(CONFIG.CC)
-
-rtems_makevars:
-	@echo rtems_cpu_cflags=\'$(CPU_CFLAGS)\'
-	@echo rtems_gcc_specs=\'$(GCCSPECS)\'
-EOF_
-`
-AC_SUBST(rtems_libdir,[$with_rtems_top/${host_cpu}-rtems/$rtems_bsp/lib])
-AC_SUBST(rtems_gcc_specs,[$rtems_gcc_specs])
-AC_SUBST(rtems_cpu_cflags,[$rtems_cpu_cflags])
-AC_SUBST(rtems_includedir,[-I$with_rtems_top/${host_cpu}-rtems/$rtems_bsp/lib/include])
-AC_SUBST(rtems_extra_includedir,[])
-;; esac
 
 # VALIDATE OPTIONS
 
@@ -299,7 +236,11 @@ if test "${enable_opcodes}" = "yes"; then
 	fi
 else
 	if test ! "${enable_opcodes}" = "no"; then
-		enable_opcodes=yes
+		if test "${binutils_installed}" = "yes"; then
+			enable_opcodes=yes
+		else
+			enable_opcodes=no
+		fi
 	fi
 fi
 AC_MSG_RESULT([$enable_opcodes])
@@ -345,6 +286,9 @@ if test ! "$enable_cexp" = "no" ; then
 	fi
 
 fi
+
+AH_TEMPLATE([HAVE_RTEMS_H])
+AC_CHECK_HEADER([rtems.h],[AC_DEFINE([HAVE_RTEMS_H],1,[If we found RTEMS headers; otherwise ugly hacks will be used!])])
 
 # based on the features requested, check which bfd library to use
 
@@ -405,7 +349,7 @@ AC_HAVE_FUNCS(rcmd vsnprintf)
 
 AM_CONDITIONAL(DO_CEXPLIB, [test ! "$enable_cexp"    = "no"])
 # if host=target AND host=build, then to the demo
-AM_CONDITIONAL(DO_DEMO,    [test ! "$host_os" = "$build_os" && test "$host_os" = "$target_os"])
+AM_CONDITIONAL(DO_DEMO,    [test "$host_os" = "$build_os" && test "$host_os" = "$target_os"])
 AM_CONDITIONAL(USEBFD,     [test ! "$enable_bfd"     = "no"])
 AM_CONDITIONAL(USETECLA,   [test ! "$enable_tecla"   = "no"])
 AM_CONDITIONAL(USEOPCODES, [test ! "$enable_opcodes" = "no"])
@@ -422,19 +366,7 @@ AH_VERBATIM(NO_THREAD_PROTECTION,[
 ])
 
 AC_CONFIG_FILES(Makefile)
-AM_CONFIG_HEADER(config.h)
 
-AM_ENABLE_MULTILIB([Makefile],[.])
-# install multilibs into MULTISUBDIR
-AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
-# in order to properly build multilibs in sub-libraries it seems we
-# must pass the --enable-multilibs arg to sub-configures or multilibs
-# are not built there.
-# To work around, we simply set the default to 'no' so the user must
-# say --enable-multilib to get them.
-if test ! "${enable_multilib+set}" = "set" ; then
-	multilib=no
-fi
 # cannot use multilibs with BFD
 if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test ! "${multilib}" = "no" ; then
 	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib (or --disable-bfd --disable-opcodes)])

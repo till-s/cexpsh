@@ -1,3 +1,4 @@
+Changes since CEXP-1.6.beta
 Changes since CEXP-1.5
  2008/4/29:
  - Added toplevel Makefile rules 'rtemsbsp'/'rtemsbsp-install' which

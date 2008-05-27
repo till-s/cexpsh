@@ -89,6 +89,7 @@ static const char *
 ppc_abi_fp_val(int val)
 {
 	switch ( val ) {
+		case 0: return "hard-or-soft-float";
 		case 1:	return "hard-float";
 		case 2:	return "soft-float";
 		default:
@@ -248,9 +249,16 @@ int         va,vb;
 	}
 
 	va = patbl->vals.p_pub[patbl->map[Tag_GNU_Power_ABI_FP]].i;
-	vb = patbl->vals.p_pub[patbl->map[Tag_GNU_Power_ABI_FP]].i;
+	vb = pbtbl->vals.p_pub[pbtbl->map[Tag_GNU_Power_ABI_FP]].i;
 
-	if ( va != vb ) {
+	if ( va > 2 ) {
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of GNU_Power_ABI_FP attribute in %s\n", va, patbl->aset->obj_name);
+	}
+	if ( vb > 2 ) {
+		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of GNU_Power_ABI_FP attribute in %s\n", vb, pbtbl->aset->obj_name);
+	}
+
+	if ( va != vb && ( va != 0 && vb != 0 ) ) {
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): mismatch of GNU_Power_ABI_FP attribute\n");
 
 		ppc_complain(patbl->aset->obj_name, ppc_abi_fp_val, va);

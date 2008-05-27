@@ -119,6 +119,10 @@ typedef struct CexpModuleRec_ {
 									 * prevent a 'in-use' driver from being unloaded.
 									 */
 	char				*fileName;
+	void                *fileAttributes;
+	                                /* compatibility attributes as described by '.gnu.attributes'
+									 * section. Currently, only pmbfd supports this.
+									 */
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

@@ -47,7 +47,7 @@
 #include "pmelfP.h"
 
 Elf_Stream
-pmelf_newstrm(char *name, FILE *f)
+pmelf_newstrm(const char *name, FILE *f)
 {
 FILE *nf = 0;
 Elf_Stream s;

@@ -51,6 +51,9 @@
  * 
  * SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
 
 #include <fcntl.h>
 #include <stdio.h>
@@ -64,21 +67,17 @@
 #include <errno.h>
 #include <sys/param.h>
 #if defined(__rtems__)
-#if !defined(HAVE_RTEMS_HEADERS)
-#include "rtems-hackdefs.h"
-#else
+#if defined(HAVE_RTEMS_H)
 #include <rtems.h>
 #include <sys/termios.h>
 #include <sys/ioctl.h>
+#else
+#include "rtems-hackdefs.h"
 #endif
 #else  /* __rtems__ */
 #include <termios.h>
 #include <sys/ioctl.h>
 #endif /*__rtems__*/
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #ifdef HAVE_SIGNALS
 #include <signal.h>

@@ -871,6 +871,13 @@ bfd_init(void)
 	if ( !inited ) {
 		pmelf_set_errstrm(stdout);
 		memset( &thebfd, 0, sizeof(thebfd));
+#ifdef PMELF_ATTRIBUTE_VENDOR
+		if ( pmelf_attributes_vendor_register(PMELF_ATTRIBUTE_VENDOR) ) {
+			WRNPR("Failed to register object attribute parser (vendor '%s');\n"
+			      "ignoring '.gnu.attributes' sections.\n",
+			      pmelf_attributes_vendor_name(PMELF_ATTRIBUTE_VENDOR));
+		}
+#endif
 		inited = 1;
 	}
 }
@@ -1138,6 +1145,19 @@ Elf32_Shdr        *shdr;
 						}
 						break;
 
+		case SHT_GNU_ATTRIBUTES:
+#ifdef PMELF_ATTRIBUTE_VENDOR
+						if ( abfd->att_sh ) {
+							ERRPR("Only one attribute set ('.gnu.attributes' section) per BFD supported\n");
+							p->err = -1;
+							return;
+						}
+						abfd->att_sh = eshdr;
+#else
+						WRNPR("No support for '.gnu.attributes' section; ignoring attributes\n");
+#endif
+						break;
+
 		default:
 						ERRPR("Unknown section type 0x%"PRIx32" found\n", shdr->sh_type);
 						p->err = -1;
@@ -1290,7 +1310,7 @@ int               nrels;
 		ERRPR("bfd_openstreamr(): 'target' arg not supported\n");
 		return 0;
 	}
-	if ( ! (abfd->s = pmelf_newstrm(0, f)) )
+	if ( ! (abfd->s = pmelf_newstrm(fname, f)) )
 		return 0;
 
 	if ( pmelf_getehdr(abfd->s, &abfd->ehdr) ) {
@@ -1309,6 +1329,8 @@ int               nrels;
 		}
 		abfd->arch = a;
 	}
+
+	abfd->att_sh = 0;
 
 	if ( ! (abfd->shtab = pmelf_getshtab(abfd->s, &abfd->ehdr)) ) {
 		goto cleanup;
@@ -1588,4 +1610,24 @@ symvalue
 pmbfd_asymbol_set_value(asymbol *sym, symvalue v)
 {
 	return sym->val = v;
+}
+
+void *
+pmbfd_get_file_attributes(bfd *abfd)
+{
+Pmelf_attribute_set *rval;
+
+	if ( ! abfd->att_sh )
+		return 0;
+
+#ifdef PMELF_ATTRIBUTE_VENDOR
+	if ( ! (rval = pmelf_create_attribute_set(abfd->s, abfd->att_sh)) ) {
+			WRNPR("Unable to parse '.gnu.attributes' section; ignoring attributes\n");
+	}
+#else
+	ERRPR("Object attributes not compiled. Should never get here!\n");
+	rval = 0;
+#endif
+
+	return rval;
 }

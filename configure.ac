@@ -31,6 +31,18 @@ AM_CONFIG_HEADER(config.h)
 
 AC_RTEMS_TILL_SETUP(domultilib)
 
+# sys/termios.h and others can only be found outside of
+# the BSP installation area if cpukit was multilibbed :-(
+if test "${enable_multilib}" = "yes" ; then
+	AC_MSG_CHECKING([Checking for multilibbed cpukit])
+	if AC_RTEMS_TILL_CPUKIT_MULTILIB ; then
+		AC_MSG_RESULT([Yes; good.]);
+	else
+		AC_MSG_RESULT([No]);
+		AC_MSG_ERROR([Can only build multilibbed CEXP if cpukit is multilibbed, sorry.])
+	fi
+fi
+
 # Optional features
 AC_ARG_ENABLE(cexp,
 	AC_HELP_STRING([--disable-cexp],

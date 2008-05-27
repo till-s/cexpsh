@@ -47,12 +47,12 @@ a) Host Demo
 
   make host
 
-for building the host demo in a 'build.host' subdirectory. Both,
+for building the host demo in a 'build-host' subdirectory. Both,
 a 'cexp' demo executable and a 'xsyms' utility program (for
 generating a symbol file in host format) are built there. To
 play with the demo:
 
-  cd build.host
+  cd build-host
   ./xsyms cexp cexp.sym
   ./cexp -s ./cexp.sym
 
@@ -77,7 +77,6 @@ in order to re-configure.
 The CEXP target library can be installed using the 'make rtemsbsp-install' rule.
 
 The cross 'xsyms' tool needs to be installed manually
-
 	install  build-X-<cpu>-rtems/xsyms <cross_toolchain_bindir>/<cpu>-rtems-xsyms
 
 c) Target library and cross xsyms tool
@@ -111,9 +110,6 @@ Manual Method in Detail
 ----------------------
 Configuring Cexp:
 - - - - - - - - -
-
-NOTE: I'm not an autoconf/automake nightmare expert and I HATE
-automake almost as much as I do windoze.
 
 chdir to the source topdir and make a directory, e.g.
 
@@ -149,8 +145,7 @@ The configure script recognizes several options:
 			directories have been deleted from the distributed
 			libbfd...
 
-	--disable-bfd	use pmbfd instead of libbfd. Note that this comes
-			at the expense of losing the disassembler functionality.
+	--disable-bfd	use pmbfd instead of libbfd.
 
 	--disable-loader disable the run-time loader. An ELF symbol file
 	        can still be read. If you disable both, the loader AND
@@ -158,8 +153,8 @@ The configure script recognizes several options:
 			for reading files is removed. You must create, compile
 			and link a 'built-in' symbol table in this case.
 
-    --disable-opcodes don't use the opcodes library (opcodes is never
-            used if BFD is disabled). This removes the disassembler.
+    --disable-opcodes don't use the opcodes library. This removes the
+	        disassembler.
 
 	--disable-tecla	don't use the TECLA library (discouraged)
 

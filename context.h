@@ -85,6 +85,7 @@
 #ifdef HAVE_BFD_DISASSEMBLER
 #define boolean bbbboooolean /* se comment in bfdstuff.c why we do that */
 #include "dis-asm.h"
+#undef  boolean
 #endif
 
 #include <setjmp.h>
@@ -159,8 +160,7 @@ typedef epicsThreadPrivateId	CexpContextOSD;
 
 #elif defined(__rtems__)
 
-#ifdef HAVE_RTEMS_HEADERS /* see cexplock.h comment */
-
+#ifdef HAVE_RTEMS_H /* see cexplock.h comment */
 #include <rtems.h>
 
 #if __RTEMS_MAJOR__ < 4 || ( __RTEMS_MAJOR__ == 4 && __RTEMS_MINOR__ < 7 )
@@ -224,7 +224,7 @@ typedef CexpContext CexpContextOSD;
 #define cexpContextRegister()		do { \
 										rtems_task_variable_add(\
 										RTEMS_SELF,\
-										(void**)&cexpCurrentContext,\
+										(void*)&cexpCurrentContext,\
 										0 /* context is part of the stack, hence\
 										   * released automatically\
 										   */); \
@@ -232,7 +232,7 @@ typedef CexpContext CexpContextOSD;
 #define cexpContextUnregister()		do { \
 										rtems_task_variable_delete(\
 										RTEMS_SELF,\
-										(void**)&cexpCurrentContext); \
+										(void*)&cexpCurrentContext); \
 									} while (0)
 #define cexpContextGetCurrent(pc)	do { *(pc) = cexpCurrentContext;	} while (0)
 #define cexpContextSetCurrent(c)	do { cexpCurrentContext=(c);		} while (0)

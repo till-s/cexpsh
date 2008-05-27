@@ -87,7 +87,7 @@ cexpEventCreate(CexpEvent *id)
 
 #elif defined(__rtems__)
 
-#if defined(HAVE_RTEMS_HEADERS)
+#if defined(HAVE_RTEMS_H)
 #include <rtems.h>
 #else
 /* avoid pulling in <rtems.h> until we can do this in a BSP independent way */

@@ -544,7 +544,7 @@ pmelf_get_section_name(Pmelf_Shtab stab, uint32_t index)
  *          the stream fails the FILE is *not* closed.
  */
 Elf_Stream
-pmelf_newstrm(char *name, FILE *f);
+pmelf_newstrm(const char *name, FILE *f);
 
 /*
  * Create a new stream to read from a memory

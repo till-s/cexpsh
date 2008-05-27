@@ -46,7 +46,18 @@
 #ifndef	RTEMS_HACKDEFS_H
 #define RTEMS_HACKDEFS_H
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+#ifdef HAVE_RTEMS_H
+/* configure has found real headers but we're still using the hacks?? */
+#error "Never use these hacks -- use real RTEMS headers instead!"
+#endif
+
 #include <stdint.h>
+
+#error "This file is deprecated; remove this line if you absolutely have to use it"
 
 struct winsize {
 	unsigned short	ws_row;		/* rows, in characters */

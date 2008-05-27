@@ -79,8 +79,19 @@ typedef          long myintptr_t;
 #include <sys/mman.h>
 #endif
 
+#ifdef USE_PMBFD
+#include <pmelf.h>
+#endif
+
 #ifdef HAVE_BFD_DISASSEMBLER
+/* Oh well; rtems/score/types.h defines boolean and bfd
+ * defines boolean as well :-( Can't you people use names
+ * less prone to clashes???
+ * We redefine bfd's boolean here
+ */
+#define  boolean bfdddd_bbboolean
 #include <bfd.h>
+#undef   boolean
 extern void cexpDisassemblerInstall(bfd *abfd);
 #endif
 
@@ -562,6 +573,13 @@ static CexpSym cexpNoBuiltinSymbols = 0;
 char           *cexpBuiltinCpuArch  = 0;
 
 extern CexpSym cexpSystemSymbols __attribute__((weak, alias("cexpNoBuiltinSymbols")));
+#ifdef USE_PMBFD
+static const uint8_t *cexpNoBuiltinAttributes    = 0;
+static unsigned      cexpNoBuiltinAttributesSize = 0;
+
+extern const uint8_t *cexpSystemAttributes    __attribute__((weak, alias("cexpNoBuiltinAttributes")));
+extern unsigned      cexpSystemAttributesSize __attribute__((weak, alias("cexpNoBuiltinAttributesSize")));
+#endif
 
 static int
 cexpLoadBuiltinSymtab(CexpModule nmod)
@@ -598,6 +616,13 @@ CexpSym s;
 			s->value.type = cexpTypeGuessFromSize(s->size);
 	}
 	nmod->section_syms[nsect_syms] = 0; /* tag end */
+
+#ifdef USE_PMBFD
+	if ( cexpSystemAttributesSize > 0 ) {
+		bfd_init();
+		nmod->fileAttributes = pmelf_read_attribute_set(cexpSystemAttributes, cexpSystemAttributesSize, 0, "SYSTEM");
+	}
+#endif
 
 #ifdef HAVE_BFD_DISASSEMBLER
 	/* finding our BFD architecture turns out to be non-trivial! */
@@ -786,6 +811,10 @@ CexpModule mod=*mp;
 		free(mod->fileName);
 		cexpFreeSymTbl(&mod->symtbl);
 		free(mod);
+#ifdef USE_PMBFD
+		if (mod->fileAttributes)
+			pmelf_destroy_attribute_set(mod->fileAttributes);
+#endif
 	}
 	*mp=mod;
 }

@@ -469,6 +469,21 @@ unsigned bfd_m68k_mach_to_features (int);
 file_ptr
 pmbfd_get_section_filepos(bfd *abfd, asection *section);
 
+/* Not in BFD; create object attributes tables (see pmelf.h)
+ * from a '.gnu.attributes' section.
+ *
+ * RETURNS: attribute set or NULL (if no '.gnu.attributes'
+ *          section is present or if it could not be parsed.
+ *
+ * NOTE:    the caller is responsible for releasing resources
+ *          by calling pmelf_destroy_attribute_set() when the
+ *          table is no longer used.
+ *
+ *          The return value is really a (Pmelf_attribute_set *).
+ */
+void *
+pmbfd_get_file_attributes(bfd *abfd);
+
 #ifdef __cplusplus
 };
 #endif

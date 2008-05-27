@@ -90,6 +90,7 @@
 #define  boolean bfdddd_bbboolean
 #ifdef USE_PMBFD
 #include "pmbfd.h"
+#include "pmelf.h"
 #define reloc_get_address(abfd, r) pmbfd_reloc_get_address(abfd, r)
 #define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
 #define bfd_asymbol_set_value(s,v) pmbfd_asymbol_set_value(s,v)
@@ -101,6 +102,7 @@
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
 #endif
+#undef   boolean
 
 #define reloc_get_address(abfd, r)       ((r)->address)
 #define reloc_get_name(abfd,r)           ((r)->howto->name)
@@ -1394,6 +1396,11 @@ char							tmpfname[30]={
 char							*targ;
 char							*thename = 0;
 
+#ifdef USE_PMBFD
+Pmelf_attribute_set             *obj_atts = 0;
+CexpModule                      m;
+#endif
+
 	/* clear out the private data area; the cleanup code
 	 * relies on this...
 	 */
@@ -1411,6 +1418,7 @@ char							*thename = 0;
 	}
 
 	bfd_init();
+
 	/* make sure initialization is complete in case the system symtab was
 	 * read using another method
 	 */
@@ -1452,6 +1460,45 @@ char							*thename = 0;
 							bfd_printable_name(ldr.abfd));
 		goto cleanup;
 	}
+
+
+	/*
+	 * Check compatibility as described by a '.gnu.attributes'
+	 * section. Do this only if we are building for pmbfd
+	 * and if pmelf has an implementation for the host CPU/ABI.
+	 */
+#if defined(USE_PMBFD) && defined(PMELF_ATTRIBUTE_VENDOR)
+	obj_atts = pmbfd_get_file_attributes(ldr.abfd);
+	/* FIXME: should we warn if no attributes could be
+	 *        constructed? Maybe an older gcc simply
+	 *        didn't create a .gnu.attributes section...
+	 */
+
+	/* Definitely warn if system module has no attributes
+	 * but loadee does...
+	 */
+	if ( cexpSystemModule && ! cexpSystemModule->fileAttributes && obj_atts ) {
+		fprintf(stderr,
+		        "Warning: system module has no file attributes but loadee\n"
+		        "has a '.gnu.attributes' section; IGNORING possible ABI\n"
+				"incompatibilities\n");
+		pmelf_destroy_attribute_set(obj_atts);
+		obj_atts = 0;
+	}
+	
+	/* Check compatibility of this module with all previously
+	 * loaded ones. Should be OK even if we are just loading
+	 * the symbol (aka system module).
+	 */
+	for ( m = cexpSystemModule; m; m = m->next ) {
+		if ( pmelf_match_attribute_set(m->fileAttributes, obj_atts) ) {
+			fprintf(stderr,
+			        "Mismatch of object file attributes (ABI) with module '%s' found\n",
+					m->name);
+			goto cleanup;
+		}
+	}
+#endif
 
 	/* Get number of all ALLOC sections to compute the
 	 * number of all section names we remember (for debugger
@@ -1552,9 +1599,9 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
         /* it must be the main symbol table */
         if ( sane->value.ptv==(CexpVal)cexpLoadFile     &&
        	     (sane=cexpSymTblLookup("_etext",ldr.cst))  &&
-			 sane->value.ptv==(CexpVal)_etext          &&
+			 (char*)sane->value.ptv==_etext           &&
              (sane=cexpSymTblLookup("_edata",ldr.cst))  &&
-			 sane->value.ptv==(CexpVal)_edata ) {
+			 (char*)sane->value.ptv==_edata ) {
 
         	/* OK, sanity test passed */
 
@@ -1636,7 +1683,12 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 	mod->modPvt   = ehFrame;
 	ehFrame       = 0;
 
-	rval=0;
+#ifdef USE_PMBFD
+	mod->fileAttributes = obj_atts;
+	obj_atts      = 0;
+#endif
+
+	rval          = 0;
 
 	/* fall through to release unused resources */
 cleanup:
@@ -1650,6 +1702,11 @@ cleanup:
 	}
 
 	free(thename);
+
+#if defined(USE_PMBFD) && defined(PMELF_ATTRIBUTE_VENDOR)
+	if (obj_atts)
+		pmelf_destroy_attribute_set(obj_atts);
+#endif
 
 	if (ldr.cst)
 		cexpFreeSymTbl(&ldr.cst);

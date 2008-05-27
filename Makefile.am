@@ -94,12 +94,6 @@ gencore_SOURCES  = gencore.c
 
 if DO_CEXPLIB
 
-if OS_RTEMS
-CC+=@rtems_gcc_specs@
-CXX+=@rtems_gcc_specs@
-CPPFLAGS+=@rtems_cpu_cflags@ @rtems_includedir@ @rtems_extra_includedir@
-endif
-
 lib_LIBRARIES=libcexp.a
 include_HEADERS = cexp.h cexpHelp.h
 
@@ -153,7 +147,7 @@ gentab: gentab.c
 
 cexp.c: builddate.c
 
-builddate.c: ALWAYS
+builddate.c: $(libcexp_a_SOURCES) Makefile
 	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
 
 MOSTLYCLEANFILES+=builddate.c
@@ -167,5 +161,3 @@ cexp-builtin-symtab.c:	cexp
 
 cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
 	$(CC) -c -I$(srcdir) $(CFLAGS) -o $@ $^
-
-.PHONY: ALWAYS

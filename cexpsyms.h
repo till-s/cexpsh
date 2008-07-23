@@ -57,6 +57,10 @@
 #include "cexp.h"
 #include "ctyps.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct CexpSymRec_ {
 	const char			*name;
 	CexpTypedAddrRec	value;
@@ -104,5 +108,9 @@ cexpSymPrintInfo(CexpSym s, FILE *f);
 
 char *
 cexpSymMember(CexpTypedVal returnVal, CexpSym sym, char *mname, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

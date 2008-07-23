@@ -58,6 +58,10 @@
 #include "cexpsyms.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* magic name of help tables */
 /* Macro magic (see below) doesn't work well -> hardcode in multiple places :-(
 #define CEXP_HELP_TAB _cexpHelpTab
@@ -121,6 +125,10 @@ typedef struct CexpHelpTabRec_ {
 #ifdef _INSIDE_CEXP_
 void
 cexpAddHelpToSymTab(CexpHelpTab h, CexpSymTbl t);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

@@ -54,6 +54,10 @@
  * SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* initialize the facility: this routine must exactly be called ONCE */
 void
 cexpVarInitOnce(void);
@@ -118,5 +122,9 @@ cexpVarWalk(CexpVarWalker walker, void *usrArg);
  */
 char *
 cexpStrLookup(char *name, int creat);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -90,6 +90,10 @@
 
 #include <setjmp.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct CexpContextRec_ {
 	CexpContext			next;
 	jmp_buf				jbuf;		/* for setjmp/longjmp */
@@ -244,5 +248,9 @@ typedef CexpContext CexpContextOSD;
 
 /* OS dependent representation of the thread context */
 extern CexpContextOSD cexpCurrentContext;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

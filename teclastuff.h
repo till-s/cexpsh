@@ -59,9 +59,18 @@
 
 #include <libtecla.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int
 cexpSymComplete(WordCompletion *cpl, void *closure, const char *line, int word_end);
 
 int
 cexpResizeTerminal(GlTerminalSize *pts);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif

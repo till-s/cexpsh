@@ -56,6 +56,10 @@
 #include "config.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifdef USE_EPICS_OSI
 
 #include <epicsMutex.h>
@@ -234,6 +238,10 @@ INLINE void
 cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);
+}
+#endif
+
+#ifdef __cplusplus
 }
 #endif
 

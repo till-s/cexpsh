@@ -56,6 +56,10 @@
 #include <config.h>
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* BUMMER: libiberty/regex is NOT reentrant */
 #define HAVE_SPENCER_REGEX
 #undef  HAVE_LIBIBERTY
@@ -73,6 +77,10 @@ typedef SPENCER_(regexp) cexp_regex;
 
 #define cexp_regfree(regex) free(regex)
 
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

@@ -57,6 +57,10 @@
 #include <stdio.h>	/* only needed for the PrintInfo routine */
 #include "cexp.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* for now, we only support ulong result type */
 typedef unsigned long (*CexpFuncPtr)();
 
@@ -250,5 +254,9 @@ cexpTAPrintInfo(CexpTypedAddr a, FILE *f);
 /* convert a typed address to a typed value */
 const char *
 cexpTA2TV(CexpTypedVal v, CexpTypedAddr a);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

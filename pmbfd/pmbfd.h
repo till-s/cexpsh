@@ -79,8 +79,10 @@ typedef unsigned long symvalue;
 typedef void *PTR;
 #endif
 
+#if 0
 #define TRUE  1
 #define FALSE 0
+#endif
 
 typedef long          file_ptr;
 

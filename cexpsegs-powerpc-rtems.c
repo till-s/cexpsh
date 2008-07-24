@@ -36,14 +36,23 @@
  *          as a single chunk -- otherwise the trampolines may
  *          not be reachable).
  *          In order to find the semi-worst case (not just allocation
- *          a trampoline for every PPCREL relocation but collapsing
+ *          a trampoline for every R_PPC_REL24 relocation but collapsing
  *          multiple references to a single target and ignoring
  *          relocations into the loadee) we must process all relocation
  *          records + symbol table etc. twice. Doable but cumbersome.
  *
+ *          Also, for this approach we must assume that R_PPC_REL24
+ *          relocations ONLY refer to branches -- otherwise this
+ *          doesn't work!
+ *
  *       c) Reserve a (configurable) amount of memory in the '.text'
  *          area for module's text and use a dedicated allocator.
  *          This is the approach implemented by this file.
+ *
+ *          FIXME:
+ *          However, the space is compile-time configurable. We
+ *          should also have an option to configure the space
+ *          when linking the application...
  */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
@@ -198,6 +207,7 @@ unsigned          sz = CEXP_TEXT_REGION_SIZE;
 
 		if ( RTEMS_SUCCESSFUL != sc ) {
 			rtems_error(sc,"cexpsegs-powerpc-rtems: unable to create TEXT memory region\n");
+			text_region = 0;
 			return 0;
 		}
 	}
@@ -233,7 +243,6 @@ unsigned          sz = CEXP_TEXT_REGION_SIZE;
 
 /*
  * Find segment index for a given section.
- * RETURNS: non-negative number or -1 on error.
  */
 CexpSegment
 cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s)

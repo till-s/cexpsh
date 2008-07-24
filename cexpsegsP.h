@@ -102,7 +102,7 @@ void cexpSegsDelete(CexpSegment  ptr);
 
 /*
  * Find segment for a given section.
- * RETURNS: non-negative number or 0 on error.
+ * RETURNS: segment or NULL on error.
  */
 CexpSegment cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s);
 

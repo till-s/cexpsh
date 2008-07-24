@@ -346,6 +346,7 @@ modPrintInfo(CexpModule m, FILE *f, void *closure)
 {
 myintptr_t	level = (myintptr_t)closure;
 CexpSym	*psects;
+CexpSegment s;
 	fprintf(f,"Module '%s' (0x%08"MYPRIxPTR"):\n",
 				m->name, (myuintptr_t)m);
 	if ( level > 0 )
@@ -355,6 +356,15 @@ CexpSym	*psects;
 						m->symtbl->nentries);
 		fprintf(f,"  %li bytes of memory allocated to binary\n",
 						m->memSize);
+		if ( m->segs ) {
+			fprintf(f,"Memory segment layout:\n");
+			for ( s=m->segs; s->name; s++ ) {
+				fprintf(f,"  %20s@0x%08lx (0x%08lx/%lu bytes)\n",
+						s->name,
+						(unsigned long)s->chunk,
+						s->size, s->size);
+			}
+		}
 	}
 	fprintf(f,"  Text starts at: 0x%08x\n",
 					(unsigned)m->text_vma);
@@ -444,6 +454,7 @@ cexpModuleUnload(CexpModule mod)
 {
 int			i;
 CexpModule	pred,m;
+CexpSegment s;
 
 	__WLOCK();
 
@@ -499,19 +510,21 @@ CexpModule	pred,m;
 
 	__WUNLOCK();
 
+	for ( s = mod->segs; s->name; s++ ) {
 #ifdef HAVE_SYS_MMAN_H
-	{
-	unsigned long nsiz, pgbeg, pgmsk;
-		pgmsk  = getpagesize()-1;
-		pgbeg  = (unsigned long)mod->memSeg;
-		pgbeg &= ~pgmsk;
-		nsiz   = mod->memSize + (unsigned long)mod->memSeg - pgbeg; 
-		nsiz   = (nsiz + pgmsk) & ~pgmsk;
-		if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE) )
-			perror("ERROR -- mprotect(PROT_READ|PROT_WRITE)");
-	}
+		{
+			unsigned long nsiz, pgbeg, pgmsk;
+			pgmsk  = getpagesize()-1;
+			pgbeg  = (unsigned long)s->chunk;
+			pgbeg &= ~pgmsk;
+			nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
+			nsiz   = (nsiz + pgmsk) & ~pgmsk;
+			if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE) )
+				perror("ERROR -- mprotect(PROT_READ|PROT_WRITE)");
+		}
 #endif
-	memset(mod->memSeg, 0, mod->memSize);
+		memset(s->chunk, 0, s->size);
+	}
 
 	/* could flush the caches here */
 
@@ -744,58 +757,64 @@ char       *slash = filename ? strrchr(filename,'/') : 0;
 	}
 
 #ifdef HAVE_SYS_MMAN_H
-	/* make executable */
-	if ( nmod->memSeg ) {
-	unsigned long nsiz, pgbeg, pgmsk;
-		pgmsk  = getpagesize()-1;
-		pgbeg  = (unsigned long)nmod->memSeg;
-		pgbeg &= ~pgmsk;
-		nsiz   = nmod->memSize + (unsigned long)nmod->memSeg - pgbeg; 
-		nsiz   = (nsiz + pgmsk) & ~pgmsk;
-		if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE | PROT_EXEC) )
-			perror("ERROR -- mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)");
+	if ( nmod->segs ) {
+	CexpSegment s;
+
+	for ( s=nmod->segs; s->name; s++ ) {
+		/* make executable */
+		if ( s->chunk ) {
+			unsigned long nsiz, pgbeg, pgmsk;
+			pgmsk  = getpagesize()-1;
+			pgbeg  = (unsigned long)s->chunk;
+			pgbeg &= ~pgmsk;
+			nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
+			nsiz   = (nsiz + pgmsk) & ~pgmsk;
+			if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE | PROT_EXEC) )
+				perror("ERROR -- mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)");
+		}
+	}
 	}
 #endif
 
-	/* call the constructors */
-	{
-		int i;
-		for (i=0; i<nmod->nCtors; i++) {
-			if (nmod->ctor_list[i])
-				nmod->ctor_list[i]();
+		/* call the constructors */
+		{
+			int i;
+			for (i=0; i<nmod->nCtors; i++) {
+				if (nmod->ctor_list[i])
+					nmod->ctor_list[i]();
+			}
+			/* the constructors are not really needed
+			 * anymore...
+			 */
+			free(nmod->ctor_list);
+			nmod->ctor_list=0;
+			nmod->nCtors=0;
 		}
-		/* the constructors are not really needed
-		 * anymore...
-		 */
-		free(nmod->ctor_list);
-		nmod->ctor_list=0;
-		nmod->nCtors=0;
-	}
 
-	/* call 'non-C++' constructor */
-	if (nmod->iniCallback)
-		nmod->iniCallback(nmod);
+		/* call 'non-C++' constructor */
+		if (nmod->iniCallback)
+			nmod->iniCallback(nmod);
 
-	addDependencies(nmod);
+		addDependencies(nmod);
 
-	/* chain to the list of modules */
-	if (tail)
-		tail->next=nmod;
-	else
-		cexpSystemModule=nmod;
-	rval=nmod;
-	nmod=0;
+		/* chain to the list of modules */
+		if (tail)
+			tail->next=nmod;
+		else
+			cexpSystemModule=nmod;
+		rval=nmod;
+		nmod=0;
 
 cleanup:
-	__WUNLOCK();
+		__WUNLOCK();
 
-	if (nmod) {
-		cexpModuleFree(&nmod);
-		return 0;
+		if (nmod) {
+			cexpModuleFree(&nmod);
+			return 0;
+		}
+
+		return rval;
 	}
-
-	return rval;
-}
 
 void
 cexpModuleFree(CexpModule *mp)
@@ -804,7 +823,7 @@ CexpModule mod=*mp;
 	if (mod) {
 		assert( ! mod->next);
 		free(mod->name);
-		free(mod->memSeg);
+		cexpSegsDelete(mod->segs);
 		free(mod->ctor_list);
 		free(mod->dtor_list);
 		free(mod->section_syms);

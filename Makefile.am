@@ -76,8 +76,11 @@ endif #USEBFD
 
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h
 SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
+SRCS+= cexpsegsP.h cexpsegs.c
 SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
 SRCS+= help.c $(SYMF_SRCS) $(TECLA_SRCS)
+
+EXTRA_SRCS = $(wildcard $(srcdir)/cexpsegs-*.c)
 
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c
@@ -100,17 +103,23 @@ include_HEADERS = cexp.h cexpHelp.h
 libcexp_a_CFLAGS=$(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
+EXTRA_libcexp_a_SOURCES=$(EXTRA_SRCS)
+
 AM_CPPFLAGS   = -I@srcdir@/regexp $(xsyms_CPPFLAGS)
 
-libcexp_a_DEPENDENCIES=$(SYMDEPS)
+libcexp_a_LIBADD      = $(SEGS_SRC:%.c=%.$(OBJEXT))
+libcexp_a_DEPENDENCIES=$(SYMDEPS) $(SEGS_SRC:%.c=%.$(OBJEXT))
 
 if DO_DEMO
 cexp_SOURCES  =$(SRCS)
+EXTRA_cexp_SOURCES=$(EXTRA_SRCS)
 cexp_CFLAGS   = -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD    =$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
+cexp_LDADD   += $(SEGS_SRC:%.c=%.$(OBJEXT))
 cexp_LDFLAGS  = $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
+cexp_DEPENDENCIES = $(SEGS_SRC:%.c=%.$(OBJEXT))
 bin_PROGRAMS  = cexp
 bin_PROGRAMS += xsyms
 endif #DO_DEMO

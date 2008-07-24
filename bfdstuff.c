@@ -80,6 +80,7 @@
 #include "cexp.h"
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
+#include "cexpsegsP.h"
 #include "cexpHelp.h"
 
 /* Oh well; rtems/score/ppctypes.h defines boolean and bfd
@@ -194,23 +195,11 @@ extern void _CPU_cache_invalidate_1_instruction_line(void *addr);
 #  endif /* defined __rtems__ */
 #endif
 
-/* an output segment description */
-typedef struct SegmentRec_ {
-	PTR				chunk;		/* pointer to memory */
-	unsigned long	vmacalc;	/* working counter */
-	unsigned long	size;
-	unsigned		attributes; /* such as 'read-only' etc.; currently unused */
-} SegmentRec, *Segment;
-
-/* currently, the cexp module facility only supports a single segment */
-#define NUM_SEGS 1
-/* a paranoid index for the only segment */
-#define ONLY_SEG (assert(NUM_SEGS==1),0)
-
 /* data we need for linking */
 typedef struct LinkDataRec_ {
 	bfd				*abfd;	
-	SegmentRec		segs[NUM_SEGS];
+	CexpSegment     segs;
+	int             nsegs;
 	asymbol			**st;
 	asymbol			***new_commons;
 	char			*dummy_section_name;
@@ -271,11 +260,10 @@ static void
 bfdstuff_complete_init(CexpSymTbl);
 
 /* how to decide where a particular section should go */
-static Segment
+static CexpSegment
 segOf(LinkData ld, asection *sect)
 {
-	/* multiple sections not supported (yet) */
-	return &ld->segs[ONLY_SEG];
+	return cexpSegsMatch(ld->segs, ld->abfd, sect);
 }
 
 /* determine the alignment power of a common symbol
@@ -486,7 +474,7 @@ static void
 s_count(bfd *abfd, asection *sect, PTR arg)
 {
 LinkData	ld    = (LinkData)arg;
-Segment		seg   = segOf(ld, sect);
+CexpSegment	seg   = segOf(ld, sect);
 flagword	flags = bfd_get_section_flags(abfd,sect);
 const char	*secn = bfd_get_section_name(abfd,sect);
 #if DEBUG & DEBUG_SECT
@@ -547,7 +535,7 @@ const char	*secn = bfd_get_section_name(abfd,sect);
 static void
 s_setvma(bfd *abfd, asection *sect, PTR arg)
 {
-Segment		seg=segOf((LinkData)arg, sect);
+CexpSegment	seg=segOf((LinkData)arg, sect);
 LinkData	ld=(LinkData)arg;
 
 	if (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) {
@@ -1359,7 +1347,7 @@ flushCache(LinkData ld)
 #if defined(CACHE_LINE_SIZE)
 int	i;
 char	*start, *end;
-	for (i=0; i<NUM_SEGS; i++) {
+	for (i=0; i<ld->nsegs; i++) {
 		if (ld->segs[i].size) {
 			start=(char*)ld->segs[i].chunk;
 			/* align back to cache line */
@@ -1408,6 +1396,11 @@ CexpModule                      m;
 
 	ldr.depend = mod->needs;
 	ldr.module = mod;
+
+	if ( (ldr.nsegs = cexpSegsInit(&ldr.segs)) < 1 ) {
+		fprintf(stderr,"Unable to allocate segment table -- no memory?\n");
+		goto cleanup;
+	}
 
 	/* basic check for our bitmaps */
 	assert( (1<<LD_WORDLEN) <= sizeof(BitmapWord)*8 );
@@ -1542,10 +1535,14 @@ CexpModule                      m;
 		bfd_map_over_sections(ldr.abfd, s_count, &ldr);
 		if (ldr.errors)
 			goto cleanup;
-	
+
 		/* allocate segment space */
-		for (i=0; i<NUM_SEGS; i++) {
-			ldr.segs[i].chunk=(PTR)xmalloc(ldr.segs[i].size);
+		if ( cexpSegsAlloc(ldr.segs) ) {
+			fprintf(stderr,"Unable to allocate memory segments\n");
+			goto cleanup;
+		}
+	
+		for (i=0; i<ldr.nsegs; i++) {
 			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk;
 memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		}
@@ -1658,9 +1655,13 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 	flushCache(&ldr);
 
 	/* move the relevant data over to the module */
-	mod->memSeg  = ldr.segs[ONLY_SEG].chunk;
-	mod->memSize = ldr.segs[ONLY_SEG].size;
-	ldr.segs[ONLY_SEG].chunk=0;
+	mod->segs    = ldr.segs;
+	ldr.segs     = 0;
+
+	/* Add up sizes */
+	mod->memSize = 0;
+	for ( i=0; i<ldr.nsegs; i++ )
+		mod->memSize += mod->segs[i].size;
 
 	mod->symtbl  = ldr.cst;
 	ldr.cst=0;
@@ -1725,8 +1726,7 @@ cleanup:
 	if (ldr.dummy_section_name)
 		free(ldr.dummy_section_name);
 
-	for (i=0; i<NUM_SEGS; i++)
-		if (ldr.segs[i].chunk) free(ldr.segs[i].chunk);
+	cexpSegsDelete(ldr.segs);
 
 	return rval;
 }

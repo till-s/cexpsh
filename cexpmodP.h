@@ -54,6 +54,8 @@
 
 #include "cexpmod.h"
 
+#include "cexpsegsP.h"
+
 /* implementation of a module */
 #define MAX_NUM_MODULES 256
 #define LD_WORDLEN		5
@@ -91,10 +93,10 @@ typedef struct CexpModuleRec_ {
  * magic number be changed
  */
 	CexpSymTbl			symtbl;
-	ModuleId 			id;			/* unique ID */
-	void				*memSeg;	/* actual memory */
-	unsigned long		memSize;	/* size of the loaded stuff */
-	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one */
+	ModuleId 			id;			/* unique ID                                   */
+	CexpSegment         segs;       /* array of actual memory segments             */
+	unsigned            memSize;    /* total memory occupied by binary             */
+	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one   */
 	BITMAP_DECLARE(needs);			/* bitmap of module ids this module depends on */
 	VoidFnPtr			*ctor_list;
 	unsigned			nCtors;

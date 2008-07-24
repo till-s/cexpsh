@@ -151,25 +151,35 @@ else
 fi
 AC_MSG_RESULT([$have_bfd])
 
-AC_MSG_CHECKING([Check if we could use pmbfd])
-#canonicalize x86 cpus
-pmbfd_cpu=$host_cpu
-case "$pmbfd_cpu" in
-	i?86 ) pmbfd_cpu=i386
+#canonicalize os name
+canon_os=$host_os
+case "$canon_os" in
+	*[[rR]][[tT]][[eE]][[mM]][[sS]]*)	
+		canon_os=rtems;
 	;;
 esac
+
+#canonicalize x86 cpus
+canon_cpu=$host_cpu
+case "$canon_cpu" in
+	i?86 ) canon_cpu=i386
+	;;
+esac
+
+
+AC_MSG_CHECKING([Check if we could use pmbfd])
 # do we have relocations for our CPU arch ?
 # Only relevant if we use the loader; the ELF symbol file reader should
 # work anyways.
-if test -f $srcdir/pmbfd/bfd-reloc-"$pmbfd_cpu".c ; then
+if test -f $srcdir/pmbfd/bfd-reloc-"$canon_cpu".c ; then
 	have_pmbfd=yes
 	AC_MSG_RESULT([yes])
 else
 	have_pmbfd=no
 	if test "$have_bfd" = "yes" ; then
-		AC_MSG_RESULT([no. Relocations for CPU $pmbfd_cpu not implemented, sorry. Will use BFD.])
+		AC_MSG_RESULT([no. Relocations for CPU $canon_cpu not implemented, sorry. Will use BFD.])
 	else
-		AC_MSG_RESULT([no. Relocations for CPU $pmbfd_cpu not implemented, sorry. You must install (and not disable) BFD sources to use the loader.])
+		AC_MSG_RESULT([no. Relocations for CPU $canon_cpu not implemented, sorry. You must install (and not disable) BFD sources to use the loader.])
 	fi
 fi
 
@@ -390,6 +400,13 @@ if test ! "$target_os" = "$host_os" ; then
 	AC_SUBST(THESUBDIRS,['$(patsubst %,'"$subdirs"',$(filter-out install%,$@))'])
 else
 	AC_SUBST(THESUBDIRS,["$subdirs"])
+fi
+
+AC_SUBST(SEGS_SRC)
+
+SEGS_SRC=cexpsegs-"$canon_cpu"-"$canon_os".c
+if test ! -f $srcdir/"$SEGS_SRC" ; then
+	SEGS_SRC=cexpsegs-dflt.c
 fi
 
 AC_OUTPUT

@@ -1,4 +1,8 @@
 Changes since CEXP-1.6.beta
+ 2008/7/25:
+ - Disable PPC/SYSV-specific method of passing floating-point arguments
+   to called function if _SOFT_FLOAT is defined (cannot pass in FP regs,
+   in this case).
  2008/7/23:
  - added support for multiple memory segments. PPC text sections can
    now be loaded into dedicated text segment located below 32M boundary.

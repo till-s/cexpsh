@@ -169,6 +169,16 @@ int			index;
 	return rval;
 }
 
+static int addrInModule(void *addr, CexpModule m)
+{
+CexpSegment s;
+	for ( s = m->segs; s->name; s++ ) {
+		if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
+			return 1;
+	}
+	return 0;
+}
+
 /* search for (the closest) address in all modules giving its
  * aindex
  *
@@ -185,8 +195,7 @@ CexpSymTbl	t;
 
 	for (m=cexpSystemModule; m; m=m->next) {
 		t=m->symtbl;
-		if ( addr < (void*)t->aindex[0]->value.ptv  ||
-		     addr > (void*)t->aindex[t->nentries-1]->value.ptv )
+		if ( !addrInModule(addr, m) )
 			continue;
 		if (f)
 			fprintf(f,"=====  In module '%s' =====:\n",m->name);

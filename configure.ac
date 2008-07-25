@@ -69,6 +69,25 @@ AC_ARG_ENABLE(loader,
 		'built-in' symbol table)])
 )
 
+AC_ARG_ENABLE(text-segment,
+	AC_HELP_STRING([--enable-text-segment=<size>],
+		[Reserve <size> space in the CEXP executable for the .text
+        sections of loadable modules. This is required on powerpc
+        platforms with more than 32M of memory so that no far jumps
+        are needed.
+        <size> may be 'no' (disable feature), 'yes' (reserve default
+        [[16MB]]) or a number. If <size> is zero then the application
+        must provide the following two global variables:
+        [                                                            ]
+
+            unsigned long cexpTextRegionSize=<desired_size>;
+
+            unsigned char cexpTextRegion[<desired_size>];
+
+        defining the memory region used.
+        This option is ignored on platforms other than powerpc.])
+)
+
 AC_ARG_ENABLE(elfsyms,
 	AC_HELP_STRING([--disable-elfsyms],
 		[remove support for loading an ELF symbol file;
@@ -150,6 +169,31 @@ else
 	have_bfd=no
 fi
 AC_MSG_RESULT([$have_bfd])
+
+AC_MSG_CHECKING([Check if text-segment was given])
+if test ! "${enable_text_segment+set}" = "set"; then
+	enable_text_segment=yes
+fi
+case "${enable_text_segment}" in
+	yes|YES)
+# 16MB default; only relevant on PPC
+		enable_text_segment=0x1000000;
+	;;
+	no|NO)
+		enable_text_segment=no;
+	;;
+	*)
+	if  echo $enable_text_segment | grep -qv '\<\(0[0-7]*\|[1-9][0-9]*\|0x[0-9a-fA-F]\+\)\>' ; then
+		AC_MSG_ERROR([Invalid setting for --enable-text-segment: $enable_text_segment])
+	fi
+	;;
+esac
+AC_MSG_RESULT([$enable_text_segment])
+
+if test ! "$enable_text_segment" = no ; then
+	AC_DEFINE_UNQUOTED(CEXP_TEXT_REGION_SIZE,$enable_text_segment,[Size of text region for loaded modules])
+fi
+
 
 #canonicalize os name
 canon_os=$host_os

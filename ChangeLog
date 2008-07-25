@@ -1,5 +1,7 @@
 Changes since CEXP-1.6.beta
  2008/7/25:
+ - Made (PPC) text segment size a 'configure' option '--enable-text-segment'.
+ 2008/7/25:
  - Disable PPC/SYSV-specific method of passing floating-point arguments
    to called function if _SOFT_FLOAT is defined (cannot pass in FP regs,
    in this case).

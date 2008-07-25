@@ -611,7 +611,7 @@ CexpType t = TVoid;
 typedef UL (*UFUNC)();
 typedef DB (*DFUNC)();
 
-#if defined(__PPC__) && defined(_CALL_SYSV)
+#if defined(__PPC__) && defined(_CALL_SYSV) && !defined(_SOFT_FLOAT)
 
 /* an PPC / SVR4 ABI specific implementation of the function call
  * interface.

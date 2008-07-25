@@ -167,15 +167,20 @@ rtems_status_code sc;
 #define SEG_TEXT	0
 #define SEG_DFLT    1
 
-#if 1
-#define CEXP_TEXT_REGION_SIZE (1024*1024*2)
+#ifdef CEXP_TEXT_REGION_SIZE
+
+#if CEXP_TEXT_REGION_SIZE > 0
+/* Hopefully put into .bss ... */
+char                 cexpTextRegion[CEXP_TEXT_REGION_SIZE];
+unsigned long        cexpTextRegionSize = CEXP_TEXT_REGION_SIZE;
+#else
+/* Application provides the region */
+extern char          cexpTextRegion[];
+extern unsigned long cexpTextRegionSize;
 #endif
 
-#if CEXP_TEXT_REGION_SIZE > 1000
-/* Hopefully put into .bss ... */
-static char theTextRegion[CEXP_TEXT_REGION_SIZE] __attribute__((aligned(CPU_ALIGNMENT)));
-
 static rtems_id text_region = 0;
+
 #endif
 
 #define NSEGS 2
@@ -184,26 +189,37 @@ int
 cexpSegsInit(CexpSegment *ptr)
 {
 CexpSegment a;
-#if CEXP_TEXT_REGION_SIZE > 1000
+
+#ifdef CEXP_TEXT_REGION_SIZE
 rtems_status_code sc;
 rtems_id          id;
-unsigned          sz = CEXP_TEXT_REGION_SIZE;
+unsigned long     start;
+unsigned long     sz;
 #endif
 
 	/* lazy init of region(s) */
-#if CEXP_TEXT_REGION_SIZE > 1000
+#ifdef  CEXP_TEXT_REGION_SIZE
+
 #ifndef CEXP_TEXT_PAGE_SIZE
 #define CEXP_TEXT_PAGE_SIZE 128
 #endif
+
 	if ( ! text_region ) {
+		/* Region manager wants an aligned starting
+		 * address or it bails :-(
+		 */
+		start = (unsigned long)cexpTextRegion;
+		start = (start + CPU_ALIGNMENT - 1) & ~(CPU_ALIGNMENT-1);
+		sz    = cexpTextRegionSize - (start - (unsigned long)cexpTextRegion);
+		sz   &= ~(CPU_ALIGNMENT - 1);
+
 		sc = rtems_region_create(
 				rtems_build_name('t','e','x','t'),
-				(void*)theTextRegion,	
-				sizeof(theTextRegion),
+				(void*)start,	
+				sz,
 				CEXP_TEXT_PAGE_SIZE,
 				RTEMS_DEFAULT_ATTRIBUTES,
 				&text_region);
-
 
 		if ( RTEMS_SUCCESSFUL != sc ) {
 			rtems_error(sc,"cexpsegs-powerpc-rtems: unable to create TEXT memory region\n");

@@ -1,5 +1,10 @@
 Changes since CEXP-1.6.beta
  2008/7/25:
+ - With multiple memory regions/segments cexpSymLkAddrIdx() (and derived functions)
+   cannot simply look at the first+last entry in the 'aindex' to determine if
+   a given module contains an address location. Added code that checks the module's
+   memory segment boundaries.
+ 2008/7/25:
  - Made (PPC) text segment size a 'configure' option '--enable-text-segment'.
  2008/7/25:
  - Disable PPC/SYSV-specific method of passing floating-point arguments

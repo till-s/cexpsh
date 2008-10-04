@@ -387,6 +387,47 @@ extern CexpSigHandlerInstallProc cexpSigHandlerInstaller;
 FILE *
 cexpSearchFile(char *path, char **pfname, char *fullname, char *tmpfname);
 
+
+/* Set the prompt string (a local copy is made)
+ *
+ * The initial prompt is chosen using the following algorithm
+ * (which stops as soon as a prompt is found):
+ *   
+ *   1.) If the shell was invoked with a '-p <prompt>'
+ *       argument then <prompt> is used.
+ *   2.) If this is a recursive shell invocation and an
+ *       ancestor has a 'local' prompt set (either because
+ *       the ancestor was started with '-p' or because
+ *       cexpSetPrompt() was used) then the new shell
+ *       'inherits' the ancestor's local prompt.
+ *   3.) If a global prompt has been set it is used.
+ *   4.) If the shell has a nonzero 'first' argument
+ *       (argv[0]) then a '>' character is appended and
+ *       the concatenation used as the prompt.
+ *   5.) If steps 1..4 have not yielded a prompt then
+ *       'Cexp>' is used as a fallback.
+ *
+ * The 'which' parameter controls how the prompt is set:
+ *
+ * CEXP_PROMPT_GBL: set the global prompt.
+ * CEXP_PROMPT_LCL: set the prompt for the executing
+ *                  shell only.
+ * CEXP_PROMPT_THR: set the prompt for the executing
+ *                  shell and all its ancestors in the
+ *                  same thread context.
+ *
+ * RETURNS: 0 on success, nonzero otherwise.
+ *
+ * NOTE: No substitutions (hostname, history, pwd, ...)
+ *       are supported yet.
+ */
+#define CEXP_PROMPT_GBL	0
+#define CEXP_PROMPT_LCL	1
+#define CEXP_PROMPT_THR 2
+
+int
+cexpSetPrompt(int which, const char *new_prompt);
+
 #ifdef __cplusplus
 };
 #endif

@@ -1,4 +1,4 @@
-m4_define([CEXPVERSION],AC_RTEMS_TILL_CVSTAG([$Name$]))
+m4_define([CEXPVERSION],TILLAC_CVSTAG([$Name$]))
 
 AC_INIT(cexp, CEXPVERSION, <strauman@slac.stanford.edu>)
 
@@ -10,32 +10,25 @@ AM_INIT_AUTOMAKE(cexp, CEXPVERSION)
 AM_MAINTAINER_MODE
 
 # Check for critical programs we need for building
-AC_PROG_CC
-AC_PROG_CXX
-AC_SUBST(GCC)
-AC_PROG_CPP
-AC_CHECK_PROGS(HOSTCC, gcc cc)
-AC_CHECK_TOOL(AR,ar)
-AC_PROG_RANLIB
-AC_PROG_INSTALL
+TILLAC_RTEMS_CHECK_TOOLS
 
 BINUTILS=binutils
 AC_SUBST(BINUTILS)
 LIBTECLA=libtecla
 AC_SUBST(LIBTECLA)
 
-# Must add this BEFORE AC_RTEMS_TILL_SETUP
+# Must add this BEFORE TILLAC_RTEMS_SETUP
 # so that the dummy-top 'config.status' also
 # knows how to make a config.h
 AM_CONFIG_HEADER(config.h)
 
-AC_RTEMS_TILL_SETUP(domultilib)
+TILLAC_RTEMS_SETUP(domultilib)
 
 # sys/termios.h and others can only be found outside of
 # the BSP installation area if cpukit was multilibbed :-(
 if test "${enable_multilib}" = "yes" ; then
 	AC_MSG_CHECKING([Checking for multilibbed cpukit])
-	if AC_RTEMS_TILL_CPUKIT_MULTILIB ; then
+	if TILLAC_RTEMS_CPUKIT_MULTILIB ; then
 		AC_MSG_RESULT([Yes; good.]);
 	else
 		AC_MSG_RESULT([No]);
@@ -78,14 +71,16 @@ AC_ARG_ENABLE(text-segment,
         <size> may be 'no' (disable feature), 'yes' (reserve default
         [[16MB]]) or a number. If <size> is zero then the application
         must provide the following two global variables:
-        [                                                            ]
 
             unsigned long cexpTextRegionSize=<desired_size>;
 
             unsigned char cexpTextRegion[<desired_size>];
 
         defining the memory region used.
-        This option is ignored on platforms other than powerpc.])
+		Alternatively, the application (or the linker script) may
+		provide symbols _cexpTextRegionStart/_cexpTextRegionEnd.
+        This option is ignored on platforms other than powerpc.
+		The default is 0.])
 )
 
 AC_ARG_ENABLE(elfsyms,
@@ -172,18 +167,18 @@ AC_MSG_RESULT([$have_bfd])
 
 AC_MSG_CHECKING([Check if text-segment was given])
 if test ! "${enable_text_segment+set}" = "set"; then
-	enable_text_segment=yes
+	enable_text_segment=0
 fi
 case "${enable_text_segment}" in
 	yes|YES)
-# 16MB default; only relevant on PPC
-		enable_text_segment=0x1000000;
+# 8MB default; only relevant on PPC
+		enable_text_segment=0x800000;
 	;;
 	no|NO)
 		enable_text_segment=no;
 	;;
 	*)
-	if  echo $enable_text_segment | grep -qv '\<\(0[0-7]*\|[1-9][0-9]*\|0x[0-9a-fA-F]\+\)\>' ; then
+	if  echo $enable_text_segment | grep -qv '\<\(0[[0-7]]*\|[[1-9]][[0-9]]*\|0x[[0-9a-fA-F]]\+\)\>' ; then
 		AC_MSG_ERROR([Invalid setting for --enable-text-segment: $enable_text_segment])
 	fi
 	;;
@@ -410,6 +405,10 @@ if test ! "$enable_opcodes" = "no"; then
 	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 fi
 
+if test "$enable_loader" = "yes" ; then
+	AC_DEFINE(USE_LOADER,1,[whether we configured the run-time loader])
+fi
+
 # don't recall what these were for...
 AC_HAVE_FUNCS(rcmd vsnprintf)
 
@@ -446,11 +445,11 @@ else
 	AC_SUBST(THESUBDIRS,["$subdirs"])
 fi
 
-AC_SUBST(SEGS_SRC)
-
-SEGS_SRC=cexpsegs-"$canon_cpu"-"$canon_os".c
-if test ! -f $srcdir/"$SEGS_SRC" ; then
-	SEGS_SRC=cexpsegs-dflt.c
+# Our particular snippet
+AC_SUBST(SEGS_CPU_SRC)
+SEGS_CPU_SRC=cexpsegs-"$canon_cpu"-"$canon_os".c
+if test ! -f $srcdir/"$SEGS_CPU_SRC" ; then
+	SEGS_CPU_SRC=cexpsegs-dflt.c
 fi
 
 AC_OUTPUT

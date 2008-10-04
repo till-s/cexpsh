@@ -458,6 +458,7 @@ CexpModule	m,found=0;
 	return found;
 }
 
+#ifdef USE_LOADER
 int
 cexpModuleUnload(CexpModule mod)
 {
@@ -545,7 +546,7 @@ cleanup:
 	__WUNLOCK();
 	return -1;
 }
-
+#endif
 
 static void
 addDependencies(CexpModule nmod)
@@ -639,7 +640,7 @@ CexpSym s;
 	}
 	nmod->section_syms[nsect_syms] = 0; /* tag end */
 
-#ifdef USE_PMBFD
+#if defined(USE_PMBFD) && defined(USE_LOADER)
 	if ( cexpSystemAttributesSize > 0 ) {
 		bfd_init();
 		nmod->fileAttributes = pmelf_read_attribute_set(cexpSystemAttributes, cexpSystemAttributesSize, 0, "SYSTEM");
@@ -786,44 +787,44 @@ char       *slash = filename ? strrchr(filename,'/') : 0;
 #endif
 
 		/* call the constructors */
-		{
-			int i;
-			for (i=0; i<nmod->nCtors; i++) {
-				if (nmod->ctor_list[i])
-					nmod->ctor_list[i]();
-			}
-			/* the constructors are not really needed
-			 * anymore...
-			 */
-			free(nmod->ctor_list);
-			nmod->ctor_list=0;
-			nmod->nCtors=0;
+	{
+		int i;
+		for (i=0; i<nmod->nCtors; i++) {
+			if (nmod->ctor_list[i])
+				nmod->ctor_list[i]();
 		}
+		/* the constructors are not really needed
+		 * anymore...
+		 */
+		free(nmod->ctor_list);
+		nmod->ctor_list=0;
+		nmod->nCtors=0;
+	}
 
-		/* call 'non-C++' constructor */
-		if (nmod->iniCallback)
-			nmod->iniCallback(nmod);
+	/* call 'non-C++' constructor */
+	if (nmod->iniCallback)
+		nmod->iniCallback(nmod);
 
-		addDependencies(nmod);
+	addDependencies(nmod);
 
-		/* chain to the list of modules */
-		if (tail)
-			tail->next=nmod;
-		else
-			cexpSystemModule=nmod;
-		rval=nmod;
-		nmod=0;
+	/* chain to the list of modules */
+	if (tail)
+		tail->next=nmod;
+	else
+		cexpSystemModule=nmod;
+	rval=nmod;
+	nmod=0;
 
 cleanup:
-		__WUNLOCK();
+	__WUNLOCK();
 
-		if (nmod) {
-			cexpModuleFree(&nmod);
-			return 0;
-		}
-
-		return rval;
+	if (nmod) {
+		cexpModuleFree(&nmod);
+		return 0;
 	}
+
+	return rval;
+}
 
 void
 cexpModuleFree(CexpModule *mp)
@@ -832,7 +833,13 @@ CexpModule mod=*mp;
 	if (mod) {
 		assert( ! mod->next);
 		free(mod->name);
+#ifdef USE_LOADER
 		cexpSegsDelete(mod->segs);
+#else
+		if ( mod->segs ) {
+			fprintf(stderr,"WARNING: we shouldn't get here -- memory leak at %s:%u\n",__FILE__,__LINE__);
+		}
+#endif
 		free(mod->ctor_list);
 		free(mod->dtor_list);
 		free(mod->section_syms);

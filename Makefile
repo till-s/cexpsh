@@ -66,9 +66,10 @@ cexp.c: ;
 gentab: gentab.c
 	$(HOSTCC) -O -o $@ $^
 
-jumptab.c: gentab
-	if ./$^ > $@; then true ; else $(RM) $@ $^; exit 1; fi
-	$(RM) $^
+jumptab.c: gentab.c
+	$(HOSTCC) -O -o gentab $^
+	if ./gentab > $@; then true ; else $(RM) $@ gentab; exit 1; fi
+	$(RM) gentab
 
 links:	$(LINKDIR)/binutils-2.13 $(LINKDIR)/regexp $(LINKDIR)/libelf-0.8.0 $(LINKDIR)/libtecla-1.4.1
 	ln -s $^ .

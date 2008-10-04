@@ -78,6 +78,10 @@
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
 
+#ifdef __rtems__
+#include <sys/socket.h>
+#endif
+
 /* filter the symbol table entries we're interested in */
 
 /* NOTE: this routine defines the CexpType which is assigned

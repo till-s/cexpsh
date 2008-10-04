@@ -170,13 +170,71 @@ rtems_status_code sc;
 #ifdef CEXP_TEXT_REGION_SIZE
 
 #if CEXP_TEXT_REGION_SIZE > 0
+#if 0
+#if 0
+static char theregion[CEXP_TEXT_REGION_SIZE];
+extern char          cexpTextRegion[] __attribute__((alias("theregion")));
+#else
+extern char          cexpTextRegion[];
+/* Put this in assembly so that gdb never believes
+ * some text is inside a data variable...
+ */
 /* Hopefully put into .bss ... */
-char                 cexpTextRegion[CEXP_TEXT_REGION_SIZE];
+asm (
+	"	.section .bss               \n"
+	"	.global cexpTextRegion		\n"
+	"cexpTextRegion:                \n"
+	"   .org . + %0                 \n"
+	"	.section .text              \n"
+	::"i"(CEXP_TEXT_REGION_SIZE)
+);
+#endif
+#else
+char                 cexpTextRegion[CEXP_TEXT_REGION_SIZE] = {0};
+#endif
 unsigned long        cexpTextRegionSize = CEXP_TEXT_REGION_SIZE;
 #else
 /* Application provides the region */
-extern char          cexpTextRegion[];
-extern unsigned long cexpTextRegionSize;
+
+/* Provide weak aliases so we can fall back to using 'malloc'
+ * if they don't provide us with a separate region
+ */
+
+/* Here are various options:
+ *
+ *  The linker script (or another part of the application)
+ *  may provide:
+ *
+ *  EITHER:
+ *     cexpTextRegion[] array and cexpTextRegionSize variable
+ *  OR:
+ *     cexpTextRegionStart and cexpTextRegionEnd addresses
+ *
+ *  The reason for having both is that we want to be compatible
+ *
+ *    a) linker script doesn't define either pair
+ *    b) linker script defines a pair but user chooses
+ *       to configure CEXP_TEXT_REGION_SIZE > 0
+ *
+ *       in this case, the linker must not clash
+ *       with the existing symbols...
+ */
+
+extern unsigned long cexpTextRegionSize
+	__attribute__(( weak, alias("_cexpTextRegionSize_fallback") ));
+
+extern char          cexpTextRegion[]
+	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+
+extern char         _cexpTextRegionStart[]
+	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+
+extern char         _cexpTextRegionEnd[]
+	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+
+unsigned long _cexpTextRegionSize_fallback = 0;
+char          _cexpTextRegion_fallback[1] = {0};
+
 #endif
 
 static rtems_id text_region = 0;
@@ -184,6 +242,8 @@ static rtems_id text_region = 0;
 #endif
 
 #define NSEGS 2
+
+#define LIMIT_32M 0x02000000
 
 int
 cexpSegsInit(CexpSegment *ptr)
@@ -193,24 +253,43 @@ CexpSegment a;
 #ifdef CEXP_TEXT_REGION_SIZE
 rtems_status_code sc;
 rtems_id          id;
-unsigned long     start;
+unsigned long     start, start_unaligned;
 unsigned long     sz;
 #endif
 
 	/* lazy init of region(s) */
 #ifdef  CEXP_TEXT_REGION_SIZE
 
+	/* Figure out where we do get the memory... */
+	if ( cexpTextRegionSize ) {
+		start_unaligned = (unsigned long)cexpTextRegion;
+	}
+#if CEXP_TEXT_REGION_SIZE <= 0
+	else {
+		if ( (cexpTextRegionSize = _cexpTextRegionEnd - _cexpTextRegionStart) )
+			start_unaligned = (unsigned long)_cexpTextRegionStart;
+	}
+#endif
+
 #ifndef CEXP_TEXT_PAGE_SIZE
 #define CEXP_TEXT_PAGE_SIZE 128
 #endif
 
-	if ( ! text_region ) {
+	/* Basic sanity checks */
+	if ( start_unaligned >= LIMIT_32M ) {
+		/* cannot use */
+		cexpTextRegionSize = 0;
+	} else if ( start_unaligned + cexpTextRegionSize > LIMIT_32M ) {
+		cexpTextRegionSize = LIMIT_32M - start_unaligned;
+	}
+
+	if ( ! text_region && cexpTextRegionSize ) {
 		/* Region manager wants an aligned starting
 		 * address or it bails :-(
 		 */
-		start = (unsigned long)cexpTextRegion;
+		start = start_unaligned;
 		start = (start + CPU_ALIGNMENT - 1) & ~(CPU_ALIGNMENT-1);
-		sz    = cexpTextRegionSize - (start - (unsigned long)cexpTextRegion);
+		sz    = cexpTextRegionSize - (start - start_unaligned);
 		sz   &= ~(CPU_ALIGNMENT - 1);
 
 		sc = rtems_region_create(
@@ -229,7 +308,6 @@ unsigned long     sz;
 	}
 #endif
 
-
 	*ptr = 0;
 
 	if ( ! (a = cexpSegsCreate(NSEGS)) ) {
@@ -238,14 +316,15 @@ unsigned long     sz;
 
 	a[SEG_TEXT].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
 	a[SEG_TEXT].name       = ".text";
-#if CEXP_TEXT_REGION_SIZE <= 1000
-	a[SEG_TEXT].allocat    = malloc_allocat;
-	a[SEG_TEXT].release    = malloc_release;
-#else
-	a[SEG_TEXT].allocat    = region_allocat;
-	a[SEG_TEXT].release    = region_release;
-	a[SEG_TEXT].pvt        = (void*)text_region;
-#endif
+
+	if ( cexpTextRegionSize > 1000 ) {
+		a[SEG_TEXT].allocat    = region_allocat;
+		a[SEG_TEXT].release    = region_release;
+		a[SEG_TEXT].pvt        = (void*)text_region;
+	} else {
+		a[SEG_TEXT].allocat    = malloc_allocat;
+		a[SEG_TEXT].release    = malloc_release;
+	}
 
 	a[SEG_DFLT].attributes = 0;
 	a[SEG_DFLT].name       = ".data";

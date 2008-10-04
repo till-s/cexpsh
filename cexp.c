@@ -234,10 +234,14 @@ bail:
 #include "cexpmod.h"
 #include "vars.h"
 #include "context.h"
+#include "cexplock.h"
 
 #include "getopt/mygetopt_r.h"
 
-#include "builddate.c"
+extern const char *cexp_build_date;
+
+/* A lock for various purposes */
+static CexpLock cexpGblLock;
 
 #ifdef YYDEBUG
 extern int cexpdebug;
@@ -252,10 +256,12 @@ usage(char *nm)
 #endif
 	fprintf(stderr," [-s <symbol file>]");
 	fprintf(stderr," [-a <cpu_arch>]");
+	fprintf(stderr," [-p <prompt>]");
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
 	fprintf(stderr, "       -v print version information\n");
+	fprintf(stderr, "       -p <prompt> set prompt\n");
 	fprintf(stderr, "       -q quiet evaluation of scripts\n");
 #ifdef HAVE_BFD_DISASSEMBLER
 	fprintf(stderr, "       -a set default CPU architecture for disassembler\n");
@@ -438,10 +444,88 @@ static int done=0;
 		cexpModuleInitOnce();
 		cexpVarInitOnce();
 		cexpContextInitOnce();
+		cexpLockCreate(&cexpGblLock);
 		done=1;
 	}
 	return 1;
 }
+
+static char *cexpPrompt=0;
+
+static int setp(const char *new_prompt, char **pres)
+{
+char   *p = 0;
+
+	if ( !new_prompt || (p = strdup(new_prompt)) ) {
+		free(*pres);
+		*pres = p;
+		return 0;
+	}
+	return -1;
+}
+
+int
+cexpSetPrompt(int which, const char *new_prompt)
+{
+int  rval = -1;
+CexpContext c;
+
+	switch ( which ) {
+		default: break;
+
+		case CEXP_PROMPT_GBL:
+			{
+
+				cexpLock(cexpGblLock);
+
+				rval = setp(new_prompt, &cexpPrompt);
+
+				cexpUnlock(cexpGblLock);
+			}
+		break;
+
+		case CEXP_PROMPT_LCL:
+		case CEXP_PROMPT_THR:
+			{
+				cexpContextGetCurrent(&c);
+
+				do {
+					if ( (rval = setp(new_prompt, &c->prompt)) )
+						return rval;
+				} while ( (c=c->next) && CEXP_PROMPT_THR == which );
+			}
+		break;
+	}
+
+	return rval;
+}
+
+static char *checkPrompt(CexpContext ctx, char **promptp, char *fallback)
+{
+	char *prompt;
+
+	if ( ! (prompt = ctx->prompt) ) {
+
+		/* If no -p option was used nor a local prompt was set
+		 * then use the global prompt
+		 */
+		cexpLock(cexpGblLock);
+		if ( cexpPrompt ) {
+			prompt = strdup(cexpPrompt);
+		}
+		cexpUnlock(cexpGblLock);
+
+		if ( ! prompt ) {
+			prompt = malloc(strlen(fallback)+2);
+			strcpy(prompt,fallback);
+			strcat(prompt,">");
+		}
+		free( *promptp );
+		*promptp = prompt;
+	}
+	return prompt;
+}
+
 
 /* a wrapper to call cexp main with a variable arglist */
 int
@@ -619,7 +703,7 @@ cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpCo
 {
 CexpContextRec		context;	/* the public parts of this instance's context */
 CexpContext			myContext;
-char				*line=0,*prompt=0,*tmp;
+char				*line=0, *prompt=0, *tmp;
 char				*symfile=0, *script=0;
 CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
@@ -635,12 +719,15 @@ char				optstr[]={
 						'v',
 						's',':',
 						'a',':',
+						'p',':',
 #ifdef YYDEBUG
 						'd',
 #endif
 						'q',
 						'\0'
 					};
+
+context.prompt = 0;
 
 while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 	switch (opt) {
@@ -658,6 +745,9 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 		case 's': symfile=oc.optarg;
 			break;
 		case 'a': cexpBuiltinCpuArch = oc.optarg;
+			break;
+
+		case 'p': free(context.prompt); context.prompt = strdup(oc.optarg);
 			break;
 	}
 }
@@ -728,6 +818,11 @@ context.next = myContext;
 myContext	 = &context;
 cexpContextSetCurrent(myContext);
 
+/* See if there is an ancestor with a local prompt
+ * and inherit
+ */
+if ( !context.prompt && context.next && context.next->prompt )
+	context.prompt = strdup(context.next->prompt);
 
 do {
 	if (!(ctx=cexpCreateParserCtx(quiet ? 0 : stdout))) {
@@ -756,11 +851,10 @@ do {
 			if ( (rval = process_script(ctx, script, quiet)) )
 				goto cleanup;
 		} else {
-			tmp = argc>0 ? argv[0] : "Cexp";
-			prompt=malloc(strlen(tmp)+2);
-			strcpy(prompt,tmp);
-			strcat(prompt,">");
-			while ((line=readline_r(prompt,rl_context))) {
+
+			while ( (line=readline_r(
+							checkPrompt( &context, &prompt, argc > 0 ? argv[0] : "Cexp" ),
+							rl_context)) ) {
 				/* skip empty lines */
 				if (*line) {
 					if ( '<' == *(tmp=skipsp(line)) ) {
@@ -787,11 +881,13 @@ do {
 	
 cleanup:
 		script=0;	/* become interactive if script is killed */
-		free(prompt); 			prompt=0;
 		free(line);   			line=0;
+		free(prompt);           prompt=0;
 		cexpFreeParserCtx(ctx); ctx=0;
 	
 } while (-1==rval);
+
+free(context.prompt);
 
 /* pop our stack context from the chained list anchored 
  * at the running thread

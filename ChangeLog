@@ -1,4 +1,6 @@
 Changes since CEXP-1.6.beta
+ 2008/10/4:
+ - Added changeable prompt (but no smart substitutions available [yet])
  2008/7/25:
  - With multiple memory regions/segments cexpSymLkAddrIdx() (and derived functions)
    cannot simply look at the first+last entry in the 'aindex' to determine if

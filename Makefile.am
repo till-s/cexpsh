@@ -74,13 +74,20 @@ xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 endif #USEBFD
 
+if USELOADER
+SEGS_SRCS        = $(SEGS_CPU_SRC) cexpsegs.c
+endif
+
 SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h
 SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
-SRCS+= cexpsegsP.h cexpsegs.c
+SRCS+= cexpsegsP.h
 SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
-SRCS+= help.c $(SYMF_SRCS) $(TECLA_SRCS)
+SRCS+= help.c
 
-EXTRA_SRCS = $(wildcard $(srcdir)/cexpsegs-*.c)
+EXTRA_SRCS=
+EXTRA_SRCS+= cexpsegs.c cexpsegs-powerpc-rtems.c
+EXTRA_SRCS+= $(SYMF_SRCS)
+EXTRA_SRCS+= $(TECLA_SRCS)
 
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c
@@ -94,38 +101,39 @@ gencore_SOURCES  = gencore.c
 #ARCH=build-ppc-rtems
 #BFDLIBP=-L $(BINUT)/$(ARCH)/bfd/.libs/ -L $(BINUT)/$(ARCH)/libiberty/ -L $(BINUT)/$(ARCH)/opcodes/.libs/
 
+XTRAOBJS = $(SEGS_SRCS:%.c=%.$(OBJEXT))
+XTRAOBJS+= $(SYMF_SRCS:%.c=%.$(OBJEXT))
+XTRAOBJS+= $(TECLA_SRCS:%.c=%.$(OBJEXT))
+XTRAOBJS+= builddate.$(OBJEXT)
 
 if DO_CEXPLIB
 
 lib_LIBRARIES=libcexp.a
-include_HEADERS = cexp.h cexpHelp.h
+include_HEADERS = cexp.h cexpHelp.h ctyps.h cexpsyms.h
 
-libcexp_a_CFLAGS=$(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_SOURCES=$(SRCS)
 EXTRA_libcexp_a_SOURCES=$(EXTRA_SRCS)
 
-AM_CPPFLAGS   = -I@srcdir@/regexp $(xsyms_CPPFLAGS)
+AM_CPPFLAGS   = -I@srcdir@/regexp
+AM_CPPFLAGS  += $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
-libcexp_a_LIBADD      = $(SEGS_SRC:%.c=%.$(OBJEXT))
-libcexp_a_DEPENDENCIES=$(SYMDEPS) $(SEGS_SRC:%.c=%.$(OBJEXT))
+libcexp_a_LIBADD      = $(XTRAOBJS)
+libcexp_a_DEPENDENCIES=$(SYMDEPS) $(XTRAOBJS) builddate.o
 
 if DO_DEMO
-cexp_SOURCES  =$(SRCS)
-EXTRA_cexp_SOURCES=$(EXTRA_SRCS)
-cexp_CFLAGS   = -Dcexp_main=main $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
+cexp_SOURCES  = cexp_main.c
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
-cexp_LDADD    =$(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
-cexp_LDADD   += $(SEGS_SRC:%.c=%.$(OBJEXT))
-cexp_LDFLAGS  = $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
-cexp_DEPENDENCIES = $(SEGS_SRC:%.c=%.$(OBJEXT))
+cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
+cexp_DEPENDENCIES=libcexp.a 
+cexp_LDFLAGS  = -L. $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 bin_PROGRAMS  = cexp
 bin_PROGRAMS += xsyms
 endif #DO_DEMO
 else #DO_CEXPLIB
 # cross-tools only
-AM_CPPFLAGS = $(xsyms_CPPFLAGS)
+gencore_CPPFLAGS = $(xsyms_CPPFLAGS)
 if USEBFD
 bin_PROGRAMS=xsyms gencore
 else
@@ -152,12 +160,8 @@ jumptab.c: gentab
 gentab: gentab.c
 	$(HOSTCC) $(CFLAGS) -o $@ $^
 
-%cexp.o: builddate.c
-
-cexp.c: builddate.c
-
-builddate.c: $(libcexp_a_SOURCES) Makefile
-	echo 'static char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
+builddate.c: $(libcexp_a_SOURCES) $(EXTRA_SRCS) Makefile
+	echo 'char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@
 
 MOSTLYCLEANFILES+=builddate.c
 
@@ -165,8 +169,12 @@ install: all-recursive install-recursive
 
 builtin-symtab:	cexp-builtin-symtab.$(OBJEXT)
 
-cexp-builtin-symtab.c:	cexp
+cexp-builtin-symtab.c: cexp
 	$(XSYMS) -C $^ $@
 
 cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
 	$(CC) -c -I$(srcdir) $(CFLAGS) -o $@ $^
+
+cexp_main.c:
+	@echo '#include "cexp.h"' > $@
+	@echo 'int main(int argc, char **argv) { return cexp_main(argc,argv); }' >>$@

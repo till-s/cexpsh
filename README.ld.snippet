@@ -1,0 +1,18 @@
+Example snippet of a linker script showing how
+memory for a text region (powerpc) could be set
+aside:
+
+
+  . = ALIGN(16);
+  /*
+   * By defining _cexpTextRegionBump from the linker commandline
+   * (32M) the memory between __rtems_end and 32M can be reserved
+   * for cexp (useful on boards with >32M of memory)
+   */
+  _cexpTextRegionStart = . ;
+  . = ALIGN( DEFINED(_cexpTextRegionBump) ? cexpTextRegionBump : 0 );
+  _cexpTextRegionEnd   = . ;
+  _end = . ;
+  __rtems_end = . ;
+  PROVIDE (end = .);
+

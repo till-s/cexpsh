@@ -91,11 +91,13 @@ of interest to stdout. Howmany defaults to +-5 if passed 0",
 		cexpModuleLoad,(char *file_name, char *module_name)
 	),
 
+#ifdef USE_LOADER
 	HELP(
 "Unload a module (pass handle, RETURNS: 0 on success)",
 		int,
 		cexpModuleUnload,(CexpModule moduleHandle)
 	),
+#endif
 	HELP(
 "Return a module's name (string owned by module code)",
 		char*,
@@ -139,8 +141,11 @@ RETURNS: mod->next",
 "A few Cexp builtin routines are:\n\n\
     lkup                   - lookup a symbol\n\
     lkaddr                 - find the address closest to a symbol\n\
-    cexpModuleLoad         - load an object file\n\
-    cexpModuleUnload       - remove a module from the running system\n\
+    cexpModuleLoad         - load an object file\n"
+#ifdef USE_LOADER
+"    cexpModuleUnload       - remove a module from the running system\n"
+#endif
+"\
     cexpModuleName         - return a module name given its handle\n\
     cexpModuleFindByName   - find a module given its name\n\
     cexpModuleInfo         - dump info about one or all modules\n"

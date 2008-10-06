@@ -112,10 +112,6 @@ long rtems_semaphore_destroy();
 #define RTEMS_INHERIT_PRIORITY			0x40
 #endif
 
-#ifndef INLINE
-#define INLINE static __inline__
-#endif
-
 typedef rtems_id CexpLock;
 typedef rtems_id CexpEvent;
 
@@ -125,7 +121,7 @@ typedef rtems_id CexpEvent;
 #define cexpEventSend(l)	rtems_semaphore_release((l))
 
 /* IMPORTANT: use a standard (not simple) binary semaphore that may nest */
-INLINE int
+static __inline__ int
 cexpLockCreate(CexpLock *l)
 {
 	return
@@ -137,7 +133,7 @@ cexpLockCreate(CexpLock *l)
 		l);
 }
 
-INLINE int
+static __inline__ int
 cexpEventCreate(CexpEvent *pe)
 {
 	return
@@ -185,7 +181,7 @@ typedef struct CexpRWLockRec_ {
 } CexpRWLockRec, *CexpRWLock;
 
 #ifndef NO_THREAD_PROTECTION
-INLINE void
+static __inline__ void
 cexpRWLockInit(CexpRWLock pl)
 {
 	cexpLockCreate(&pl->mutex);
@@ -203,7 +199,7 @@ cexpRWLockInit(CexpRWLock pl)
  *       However, a reader _MUST_NOT_ try to acquire
  *       the write lock!
  */
-INLINE  void
+static __inline__  void
 cexpReadLock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -211,7 +207,7 @@ cexpReadLock(CexpRWLock l)
 	cexpUnlock(l->mutex);
 }
 
-INLINE void
+static __inline__ void
 cexpReadUnlock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -222,7 +218,7 @@ cexpReadUnlock(CexpRWLock l)
 	cexpUnlock(l->mutex);
 }
 
-INLINE void
+static __inline__ void
 cexpWriteLock(CexpRWLock l)
 {
 	cexpLock(l->mutex);
@@ -234,7 +230,7 @@ cexpWriteLock(CexpRWLock l)
 	}
 }
 
-INLINE void
+static __inline__ void
 cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);

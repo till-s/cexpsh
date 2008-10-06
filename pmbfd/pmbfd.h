@@ -79,10 +79,12 @@ typedef unsigned long symvalue;
 typedef void *PTR;
 #endif
 
-#if 0
+/*
+ * we do need to define TRUE/FALSE namely if
+ * opcodes is used together with pmbfd...
+ */
 #define TRUE  1
 #define FALSE 0
-#endif
 
 typedef long          file_ptr;
 
@@ -233,7 +235,7 @@ enum bfd_architecture {
 #define bfd_mach_ppc_rs64iii                  643
 #define bfd_mach_ppc_7400                    7400
 #define bfd_mach_ppc_e500                     500
-	bfd_arch_rs6000        = 21
+	bfd_arch_rs6000        = 22
 #define bfd_mach_rs6lk                       6000
 #define bfd_mach_rs6lk_rs1                   6001
 #define bfd_mach_rs6lk_rsc                   6002

@@ -16951,3 +16951,47 @@ diff -crN binutils-2.18.orig/libiberty/getopt.c binutils-2.18/libiberty/getopt.c
 + .PHONY: install-data
 + install-exec: all install
 + .PHONY: install-exec
+*** binutils-2.18/configure.gnu.orig	1969-12-31 16:00:00.000000000 -0800
+--- binutils-2.18/configure.gnu	2008-10-06 12:12:48.000000000 -0700
+***************
+*** 0 ****
+--- 1,39 ----
++ #!/bin/sh
++ # wrapper script to strip --enable-maintainer-mode; the binutils
++ # use older autotools than the one we use for ssrlApps so we
++ # don't want to touch the stuff in binutils...
++ script=$0
++ 
++ while :
++ do
++ 
++ # Break out if there are no more args
++ 	case $# in
++ 	0)
++ 		break
++ 		;;
++ 	esac
++ 
++ # Get the first arg, and shuffle
++ 	option=$1
++ 	shift
++ 	optarg=`expr "x$option" : 'x[^=]*=\(.*\)'`
++ 
++ 	orig_option=$option	# Save original for error messages
++ 	case $option in
++ 	*-enable-maintainer-mode*)
++ 		option=
++ 	;;
++ 	*)
++ 	;;
++ 	esac
++ 	echo option "$option"
++ 
++ 	args="$args '$option'"
++ 		
++ done
++ 
++ args="$args --disable-nls"
++ 
++ echo running /bin/sh `dirname $script`/configure $args
++ exec sh -c "`dirname $script`/configure $args"

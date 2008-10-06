@@ -411,11 +411,11 @@ fi
 
 # Reject maintainer mode if bfd/opcodes are used -- they require
 # older autotools
-if test "$enable_maintainer_mode" = "yes" ; then
-	if test "$enable_bfd" = "yes" -o "$enable_opcodes" = "yes" ; then
-		AC_MSG_ERROR([Cannot use --enable-maintainer-mode when BFD or OPCODES are used -- these packages require older autotools than CEXP])
-	fi
-fi
+#if test "$enable_maintainer_mode" = "yes" ; then
+#	if test "$enable_bfd" = "yes" -o "$enable_opcodes" = "yes" ; then
+#		AC_MSG_ERROR([Cannot use --enable-maintainer-mode when BFD or OPCODES are used -- these packages require older autotools than CEXP])
+#	fi
+#fi
 
 # don't recall what these were for...
 AC_HAVE_FUNCS(rcmd vsnprintf)

@@ -342,7 +342,7 @@ unsigned long     sz;
 CexpSegment
 cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s)
 {
-const char *nam = bfd_get_section_name(abfd, s);
+const char *nam = bfd_get_section_name(abfd, (asection*)s);
 
 	if (    0 == strncmp(nam,".text",5)
 	     || 0 == strncmp(nam,".gnu.linkonce.t.",16) )

@@ -58,9 +58,6 @@
 
 typedef struct CexpSegmentRec_ *CexpSegment;
 
-struct sec;
-struct bfd;
-
 /*
  * Allocate CexpSegmentRecs (no real memory
  * is allocated yet) as appropriate for
@@ -99,6 +96,9 @@ int cexpSegsAlloc(CexpSegment ptr);
  * memory.
  */
 void cexpSegsDelete(CexpSegment  ptr);
+
+struct bfd;
+struct sec;
 
 /*
  * Find segment for a given section.

@@ -409,6 +409,14 @@ if test "$enable_loader" = "yes" ; then
 	AC_DEFINE(USE_LOADER,1,[whether we configured the run-time loader])
 fi
 
+# Reject maintainer mode if bfd/opcodes are used -- they require
+# older autotools
+if test "$enable_maintainer_mode" = "yes" ; then
+	if test "$enable_bfd" = "yes" -o "$enable_opcodes" = "yes" ; then
+		AC_MSG_ERROR([Cannot use --enable-maintainer-mode when BFD or OPCODES are used -- these packages require older autotools than CEXP])
+	fi
+fi
+
 # don't recall what these were for...
 AC_HAVE_FUNCS(rcmd vsnprintf)
 
@@ -433,7 +441,7 @@ AH_VERBATIM(NO_THREAD_PROTECTION,[
 AC_CONFIG_FILES(Makefile)
 
 # cannot use multilibs with BFD
-if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test ! "${multilib}" = "no" ; then
+if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test ! "${enable_multilib}" = "no" ; then
 	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib (or --disable-bfd --disable-opcodes)])
 fi
 

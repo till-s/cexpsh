@@ -150,6 +150,111 @@ diff -crN binutils-2.18.orig/bfd/config.bfd binutils-2.18/bfd/config.bfd
       targ64_selvecs="bfd_elf64_powerpc_vec bfd_elf64_powerpcle_vec"
       ;;
     powerpc-*-kaos*)
+diff -crN binutils-2.18.orig/libiberty/configure.ac binutils-2.18/libiberty/configure.ac
+*** binutils-2.18.orig/libiberty/configure.ac	2007-08-06 12:59:45.000000000 -0700
+--- binutils-2.18/libiberty/configure.ac	2007-10-10 20:32:56.000000000 -0700
+***************
+*** 393,398 ****
+--- 393,429 ----
+    # newlib provide and which ones we will be expected to provide.
+  
+    if test "x${with_newlib}" = "xyes"; then
++ 
++   case "${host}" in
++   *-*-rtems*)
++     AC_LIBOBJ([basename])
++     AC_LIBOBJ([insque])
++     AC_LIBOBJ([random])
++     for f in $funcs; do
++       case "$f" in
++ 	basename | insque | random)
++ 	  ;;
++ 	*)
++ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
++ 	  AC_DEFINE_UNQUOTED($n)
++ 	  ;;
++       esac
++     done
++ 	# RTEMS has all these from checkfuncs
++     AC_DEFINE(HAVE_ON_EXIT)
++     AC_DEFINE(HAVE_SYSCONF)
++     AC_DEFINE(HAVE_TIMES)
++     AC_DEFINE(HAVE_SBRK)
++     AC_DEFINE(HAVE_GETTIMEOFDAY)
++     AC_DEFINE(HAVE_SYSCTL)
++ 
++   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
++   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
++   AC_CHECK_DECLS([strverscmp])
++   libiberty_NEED_DECLARATION(canonicalize_file_name)
++ 
++   ;;
++   *)
+      AC_LIBOBJ([asprintf])
+      AC_LIBOBJ([basename])
+      AC_LIBOBJ([insque])
+***************
+*** 410,415 ****
+--- 441,448 ----
+  	  ;;
+        esac
+      done
++ 	;;
++   esac
+  
+      # newlib doesnt provide any of the variables in $vars, so we
+      # dont have to check them here.
+***************
+*** 511,516 ****
+--- 544,591 ----
+  if test -z "${setobjs}"; then
+    case "${host}" in
+  
++   *-*-rtems*)
++     # Handle RTEMS configuration specially, since we can't link
++     # w/o RTEMS specs and other snippets from RTEMS makefiles...
++     AC_LIBOBJ([basename])
++     AC_LIBOBJ([insque])
++     AC_LIBOBJ([mkstemps])
++     AC_LIBOBJ([random])
++     AC_LIBOBJ([sigsetmask])
++     AC_LIBOBJ([stpcpy])
++     AC_LIBOBJ([stpncpy])
++     AC_LIBOBJ([strverscmp])
++ 
++     for f in $funcs; do
++       case "$f" in
++     basename | insque | mkstemps | random | sigsetmask)
++ 	  ;;
++     stpcpy | stpncpy | strverscmp)
++ 	  ;;
++ 	*)
++ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
++ 	  AC_DEFINE_UNQUOTED($n)
++ 	  ;;
++       esac
++     done
++ 
++ 	# RTEMS has all these from checkfuncs
++     AC_DEFINE(HAVE_ON_EXIT)
++     AC_DEFINE(HAVE_STRERROR)
++     AC_DEFINE(HAVE_SYSCONF)
++     AC_DEFINE(HAVE_TIMES)
++     AC_DEFINE(HAVE_SBRK)
++     AC_DEFINE(HAVE_GETTIMEOFDAY)
++     AC_DEFINE(HAVE_SYSCTL)
++ 
++   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
++   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
++   AC_CHECK_DECLS([strverscmp])
++   libiberty_NEED_DECLARATION(canonicalize_file_name)
++ 
++     setobjs=yes
++     ;;
++ 
+    *-*-vxworks*)
+      # Handle VxWorks configuration specially, since on VxWorks the
+      # libraries are actually on the target board, not in the file
 diff -crN binutils-2.18.orig/libiberty/configure binutils-2.18/libiberty/configure
 *** binutils-2.18.orig/libiberty/configure	2007-08-06 12:59:45.000000000 -0700
 --- binutils-2.18/libiberty/configure	2007-10-10 17:37:30.000000000 -0700
@@ -16762,111 +16867,6 @@ diff -crN binutils-2.18.orig/libiberty/configure binutils-2.18/libiberty/configu
   
   { (exit 0); exit 0; }
   _ACEOF
-diff -crN binutils-2.18.orig/libiberty/configure.ac binutils-2.18/libiberty/configure.ac
-*** binutils-2.18.orig/libiberty/configure.ac	2007-08-06 12:59:45.000000000 -0700
---- binutils-2.18/libiberty/configure.ac	2007-10-10 20:32:56.000000000 -0700
-***************
-*** 393,398 ****
---- 393,429 ----
-    # newlib provide and which ones we will be expected to provide.
-  
-    if test "x${with_newlib}" = "xyes"; then
-+ 
-+   case "${host}" in
-+   *-*-rtems*)
-+     AC_LIBOBJ([basename])
-+     AC_LIBOBJ([insque])
-+     AC_LIBOBJ([random])
-+     for f in $funcs; do
-+       case "$f" in
-+ 	basename | insque | random)
-+ 	  ;;
-+ 	*)
-+ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-+ 	  AC_DEFINE_UNQUOTED($n)
-+ 	  ;;
-+       esac
-+     done
-+ 	# RTEMS has all these from checkfuncs
-+     AC_DEFINE(HAVE_ON_EXIT)
-+     AC_DEFINE(HAVE_SYSCONF)
-+     AC_DEFINE(HAVE_TIMES)
-+     AC_DEFINE(HAVE_SBRK)
-+     AC_DEFINE(HAVE_GETTIMEOFDAY)
-+     AC_DEFINE(HAVE_SYSCTL)
-+ 
-+   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
-+   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
-+   AC_CHECK_DECLS([strverscmp])
-+   libiberty_NEED_DECLARATION(canonicalize_file_name)
-+ 
-+   ;;
-+   *)
-      AC_LIBOBJ([asprintf])
-      AC_LIBOBJ([basename])
-      AC_LIBOBJ([insque])
-***************
-*** 410,415 ****
---- 441,448 ----
-  	  ;;
-        esac
-      done
-+ 	;;
-+   esac
-  
-      # newlib doesnt provide any of the variables in $vars, so we
-      # dont have to check them here.
-***************
-*** 511,516 ****
---- 544,591 ----
-  if test -z "${setobjs}"; then
-    case "${host}" in
-  
-+   *-*-rtems*)
-+     # Handle RTEMS configuration specially, since we can't link
-+     # w/o RTEMS specs and other snippets from RTEMS makefiles...
-+     AC_LIBOBJ([basename])
-+     AC_LIBOBJ([insque])
-+     AC_LIBOBJ([mkstemps])
-+     AC_LIBOBJ([random])
-+     AC_LIBOBJ([sigsetmask])
-+     AC_LIBOBJ([stpcpy])
-+     AC_LIBOBJ([stpncpy])
-+     AC_LIBOBJ([strverscmp])
-+ 
-+     for f in $funcs; do
-+       case "$f" in
-+     basename | insque | mkstemps | random | sigsetmask)
-+ 	  ;;
-+     stpcpy | stpncpy | strverscmp)
-+ 	  ;;
-+ 	*)
-+ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-+ 	  AC_DEFINE_UNQUOTED($n)
-+ 	  ;;
-+       esac
-+     done
-+ 
-+ 	# RTEMS has all these from checkfuncs
-+     AC_DEFINE(HAVE_ON_EXIT)
-+     AC_DEFINE(HAVE_STRERROR)
-+     AC_DEFINE(HAVE_SYSCONF)
-+     AC_DEFINE(HAVE_TIMES)
-+     AC_DEFINE(HAVE_SBRK)
-+     AC_DEFINE(HAVE_GETTIMEOFDAY)
-+     AC_DEFINE(HAVE_SYSCTL)
-+ 
-+   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
-+   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
-+   AC_CHECK_DECLS([strverscmp])
-+   libiberty_NEED_DECLARATION(canonicalize_file_name)
-+ 
-+     setobjs=yes
-+     ;;
-+ 
-    *-*-vxworks*)
-      # Handle VxWorks configuration specially, since on VxWorks the
-      # libraries are actually on the target board, not in the file
 diff -crN binutils-2.18.orig/libiberty/Makefile.in binutils-2.18/libiberty/Makefile.in
 *** binutils-2.18.orig/libiberty/Makefile.in	2007-08-06 12:59:45.000000000 -0700
 --- binutils-2.18/libiberty/Makefile.in	2007-11-07 19:34:13.000000000 -0800
@@ -16925,3 +16925,29 @@ diff -crN binutils-2.18.orig/libiberty/getopt.c binutils-2.18/libiberty/getopt.c
   #ifndef ELIDE_CODE
   
   
+*** binutils-2.18/Makefile.in.orig	2008-10-05 21:43:09.000000000 -0700
+--- binutils-2.18/Makefile.in	2008-10-05 21:53:08.000000000 -0700
+***************
+*** 49490,49493 ****
+--- 49490,49498 ----
+  .NOEXPORT:
+  MAKEOVERRIDES=
+  
++ install-data:
++ .PHONY: install-data
++ install-exec: all install
++ .PHONY: install-exec
++ 
+  # end of Makefile.in
+*** binutils-2.18/libiberty/Makefile.in.orig	2008-10-05 22:28:41.000000000 -0700
+--- binutils-2.18/libiberty/Makefile.in	2008-10-05 22:28:58.000000000 -0700
+***************
+*** 1181,1183 ****
+--- 1181,1187 ----
+  	else true; fi
+  	$(COMPILE.c) $(srcdir)/xstrndup.c $(OUTPUT_OPTION)
+  
++ install-data:
++ .PHONY: install-data
++ install-exec: all install
++ .PHONY: install-exec

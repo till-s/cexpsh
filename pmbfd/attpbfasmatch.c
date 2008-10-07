@@ -132,9 +132,8 @@ Elf32_Word            flg;
 int
 pmelf_pub_file_attributes_match_compat(Pmelf_attribute_tbl *patbl, Pmelf_attribute_tbl *pbtbl)
 {
-Pmelf_attribute_list *ela, *elb, *pa, *pb;
-int                   fla, flb, fl_cnt;
-Elf32_Word            flg;
+Pmelf_attribute_list *ela, *elb;
+int                   fla, flb;
 const char            *nma = patbl->aset->obj_name;
 const char            *nmb = pbtbl->aset->obj_name;
 

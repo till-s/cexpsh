@@ -385,6 +385,7 @@ static Pmelf_attribute_vendor tst_vendor = {
 };
 #endif
 
+#ifdef DEBUG
 static Pmelf_attribute_vendor *known_vendors =
 #if DEBUG > 1
 	&tst_vendor
@@ -394,5 +395,4 @@ static Pmelf_attribute_vendor *known_vendors =
 	0
 #endif
 	;
-
-
+#endif

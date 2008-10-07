@@ -130,6 +130,7 @@ int
 pmelf_getehdr(Elf_Stream s, Elf_Ehdr *pehdr)
 {
 uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
+int     rval;
 
 	if ( pmelf_seek(s, 0) ) {
 		return -1;
@@ -158,10 +159,21 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 
 	switch ( (s->clss = pehdr->e_ident[EI_CLASS]) ) {
 		case ELFCLASS32:
-			return getehdr32_top(s,&pehdr->e32);
+			if ( (rval = getehdr32_top(s,&pehdr->e32)) ) {
+				return rval;
+			}
+
+			s->machine = pehdr->e32.e_machine;
+
+			break;
+
 		case ELFCLASS64:
 #ifdef PMELF_CONFIG_ELF64SUPPORT
-			return getehdr64_top(s,&pehdr->e64);
+			if ( (rval = getehdr64_top(s,&pehdr->e64)) ) {
+				return rval;
+			}
+
+			s->machine = pehdr->e64.e_machine;
 #else
 			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: cannot read 64-bit ELF file; pmelf was configured and built without 64-bit support!\n");
 			return -3;
@@ -169,7 +181,21 @@ uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
 		default:
 			s->clss = ELFCLASSNONE;
 			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an 32/64-bit ELF file\n");
-			break;
+			return -1;
+	}
+
+	switch ( s->machine ) {
+		case EM_386:
+		case EM_68K:
+		case EM_PPC:
+		case EM_X86_64:
+
+		/* SUCCESS */
+		return 0;
+
+		default:
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: machine type 0x%04"PRIx16" not supported\n", s->machine);
+		break;
 	}
 	return -1;
 }

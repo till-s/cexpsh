@@ -114,47 +114,8 @@ Elf64_Word     v32;
 	return bfd_reloc_ok;
 }
 
-#define namecase(rel)	case rel: return #rel;
-
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF64_R_TYPE(r->rela64.r_info) ) {
-		namecase( R_X86_64_NONE             )
-		namecase( R_X86_64_64               )
-		namecase( R_X86_64_PC32             )
-		namecase( R_X86_64_GOT32            )
-		namecase( R_X86_64_PLT32            )
-		namecase( R_X86_64_COPY             )
-		namecase( R_X86_64_GLOB_DAT         )
-		namecase( R_X86_64_JUMP_SLOT        )
-		namecase( R_X86_64_RELATIVE         )
-		namecase( R_X86_64_GOTPCREL         )
-		namecase( R_X86_64_32               )
-		namecase( R_X86_64_32S              )
-		namecase( R_X86_64_16               )
-		namecase( R_X86_64_PC16             )
-		namecase( R_X86_64_8                )
-		namecase( R_X86_64_PC8              )
-		namecase( R_X86_64_DTPMOD64         )
-		namecase( R_X86_64_DTPOFF64         )
-		namecase( R_X86_64_TPOFF64          )
-		namecase( R_X86_64_TLSGD            )
-		namecase( R_X86_64_TLSLD            )
-		namecase( R_X86_64_DTPOFF32         )
-		namecase( R_X86_64_GOTTPOFF         )
-		namecase( R_X86_64_TPOFF32          )
-		namecase( R_X86_64_PC64             )
-		namecase( R_X86_64_GOTOFF64         )
-		namecase( R_X86_64_GOTPC32          )
-		namecase( R_X86_64_SIZE32           )
-		namecase( R_X86_64_SIZE64           )
-		namecase( R_X86_64_GOTPC32_TLSDESC  )
-		namecase( R_X86_64_TLSDESC_CALL     )
-		namecase( R_X86_64_TLSDESC          )
-
-		default:
-		break;
-	}
-	return "UNKNOWN";
+	return pmelf_x86_64_rel_name(&r->rela64);
 }

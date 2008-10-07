@@ -130,38 +130,8 @@ int32_t        lim;
 	return bfd_reloc_ok;
 }
 
-#define namecase(rel)	case rel: return #rel;
-
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rela32.r_info) ) {
-		namecase( R_68K_NONE )
-		namecase( R_68K_32 )
-		namecase( R_68K_16 )
-		namecase( R_68K_8 )
-		namecase( R_68K_PC32 )
-		namecase( R_68K_PC16 )
-		namecase( R_68K_PC8 )
-		namecase( R_68K_GOT32 )
-		namecase( R_68K_GOT16 )
-		namecase( R_68K_GOT8 )
-		namecase( R_68K_GOT320 )
-		namecase( R_68K_GOT160 )
-		namecase( R_68K_GOT80 )
-		namecase( R_68K_PLT32 )
-		namecase( R_68K_PLT16 )
-		namecase( R_68K_PLT8 )
-		namecase( R_68K_PLT320 )
-		namecase( R_68K_PLT160 )
-		namecase( R_68K_PLT80 )
-		namecase( R_68K_COPY )
-		namecase( R_68K_GLOB_DAT )
-		namecase( R_68K_JMP_SLOT )
-		namecase( R_68K_RELATIVE )
-
-		default:
-		break;
-	}
-	return "UNKNOWN";
+	return pmelf_m68k_rel_name(&r->rela32);
 }

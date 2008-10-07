@@ -71,7 +71,7 @@ pmelf_ppc_attribute_tag_t(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 }
 
 /* PPC-specific (SYSV FP and ALTIVEC ABIs) tag descriptions */
-static const char * const
+static const char *
 pmelf_ppc_attribute_tag_n(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 {
 	switch ( tag ) {
@@ -230,7 +230,6 @@ static int
 pmelf_ppc_file_attributes_match(Pmelf_attribute_tbl *patbl, Pmelf_attribute_tbl *pbtbl)
 {
 int         tag;
-const char *str;
 int         va,vb;
 
 	if ( !patbl && !pbtbl )
@@ -271,12 +270,19 @@ int         va,vb;
 	vb = pbtbl->vals.p_pub[pbtbl->map[Tag_GNU_Power_ABI_VEC]].i;
 
 	if ( va != vb ) {
+#if 0
 		if (    (va == GNU_Power_ABI_NOVEC && vb == GNU_Power_ABI_ALTIVEC)
 	         || (vb == GNU_Power_ABI_NOVEC && va == GNU_Power_ABI_ALTIVEC) ) {
 			/* let altivec live with no-altivec (but not spe) -- I can't see any
 			 * incompatibilities ATM
 			 */
-		} else {
+			/* UPDATE: there *are* incompatibilities. I believe the ALTIVEC ABI
+			 *         passes arguments in vector registers, the non-ALTIVEC ABI
+			 *         passes vector args on the stack!
+			 */
+		} else
+#endif
+		{
 			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): mismatch of GNU_Power_ABI_VEC attribute\n");
 
 			ppc_complain(patbl->aset->obj_name, ppc_abi_vec_val, va);

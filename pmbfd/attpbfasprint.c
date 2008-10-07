@@ -58,7 +58,6 @@ void
 pmelf_pub_file_attributes_print(Pmelf_attribute_tbl *patbl, FILE *f)
 {
 int                  i,idx;
-const char           *tn;
 Pmelf_attribute_list *e;
 
 	if ( !f )

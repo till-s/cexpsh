@@ -62,7 +62,7 @@ Pmelf_attribute_vendor *pv;
 Pmelf_Off              n,nbeg;
 int                    l;
 uint8_t                v;
-const uint8_t          *vendor_name;
+const char             *vendor_name;
 Pmelf_attribute_tbl    *patbl;
 Elf32_Word             len,tag,sublen;
 
@@ -109,7 +109,7 @@ Elf32_Word             len,tag,sublen;
 			}
 		}
 
-		vendor_name = b + n;
+		vendor_name = (const char*)(b + n);
 
 		n = l+1;
 
@@ -401,7 +401,7 @@ Pmelf_attribute_vendor *x;
 	return 0;
 }
 
-const char * const
+const char *
 pmelf_attributes_vendor_name(Pmelf_attribute_vendor *pv)
 {
 	return pv->name;

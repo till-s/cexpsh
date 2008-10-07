@@ -486,7 +486,9 @@ uint16_t      st_shndx;
 uint8_t       sym_type;
 uint8_t       sym_bind;
 
+#ifdef SKIP_FIRST_NULL_SYMBOL
 const int symsz = get_symsz(abfd);
+#endif
 
 	if ( !abfd->syms ) {
 		if ( ! (abfd->syms = malloc(sizeof(asymbol)*(abfd->nsyms))) ) {

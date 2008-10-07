@@ -80,27 +80,9 @@ Elf32_Rel      *rel = &r->rel32;
 	return bfd_reloc_ok;
 }
 
-#define namecase(rel)	case rel: return #rel;
-
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rel32.r_info) ) {
-		namecase( R_386_NONE     )
-		namecase( R_386_32       )
-		namecase( R_386_PC32     )
-		namecase( R_386_GOT32    )
-		namecase( R_386_PLT32    )
-		namecase( R_386_COPY     )
-		namecase( R_386_GLOB_DAT )
-		namecase( R_386_JMP_SLOT )
-		namecase( R_386_RELATIVE )
-		namecase( R_386_GOTOFF   )
-		namecase( R_386_GOTPC    )
-
-		default:
-		break;
-	}
-	return "UNKNOWN";
+	return pmelf_i386_rel_name(&r->rel32);
 }
 

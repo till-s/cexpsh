@@ -57,10 +57,11 @@
 #define DO_SHDRS	2
 #define DO_SYMS		4
 #define DO_GROUP	8
+#define DO_RELS    16
 
 #include <getopt.h>
 
-static char *optstr="achSsHg";
+static char *optstr="achSsHgr";
 
 static void usage(char *nm)
 {
@@ -70,7 +71,8 @@ static void usage(char *nm)
 	fprintf(stderr,"   -S: print section headers (shdr)\n");
 	fprintf(stderr,"   -g: print section groups\n");
 	fprintf(stderr,"   -s: print symbol table\n");
-	fprintf(stderr,"   -a: enable all of -h, -s, -S, -g\n");
+	fprintf(stderr,"   -r: print relocation entries\n");
+	fprintf(stderr,"   -a: enable all of -h, -s, -S, -g, -r\n");
 	fprintf(stderr,"   -c: enable 'readelf' compatibility\n");
 	fprintf(stderr,"       NOTE: for 64-bit use:\n");
 	fprintf(stderr,"               readelf -WS\n");
@@ -106,6 +108,7 @@ int          compat=0;
 			case 'S': doit |= DO_SHDRS;  break;
 			case 's': doit |= DO_SYMS;   break;
 			case 'g': doit |= DO_GROUP;  break;
+			case 'r': doit |= DO_RELS;   break;
 			case 'a': doit |= -1;        break;
 			case 'H': usage(argv[0]);    return 0;
 			default:
@@ -147,6 +150,9 @@ int          compat=0;
 
 	if ( doit & DO_SYMS )
 		pmelf_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
+
+	if ( doit & DO_RELS )
+		pmelf_dump_rels( stdout, s, shtab, symtab );
 
 	rval = 0;
 bail:

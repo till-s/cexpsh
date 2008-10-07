@@ -457,6 +457,13 @@ typedef struct {
 	Elf64_Sxword	r_addend;
 } Elf64_Rela;
 
+typedef union {
+	Elf32_Rel	r32;
+	Elf32_Rela  ra32;
+	Elf64_Rel	r64;
+	Elf64_Rela  ra64;
+} Elf_Reloc;
+
 
 /**************************************************/
 /* ANYTHING BELOW HERE IS DEFINED BY THIS LIBRARY */
@@ -847,6 +854,13 @@ int
 pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab);
 
 /*
+ * Dump contents of all relocation sections to FILE in
+ * readable form, compatible with 'readelf -r'.
+ */
+void
+pmelf_dump_rels(FILE *f, Elf_Stream s, Pmelf_Shtab sht, Pmelf_Symtab symt);
+
+/*
  * Object file attributes (stored in '.gnu.attributes' sections of type
  * SHT_GNU_ATTRIBUTES). They describe ABI compatibility features of object
  * files.
@@ -881,7 +895,7 @@ int
 pmelf_attributes_vendor_register(Pmelf_attribute_vendor *pv);
 	
 /* retrieve name of a vendor (pointer to constant string) */
-const char * const
+const char * 
 pmelf_attributes_vendor_name(Pmelf_attribute_vendor *pv);
 
 /* Create attribute set reading from an ELF stream.
@@ -964,6 +978,182 @@ pmelf_putsym64(Elf_Stream s, Elf64_Sym *psym);
 
 int
 pmelf_write(Elf_Stream s, void *data, Pmelf_Long len);
+
+/* Read the contents of a SHT_REL/SHT_RELA section
+ * identified by the section header 'psect'.
+ *
+ * The stream is positioned to the start of the section
+ * and it's contents are read into the 'data' storage
+ * area which may be provided by the caller. If a NULL
+ * 'data' pointer is passed then memory is allocated
+ * (it is the user's responsability to free it when done).
+ *
+ * The section contents are byte-swapped as needed.
+ *
+ * RETURNS: 'data' pointer on success, NULL on error.
+ *
+ * NOTE:    on successful return the stream is positioned
+ *          behind the section contents.
+ *
+ */
+
+void *
+pmelf_getrel(Elf_Stream s, Elf_Shdr *psect, void *data);
+
+/* 
+ * Names of relocation types
+ */
+#define pmelf_namecase(rel)	case rel: return #rel;
+
+static __inline__ 
+const char *pmelf_i386_rel_name(Elf32_Rel *r)
+{
+	switch ( ELF32_R_TYPE(r->r_info) ) {
+		pmelf_namecase( R_386_NONE     )
+		pmelf_namecase( R_386_32       )
+		pmelf_namecase( R_386_PC32     )
+		pmelf_namecase( R_386_GOT32    )
+		pmelf_namecase( R_386_PLT32    )
+		pmelf_namecase( R_386_COPY     )
+		pmelf_namecase( R_386_GLOB_DAT )
+		pmelf_namecase( R_386_JMP_SLOT )
+		pmelf_namecase( R_386_RELATIVE )
+		pmelf_namecase( R_386_GOTOFF   )
+		pmelf_namecase( R_386_GOTPC    )
+
+		default:
+		break;
+	}
+	return "UNKNOWN";
+}
+
+static __inline__ const char *
+pmelf_m68k_rel_name(Elf32_Rela *r)
+{
+	switch ( ELF32_R_TYPE(r->r_info) ) {
+		pmelf_namecase( R_68K_NONE )
+		pmelf_namecase( R_68K_32 )
+		pmelf_namecase( R_68K_16 )
+		pmelf_namecase( R_68K_8 )
+		pmelf_namecase( R_68K_PC32 )
+		pmelf_namecase( R_68K_PC16 )
+		pmelf_namecase( R_68K_PC8 )
+		pmelf_namecase( R_68K_GOT32 )
+		pmelf_namecase( R_68K_GOT16 )
+		pmelf_namecase( R_68K_GOT8 )
+		pmelf_namecase( R_68K_GOT320 )
+		pmelf_namecase( R_68K_GOT160 )
+		pmelf_namecase( R_68K_GOT80 )
+		pmelf_namecase( R_68K_PLT32 )
+		pmelf_namecase( R_68K_PLT16 )
+		pmelf_namecase( R_68K_PLT8 )
+		pmelf_namecase( R_68K_PLT320 )
+		pmelf_namecase( R_68K_PLT160 )
+		pmelf_namecase( R_68K_PLT80 )
+		pmelf_namecase( R_68K_COPY )
+		pmelf_namecase( R_68K_GLOB_DAT )
+		pmelf_namecase( R_68K_JMP_SLOT )
+		pmelf_namecase( R_68K_RELATIVE )
+
+		default:
+		break;
+	}
+	return "UNKNOWN";
+}
+
+static __inline__ const char *
+pmelf_ppc_rel_name(Elf32_Rela *r)
+{
+	switch ( ELF32_R_TYPE(r->r_info) ) {
+		pmelf_namecase( R_PPC_NONE                )
+		pmelf_namecase( R_PPC_ADDR32              )
+		pmelf_namecase( R_PPC_ADDR24              )
+		pmelf_namecase( R_PPC_ADDR16              )
+		pmelf_namecase( R_PPC_ADDR16_LO           )
+		pmelf_namecase( R_PPC_ADDR16_HI           )
+		pmelf_namecase( R_PPC_ADDR16_HA           )
+		pmelf_namecase( R_PPC_ADDR14              )
+		pmelf_namecase( R_PPC_ADDR14_BRTAKEN      )
+		pmelf_namecase( R_PPC_ADDR14_BRNTAKEN     )
+		pmelf_namecase( R_PPC_REL24               )
+		pmelf_namecase( R_PPC_REL14               )
+		pmelf_namecase( R_PPC_REL14_BRTAKEN       )
+		pmelf_namecase( R_PPC_REL14_BRNTAKEN      )
+		pmelf_namecase( R_PPC_GOT16               )
+		pmelf_namecase( R_PPC_GOT16_LO            )
+		pmelf_namecase( R_PPC_GOT16_HI            )
+		pmelf_namecase( R_PPC_GOT16_HA            )
+		pmelf_namecase( R_PPC_PLTREL24            )
+		pmelf_namecase( R_PPC_COPY                )
+		pmelf_namecase( R_PPC_GLOB_DAT            )
+		pmelf_namecase( R_PPC_JMP_SLOT            )
+		pmelf_namecase( R_PPC_RELATIVE            )
+		pmelf_namecase( R_PPC_LOCAL24PC           )
+		pmelf_namecase( R_PPC_UADDR32             )
+		pmelf_namecase( R_PPC_UADDR16             )
+		pmelf_namecase( R_PPC_REL32               )
+		pmelf_namecase( R_PPC_PLT32               )
+		pmelf_namecase( R_PPC_PLTREL32            )
+		pmelf_namecase( R_PPC_PLT16_LO            )
+		pmelf_namecase( R_PPC_PLT16_HI            )
+		pmelf_namecase( R_PPC_PLT16_HA            )
+		pmelf_namecase( R_PPC_SDAREL16            )
+		pmelf_namecase( R_PPC_SECTOFF             )
+		pmelf_namecase( R_PPC_SECTOFF_LO          )
+		pmelf_namecase( R_PPC_SECTOFF_HI          )
+		pmelf_namecase( R_PPC_SECTOFF_HA          )
+		pmelf_namecase( R_PPC_ADDR30              )
+
+		default:
+			break;
+	}
+	return "UNKNOWN";
+}
+
+static __inline__ const char *
+pmelf_x86_64_rel_name(Elf64_Rela *r)
+{
+	switch ( ELF64_R_TYPE(r->r_info) ) {
+		pmelf_namecase( R_X86_64_NONE             )
+		pmelf_namecase( R_X86_64_64               )
+		pmelf_namecase( R_X86_64_PC32             )
+		pmelf_namecase( R_X86_64_GOT32            )
+		pmelf_namecase( R_X86_64_PLT32            )
+		pmelf_namecase( R_X86_64_COPY             )
+		pmelf_namecase( R_X86_64_GLOB_DAT         )
+		pmelf_namecase( R_X86_64_JUMP_SLOT        )
+		pmelf_namecase( R_X86_64_RELATIVE         )
+		pmelf_namecase( R_X86_64_GOTPCREL         )
+		pmelf_namecase( R_X86_64_32               )
+		pmelf_namecase( R_X86_64_32S              )
+		pmelf_namecase( R_X86_64_16               )
+		pmelf_namecase( R_X86_64_PC16             )
+		pmelf_namecase( R_X86_64_8                )
+		pmelf_namecase( R_X86_64_PC8              )
+		pmelf_namecase( R_X86_64_DTPMOD64         )
+		pmelf_namecase( R_X86_64_DTPOFF64         )
+		pmelf_namecase( R_X86_64_TPOFF64          )
+		pmelf_namecase( R_X86_64_TLSGD            )
+		pmelf_namecase( R_X86_64_TLSLD            )
+		pmelf_namecase( R_X86_64_DTPOFF32         )
+		pmelf_namecase( R_X86_64_GOTTPOFF         )
+		pmelf_namecase( R_X86_64_TPOFF32          )
+		pmelf_namecase( R_X86_64_PC64             )
+		pmelf_namecase( R_X86_64_GOTOFF64         )
+		pmelf_namecase( R_X86_64_GOTPC32          )
+		pmelf_namecase( R_X86_64_SIZE32           )
+		pmelf_namecase( R_X86_64_SIZE64           )
+		pmelf_namecase( R_X86_64_GOTPC32_TLSDESC  )
+		pmelf_namecase( R_X86_64_TLSDESC_CALL     )
+		pmelf_namecase( R_X86_64_TLSDESC          )
+
+		default:
+		break;
+	}
+	return "UNKNOWN";
+}
+
+#undef pmelf_namecase
 
 #ifdef __cplusplus
 }

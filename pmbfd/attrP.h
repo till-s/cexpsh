@@ -174,7 +174,7 @@ struct Pmelf_attribute_vendor_ {
 									* informational purposes. This routine is optional and the
 									* function pointer may be NULL.
 									*/
-	const char * const             (*file_attributes_tag_name)(Pmelf_attribute_tbl *patbl, Elf32_Word tag);
+	const char *                   (*file_attributes_tag_name)(Pmelf_attribute_tbl *patbl, Elf32_Word tag);
 	                               /* Dump attribute table to FILE. This routine is optional
 									* and may be NULL.
 									*/

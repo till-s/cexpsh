@@ -61,7 +61,6 @@ int
 pmelf_pub_file_attributes_read(Pmelf_attribute_tbl *patbl, const uint8_t *buf, unsigned size)
 {
 Elf32_Word            tag;
-int                   got;
 int                   l,n;
 Pmelf_pub_attribute_t tagt;
 Elf32_Word            ival;
@@ -142,7 +141,7 @@ unsigned              csz;
 						goto cleanup;
 					}
 				}
-				sval  = buf;
+				sval  = (const char*)buf;
 				buf  += l;
 				size -= l;
 			break;

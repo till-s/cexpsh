@@ -55,9 +55,10 @@ Pmelf_Off  sh_size;
 Pmelf_Off  ne;
 
 #ifdef PMELF_CONFIG_NO_SWAPSUPPORT
-	if ( s->needswap )
+	if ( s->needswap ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error (pmelf_getgrp()): host/target byte order mismatch but pmelf was configured w/o support for byte-swapping\n");
 		return 0;
+	}
 #endif
 
 	switch ( s->clss ) {

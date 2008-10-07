@@ -59,6 +59,11 @@ uint32_t       msk,lomsk;
 Elf32_Rela     *rela = &r->rela32;
 uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 
+	if ( R_PPC_NONE == type ) {
+		/* No-op */
+		return bfd_reloc_ok;
+	}
+
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
@@ -75,6 +80,7 @@ uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 	 * R_PPC_ADDR32
 	 * R_PPC_REL24
 	 * R_PPC_REL32
+	 * R_PPC_NONE
 	 */
 
 	msk   = ~0;
@@ -170,53 +176,8 @@ uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 	return bfd_reloc_ok;
 }
 
-#define namecase(rel)	case rel: return #rel;
-
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	switch ( ELF32_R_TYPE(r->rela32.r_info) ) {
-		namecase( R_PPC_NONE                )
-		namecase( R_PPC_ADDR32              )
-		namecase( R_PPC_ADDR24              )
-		namecase( R_PPC_ADDR16              )
-		namecase( R_PPC_ADDR16_LO           )
-		namecase( R_PPC_ADDR16_HI           )
-		namecase( R_PPC_ADDR16_HA           )
-		namecase( R_PPC_ADDR14              )
-		namecase( R_PPC_ADDR14_BRTAKEN      )
-		namecase( R_PPC_ADDR14_BRNTAKEN     )
-		namecase( R_PPC_REL24               )
-		namecase( R_PPC_REL14               )
-		namecase( R_PPC_REL14_BRTAKEN       )
-		namecase( R_PPC_REL14_BRNTAKEN      )
-		namecase( R_PPC_GOT16               )
-		namecase( R_PPC_GOT16_LO            )
-		namecase( R_PPC_GOT16_HI            )
-		namecase( R_PPC_GOT16_HA            )
-		namecase( R_PPC_PLTREL24            )
-		namecase( R_PPC_COPY                )
-		namecase( R_PPC_GLOB_DAT            )
-		namecase( R_PPC_JMP_SLOT            )
-		namecase( R_PPC_RELATIVE            )
-		namecase( R_PPC_LOCAL24PC           )
-		namecase( R_PPC_UADDR32             )
-		namecase( R_PPC_UADDR16             )
-		namecase( R_PPC_REL32               )
-		namecase( R_PPC_PLT32               )
-		namecase( R_PPC_PLTREL32            )
-		namecase( R_PPC_PLT16_LO            )
-		namecase( R_PPC_PLT16_HI            )
-		namecase( R_PPC_PLT16_HA            )
-		namecase( R_PPC_SDAREL16            )
-		namecase( R_PPC_SECTOFF             )
-		namecase( R_PPC_SECTOFF_LO          )
-		namecase( R_PPC_SECTOFF_HI          )
-		namecase( R_PPC_SECTOFF_HA          )
-		namecase( R_PPC_ADDR30              )
-
-		default:
-			break;
-	}
-	return "UNKNOWN";
+	return pmelf_ppc_rel_name(&r->rela32);
 }

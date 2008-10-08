@@ -173,6 +173,9 @@ static int addrInModule(void *addr, CexpModule m)
 {
 CexpSegment s;
 	for ( s = m->segs; s->name; s++ ) {
+		if ( ! s->chunk )
+			continue;
+
 		if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
 			return 1;
 	}
@@ -521,6 +524,10 @@ CexpSegment s;
 	__WUNLOCK();
 
 	for ( s = mod->segs; s->name; s++ ) {
+
+		if ( ! s->chunk )
+			continue;
+
 #ifdef HAVE_SYS_MMAN_H
 		{
 			unsigned long nsiz, pgbeg, pgmsk;

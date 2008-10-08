@@ -59,6 +59,8 @@ static int malloc_allocat(CexpSegment s)
 	if ( s->size ) {
 		if ( ! (s->chunk = malloc(s->size)) )
 			return -1;
+	} else {
+		s->chunk = 0;
 	}
 	return 0;
 }

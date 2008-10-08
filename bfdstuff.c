@@ -530,6 +530,13 @@ const char	*secn = bfd_get_section_name(abfd,sect);
 	}
 }
 
+/* VMA of -1 means 'invalid' */
+static int
+check_get_section_vma(bfd *abfd, asection *sect, unsigned long *p_vma)
+{
+	return (unsigned long)-1 == (*p_vma = bfd_get_section_vma(abfd, sect)) ? 1 : 0;
+}
+
 /* compute the section's vma for loading */
 
 static void
@@ -539,6 +546,18 @@ CexpSegment	seg=segOf((LinkData)arg, sect);
 LinkData	ld=(LinkData)arg;
 
 	if (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) {
+
+		if ( 0 == bfd_section_size(abfd, sect) )
+				return;
+
+		if ( (unsigned long)-1 == seg->vmacalc ) {
+			/* we get here if we try to use a segment that
+			 * is not initialized or has size zero.
+			 */
+			fprintf(stderr,"Internal Error: trying to use segment of size 0\n");
+			ld->errors++;
+			return;
+		}
 		seg->vmacalc=align_power(seg->vmacalc, bfd_get_section_alignment(abfd,sect));
 #if DEBUG & DEBUG_SECT
 		printf("%s allocated at 0x%08lx\n",
@@ -562,7 +581,8 @@ LinkData	ld=(LinkData)arg;
 		bfd_set_output_section(sect, sect);
 #endif
 		if (ld->text && sect == ld->text) {
-			ld->text_vma=bfd_get_section_vma(abfd,sect);
+			if ( check_get_section_vma(abfd,sect, &ld->text_vma) )
+				ld->text_vma = 0;
 		}
 	}
 }
@@ -679,12 +699,19 @@ static char *reloc_err_msg[]={
 static void
 s_reloc(bfd *abfd, asection *sect, PTR arg)
 {
-LinkData	ld=(LinkData)arg;
-int			i;
-long		err;
+LinkData	  ld=(LinkData)arg;
+int			  i;
+long		  err;
+unsigned long vma;
 
 	if ( ! (SEC_ALLOC & bfd_get_section_flags(abfd, sect) ) )
 		return;
+
+	if ( check_get_section_vma(abfd, sect, &vma) ) {
+		fprintf(stderr,"Internal Error: trying to load relocations into non-existing memory segment\n");
+		ld->errors++;
+		return;
+	}
 
 	/* read section contents to its memory segment
 	 * NOTE: this automatically clears section with
@@ -694,7 +721,7 @@ long		err;
 	if (!bfd_get_section_contents(
 				abfd,
 				sect,
-				(PTR)bfd_get_section_vma(abfd,sect),
+				(PTR)vma,
 				0,
 				bfd_section_size(abfd,sect))) {
 		bfd_perror("reading section contents");
@@ -851,7 +878,7 @@ long		err;
 			err=bfd_perform_relocation(
 				abfd,
 				r,
-				(PTR)bfd_get_section_vma(abfd,sect),
+				(PTR)vma,
 				sect,
 				0 /* output bfd */,
 				0
@@ -1033,9 +1060,17 @@ int			i,num_new_commons=0,errs=0;
 						(unsigned long)sp->flags,
 						(unsigned long)bfd_asymbol_value(sp),
 						bfd_asymbol_name(sp));
-		printf("         section vma 0x%08lx in %s\n",
-						(unsigned long)bfd_get_section_vma(abfd,sect),
+		{
+		unsigned long vma;
+		if ( check_get_section_vma(abfd, sect, &vma) ) {
+			printf("         section vma INVALID in %s\n",
+					bfd_get_section_name(abfd,sect));
+			
+		} else {
+			printf("         section vma 0x%08lx in %s\n",
+						vma,
 						bfd_get_section_name(abfd,sect));
+		}
 #endif
 		/* count constructors/destructors */
 		if ((res=isCtorDtor(sp,1/*warn*/,0/*don't care about priority*/))) {
@@ -1373,6 +1408,9 @@ int								rval=1,i;
 CexpSym							sane, *psym;
 FILE							*f=0;
 void							*ehFrame=0;
+#ifndef OBSOLETE_EH_STUFF
+unsigned long                   eh_vma;
+#endif
 #ifdef __rtems__
 char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
@@ -1543,12 +1581,18 @@ CexpModule                      m;
 		}
 	
 		for (i=0; i<ldr.nsegs; i++) {
-			ldr.segs[i].vmacalc=(unsigned long)ldr.segs[i].chunk;
-memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
+			unsigned long chunk = (unsigned long)ldr.segs[i].chunk;
+
+			ldr.segs[i].vmacalc= chunk ? chunk : (unsigned long)-1;
+
+if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		}
 
 		/* compute and set the base addresses for all sections to be allocated */
+		ldr.errors=0;
 		bfd_map_over_sections(ldr.abfd, s_setvma, &ldr);
+		if ( ldr.errors )
+			goto cleanup;
 
 		ldr.errors=0;
 		bfd_map_over_sections(ldr.abfd, s_reloc, &ldr);
@@ -1613,6 +1657,17 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		}
 	}
 
+	/* Another sanity check */
+#ifndef OBSOLETE_EH_STUFF
+	eh_vma = 0;
+	if (cexpSystemModule && ldr.eh_section) {
+		if ( check_get_section_vma(ldr.abfd, ldr.eh_section, &eh_vma) ) {
+			fprintf(stderr,"Internal Error: Have eh_section but an empty memory segment\n");;
+			goto cleanup;
+		}
+	}
+#endif
+
 	/* FROM HERE ON, NO CLEANUP MUST BE DONE */
 
 
@@ -1637,7 +1692,7 @@ memset(ldr.segs[i].chunk,0xee,ldr.segs[i].size); /*TSILL*/
 		}
 #else
 		if (ldr.eh_section) {
-			ehFrame = (void*)bfd_get_section_vma(ldr.abfd,ldr.eh_section);
+			ehFrame = (void*)eh_vma;
 			/* write terminating 0 to eh_frame */
 			*(long*)( ((unsigned long)ehFrame) + bfd_section_size(ldr.abfd, ldr.eh_section) ) = 0;
 			assert(my__register_frame);

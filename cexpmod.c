@@ -604,10 +604,9 @@ char           *cexpBuiltinCpuArch  = 0;
 
 extern CexpSym cexpSystemSymbols __attribute__((weak, alias("cexpNoBuiltinSymbols")));
 #ifdef USE_PMBFD
-static const uint8_t *cexpNoBuiltinAttributes    = 0;
 static unsigned      cexpNoBuiltinAttributesSize = 0;
 
-extern const uint8_t *cexpSystemAttributes    __attribute__((weak, alias("cexpNoBuiltinAttributes")));
+extern const uint8_t *cexpSystemAttributes    __attribute__((weak));
 extern unsigned      cexpSystemAttributesSize __attribute__((weak, alias("cexpNoBuiltinAttributesSize")));
 #endif
 

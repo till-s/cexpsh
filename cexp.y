@@ -99,11 +99,13 @@ typedef char *LString;
 
 typedef struct CexpParserCtxRec_ {
 	const char		*chpt;
-	LString			lineStrTbl[10];	/* allow for 10 strings on one line of input */
-	CexpTypedValRec	rval;
+	LString			lineStrTbl[10];	/* allow for 10 strings on one line of input  */
+	CexpSymRec		rval_sym;       /* return value and status of last evaluation */
+	CexpValU		rval;
+	int             status;         
 	unsigned long	evalInhibit;
-	FILE			*f;				/* where to print evaluated value			*/
-	char            sbuf[1000];		/* scratch space for strings */
+	FILE			*f;				/* where to print evaluated value			  */
+	char            sbuf[1000];		/* scratch space for strings                  */
 } CexpParserCtxRec;
 
 static CexpSym
@@ -210,7 +212,7 @@ CexpSym rval;
 
 %%
 
-input:	line		{ CexpParserCtx pa=parm; pa->rval=$1; YYACCEPT; }
+input:	line		{ CexpParserCtx pa=parm; if ( TVoid != $1.type ) { pa->rval=$1.tv; pa->rval_sym.value.type = $1.type; } pa->status = 0; YYACCEPT; }
 ;
 
 redef:	typeid anyvar
@@ -632,31 +634,34 @@ prerr(void)
 }
 
 static int
-scanfrac(char *buf, char *chpt, int size, YYSTYPE *rval, CexpParserCtx pa)
+scanfrac(char *buf, char *chpt, int size, YYSTYPE *rval, CexpParserCtx pa, int rejectLonely)
 {
 int hasE=0;
 	/* first, we put ch to the buffer */
 	*(chpt++)=(char)ch; size--; /* assume it's still safe */
 	getch();
-	if (!isdigit(ch))
-		return '.'; /* lonely '.' without attached number is perhaps a field separator */
-	do {
-		while(isdigit(ch) && size) {
-			*(chpt++)=(char)ch; if (!--size) return prerr();
-			getch();
-		}
-		if (toupper(ch)=='E' && !hasE) {
-			*(chpt++)=(char)'E'; if (!--size) return prerr();
-			getch();
-			if ('-'==ch || '+'==ch) {
+	if ( isdigit(ch) || 'E' == toupper(ch) ) {
+		do {
+			while(isdigit(ch) && size) {
 				*(chpt++)=(char)ch; if (!--size) return prerr();
 				getch();
 			}
-			hasE=1;
-		} else {
-	break; /* the loop */
-		}
-	} while (1);
+			if (toupper(ch)=='E' && !hasE) {
+				*(chpt++)=(char)'E'; if (!--size) return prerr();
+				getch();
+				if ('-'==ch || '+'==ch) {
+					*(chpt++)=(char)ch; if (!--size) return prerr();
+					getch();
+				}
+				hasE=1;
+			} else {
+		break; /* the loop */
+			}
+		} while (1);
+	} else {
+		if ( rejectLonely )
+			return '.';
+	}
 	*chpt=0;
 	rval->val.type=TDouble;
 	rval->val.tv.d=strtod(buf,&chpt);
@@ -726,7 +731,7 @@ char          *chpt;
 				}
 			} else if ('.'==ch) {
 				/* a decimal number */
-				return scanfrac(pa->sbuf,chpt,limit,rval,pa);
+				return scanfrac(pa->sbuf,chpt,limit,rval,pa,0);
 			} else {
 				/* OK, it's octal */
 				while ('0'<=ch && ch<'8') {
@@ -747,7 +752,7 @@ char          *chpt;
 			}
 			if ('.'==ch) {
 				/* it's a fractional number */
-				return scanfrac(pa->sbuf,chpt,limit,rval,pa);
+				return scanfrac(pa->sbuf,chpt,limit,rval,pa,0);
 			}
 		}
 		rval->val.tv.l=num;
@@ -756,7 +761,7 @@ char          *chpt;
 	} else if ('.'==ch) {
 		/* perhaps also a fractional number */
 		return
-			scanfrac(pa->sbuf,pa->sbuf,limit,rval,pa);
+			scanfrac(pa->sbuf,pa->sbuf,limit,rval,pa,1);
 	} else if (isalpha(ch) || ISIDENTCHAR(ch)) {
 		/* slurp in an identifier */
 		chpt=pa->sbuf;
@@ -916,7 +921,14 @@ CexpParserCtx	ctx=0;
 
 	assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
 	memset(ctx,0,sizeof(*ctx));
+	ctx->rval_sym.value.type = TVoid;
+	ctx->rval_sym.value.ptv  = &ctx->rval;
+	ctx->rval_sym.name       = CEXP_LAST_RESULT_VAR_NAME;
+	ctx->rval_sym.size       = sizeof(ctx->rval);
+	ctx->rval_sym.flags      = 0;
+	ctx->rval_sym.help       = "value of last evaluated expression";
 	ctx->f = f;
+	ctx->status = -1;
 	return ctx;
 }
 
@@ -925,6 +937,7 @@ cexpResetParserCtx(CexpParserCtx ctx, const char *buf)
 {
 	ctx->chpt=buf;
 	ctx->evalInhibit=0;
+	ctx->status = -1;
 	releaseStrings(ctx);
 }
 
@@ -933,6 +946,18 @@ cexpFreeParserCtx(CexpParserCtx ctx)
 {
 	releaseStrings(ctx);
 	free(ctx);
+}
+
+CexpSym
+cexpParserCtxGetResult(CexpParserCtx ctx)
+{
+	return &ctx->rval_sym;
+}
+
+int
+cexpParserCtxGetStatus(CexpParserCtx ctx)
+{
+	return ctx->status;
 }
 
 void

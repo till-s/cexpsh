@@ -9,6 +9,7 @@
 #endif
 #include "vars.h"
 #include "cexplock.h"
+#include "context.h"
 
 /* Implementation of CEXP variables, currently
  * just a linked list. The number of user generated
@@ -231,10 +232,16 @@ findN_LOCK(const char *name, lh *succ)
 CexpSym
 cexpVarLookup(const char *name, int creat)
 {
-CexpVar v;
-lh		where;
-CexpVar n;
-CexpStr s;
+CexpVar     v;
+lh		    where;
+CexpVar     n;
+CexpStr     s;
+CexpContext c;
+
+	if ( !strcmp(name,CEXP_LAST_RESULT_VAR_NAME) ) {
+		cexpContextGetCurrent( &c );
+		return cexpParserCtxGetResult(c->parser);
+	}
 
 	if (creat) {
 		/* (avoid calling malloc from locked section) */

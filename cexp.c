@@ -705,7 +705,6 @@ CexpContextRec		context;	/* the public parts of this instance's context */
 CexpContext			myContext;
 char				*line=0, *prompt=0, *tmp;
 char				*symfile=0, *script=0;
-CexpParserCtx		ctx=0;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
@@ -728,6 +727,7 @@ char				optstr[]={
 					};
 
 context.prompt = 0;
+context.parser = 0;
 
 while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 	switch (opt) {
@@ -825,7 +825,7 @@ if ( !context.prompt && context.next && context.next->prompt )
 	context.prompt = strdup(context.next->prompt);
 
 do {
-	if (!(ctx=cexpCreateParserCtx(quiet ? 0 : stdout))) {
+	if (!(context.parser=cexpCreateParserCtx(quiet ? 0 : stdout))) {
 		fprintf(stderr,"Unable to create parser context\n");
 		usage(argv[0]);
 		rval = CEXP_MAIN_NO_MEM;
@@ -835,7 +835,7 @@ do {
 #ifdef HAVE_TECLA
 	{
 	CPL_MATCH_FN(cexpSymComplete);
-	gl_customize_completion(context.gl, ctx, cexpSymComplete);
+	gl_customize_completion(context.gl, context.parser, cexpSymComplete);
 	}
 #endif
 
@@ -848,7 +848,7 @@ do {
 			callback(argc, argv, &context);
 	
 		if (script) {
-			if ( (rval = process_script(ctx, script, quiet)) )
+			if ( (rval = process_script(context.parser, script, quiet)) )
 				goto cleanup;
 		} else {
 
@@ -858,11 +858,11 @@ do {
 				/* skip empty lines */
 				if (*line) {
 					if ( '<' == *(tmp=skipsp(line)) ) {
-						process_script(ctx,tmp+1,quiet);
+						process_script(context.parser,tmp+1,quiet);
 					} else {
 						/* interactively process this line */
-						cexpResetParserCtx(ctx,line);
-						cexpparse((void*)ctx);
+						cexpResetParserCtx(context.parser,line);
+						cexpparse((void*)context.parser);
 						add_history(line);
 					}
 				}
@@ -883,7 +883,7 @@ cleanup:
 		script=0;	/* become interactive if script is killed */
 		free(line);   			line=0;
 		free(prompt);           prompt=0;
-		cexpFreeParserCtx(ctx); ctx=0;
+		cexpFreeParserCtx(context.parser); context.parser=0;
 	
 } while (-1==rval);
 

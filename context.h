@@ -98,6 +98,7 @@ typedef struct CexpContextRec_ {
 	CexpContext			next;
 	jmp_buf				jbuf;		/* for setjmp/longjmp */
 	char                *prompt;
+	CexpParserCtx		parser;
 #ifdef HAVE_TECLA
 	GetLine				*gl;		/* line editor context; this could actually be one context per thread */
 #endif

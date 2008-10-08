@@ -272,6 +272,26 @@ int
 cexpparse(void*);
 #endif
 
+/* Retrieve value last successful evaluation;
+ *
+ * RETURNS: Symbol holding the value of the last successful
+ *          evaluation.
+ */
+
+#define CEXP_LAST_RESULT_VAR_NAME "ans"
+
+CexpSym
+cexpParserCtxGetResult(CexpParserCtx ctx);
+
+/* Retrieve status of last evaluation;
+ *
+ * RETURNS: zero if last evaluation was successful, nonzero
+ *          if there was an error.
+ */
+
+int
+cexpParserCtxGetStatus(CexpParserCtx ctx);
+
 /* two routines mimicking vxWorks utilities. The names
  * are simple to type...
  */

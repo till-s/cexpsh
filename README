@@ -554,6 +554,31 @@ This requires binutils 2.18 or later. Alternatively, the
 
 but this is deprecated.
 
+Weak Symbol Support
+- - - - - - - - - -
+Cexp can handle weak symbol references (including weak
+undefined symbols). HOWEVER, this works only one-way:
+If a module with a strong symbol is already loaded
+(or if the base system exports a strong definition)
+then loading a module with a weak reference works as
+expected, i.e., the references are bound to the existing
+strong definition.
+
+OTOH, if a weak definition exists (either in the system
+symbol table or a previosly loaded module) then it is
+NOT possible to load another module with a strong
+definition. (If you think about it: all relocations of
+the already linked and loaded stuff would have to be
+redone -- including the relocations within the base
+executable...).
+
+When a module with a weak undefined reference is loaded
+then (provided that no existing definition is found in
+the system or other modules) a new NULL symbol is created
+which is otherwise treated like a newly defined COMMON
+symbol.
+
+
 Loadable Modules 'Magic'
 - - - - - - - - - - - - -
 When loading modules, 'Cexp' does some magic operations on

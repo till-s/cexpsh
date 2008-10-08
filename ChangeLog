@@ -1,4 +1,7 @@
 Changes since CEXP-1.6.beta
+ 2008/10/8:
+ - Added support for loading modules with weak undefined symbols
+   (we treat them like newly defined COMMON symbols).
  2008/10/7:
  - Added checks dealing with zero-sized memory segments.
  - Added support for getting result + status of last evaluation.

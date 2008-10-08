@@ -123,6 +123,8 @@ static int malloc_allocat(CexpSegment s)
 	if ( s->size ) {
 		if ( ! (s->chunk = malloc(s->size)) )
 			return -1;
+	} else {
+		s->chunk = 0;
 	}
 	return 0;
 }
@@ -137,6 +139,11 @@ static void malloc_release(CexpSegment s)
 static int region_allocat(CexpSegment s)
 {
 rtems_status_code sc;
+
+	if ( 0 == s->size ) {
+		s->chunk = 0;
+		return 0;
+	}
 
 	sc = rtems_region_get_segment(
 			(rtems_id)s->pvt,
@@ -160,7 +167,12 @@ rtems_status_code sc;
 		sc = rtems_region_return_segment((rtems_id)s->pvt, s->chunk);
 		if ( RTEMS_SUCCESSFUL != sc ) {
 			rtems_error(sc,"cexpsegs-powerpc-rtems: unable to release '%s' segment\n", s->name);
+		} else {
+			s->chunk = 0;
+			s->size = 0;
 		}
+	} else {
+		s->size = 0; /* just to be sure */
 	}
 }
 

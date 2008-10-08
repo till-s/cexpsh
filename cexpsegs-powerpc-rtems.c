@@ -208,7 +208,7 @@ unsigned long        cexpTextRegionSize = CEXP_TEXT_REGION_SIZE;
 #else
 /* Application provides the region */
 
-/* Provide weak aliases so we can fall back to using 'malloc'
+/* Provide weak symbols so we can fall back to using 'malloc'
  * if they don't provide us with a separate region
  */
 
@@ -236,16 +236,15 @@ extern unsigned long cexpTextRegionSize
 	__attribute__(( weak, alias("_cexpTextRegionSize_fallback") ));
 
 extern char          cexpTextRegion[]
-	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+	__attribute__(( weak ));
 
 extern char         _cexpTextRegionStart[]
-	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+	__attribute__(( weak ));
 
 extern char         _cexpTextRegionEnd[]
-	__attribute__(( weak, alias("_cexpTextRegion_fallback") ));
+	__attribute__(( weak ));
 
-unsigned long _cexpTextRegionSize_fallback = 0;
-char          _cexpTextRegion_fallback[1] = {0};
+static unsigned long _cexpTextRegionSize_fallback = 0;
 
 #endif
 

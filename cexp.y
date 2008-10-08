@@ -921,7 +921,8 @@ CexpParserCtx	ctx=0;
 
 	assert(ctx=(CexpParserCtx)malloc(sizeof(*ctx)));
 	memset(ctx,0,sizeof(*ctx));
-	ctx->rval_sym.value.type = TVoid;
+	ctx->rval_sym.value.type = TULong;
+	ctx->rval.l              = 0;
 	ctx->rval_sym.value.ptv  = &ctx->rval;
 	ctx->rval_sym.name       = CEXP_LAST_RESULT_VAR_NAME;
 	ctx->rval_sym.size       = sizeof(ctx->rval);

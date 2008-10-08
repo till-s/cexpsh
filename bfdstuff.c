@@ -1821,16 +1821,3 @@ bfdCleanupCallback(CexpModule mod)
 		my__deregister_frame(mod->modPvt);
 	}
 }
-
-#if 0
-/*
- * Define a weak alias which is not very satisfying and will
- * fail on targets who do not support weak aliases :-(
- */
-void (*__nullfn_hack)(void*)=0;
-
-#ifndef __sparc__
-void __register_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
-void __deregister_frame(void*) __attribute__ (( weak, alias("__nullfn_hack") ));
-#endif
-#endif

@@ -202,6 +202,7 @@ typedef struct LinkDataRec_ {
 	int             nsegs;
 	asymbol			**st;
 	asymbol			***new_commons;
+	long            num_new_commons;
 	char			*dummy_section_name;
 	CexpSymTbl		cst;
 	int				errors;
@@ -1022,6 +1023,26 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 	return sp;
 }
 
+static void
+add_new_common(LinkData ld, asymbol *sp, asymbol **slot)
+{
+	/* we'll have to add it to our internal symbol table */
+	sp->flags |= BSF_KEEP|BSF_OLD_COMMON;
+
+	/* 
+	 * we must not change the order of the symbol list;
+	 * _elf_bfd_canonicalize_reloc() relies on the order being
+	 * preserved.
+	 * Therefore, we create an array of pointers which
+	 * we can sort in any desired way...
+	 */
+	ld->new_commons=(asymbol***)xrealloc(ld->new_commons,
+			sizeof(*ld->new_commons)*(ld->num_new_commons+1));
+	ld->new_commons[ld->num_new_commons] = slot;
+	*slot = sp;
+	ld->num_new_commons++;
+}
+
 /* resolve undefined and common symbol references;
  * The routine also creates a list of
  * all common symbols that need to be created.
@@ -1043,7 +1064,9 @@ static int
 resolve_syms(bfd *abfd, asymbol **syms, LinkData ld)
 {
 asymbol		*sp;
-int			i,num_new_commons=0,errs=0;
+int			i,errs=0;
+
+	ld->num_new_commons = 0;
 
 	/* resolve undefined and common symbols;
 	 * find name clashes
@@ -1070,6 +1093,7 @@ int			i,num_new_commons=0,errs=0;
 			printf("         section vma 0x%08lx in %s\n",
 						vma,
 						bfd_get_section_name(abfd,sect));
+		}
 		}
 #endif
 		/* count constructors/destructors */
@@ -1157,49 +1181,55 @@ int			i,num_new_commons=0,errs=0;
 			 * linux platform.)
 			 */
 			if (!ts && bfd_asymbol_value(sp) && (BSF_FUNCTION & sp->flags)) {
-					sp->flags |= BSF_KEEP;
+				sp->flags |= BSF_KEEP;
+				/* resolve references at relocation time */
+			} else if ( !ts && (BSF_WEAK & sp->flags) ) {
+				/* handle weak undef. like a common symbol which
+				 * we found for the first time.
+				 */
+				add_new_common(ld, sp, syms+i);
 			}
-			/* resolve references at relocation time */
 		}
 		else if (bfd_is_com_section(sect)) {
 			if (ts) {
 				int newsz;
+
+				/* There are not weak common symbols so if
+				 * it is weak then it is so due to us earlier
+				 * linking a weak undefined symbol.
+				 */
+				const char *symcat = "COMMON";
+
+				if ( CEXP_SYMFLG_WEAK & ts->flags ) {
+					symcat = "(weak undefined)";
+				}
 				/* make sure existing symbol meets size and alignment requirements
 				 * of new one.
 				 */
 				if ( ts->size != (newsz = elf_get_size(abfd, sp)) ) {
 					if ( ts->size > newsz ) {
-						fprintf(stderr,"Warning: Existing COMMON symbol %s larger than space requested by loadee\n", ts->name);
+						fprintf(stderr,"Warning: Existing %s symbol '%s' larger than space requested by loadee\n", symcat, ts->name);
 					} else {
-						fprintf(stderr,"Error: Existing COMMON symbol %s smaller than space requested by loadee\n", ts->name);
+						fprintf(stderr,"Error: Existing %s symbol '%s' smaller than space requested by loadee\n", symcat, ts->name);
 						errs ++;
 					}
 				}
 				if ( (unsigned long)ts->value.ptv & (elf_get_align(abfd, sp) -1 ) ) {
-					fprintf(stderr,"Existing COMMON symbol %s doesn't meet alignment requirement of the loadee\n", ts->name); 
+					fprintf(stderr,"Existing %s symbol %s doesn't meet alignment requirement of the loadee\n", symcat, ts->name); 
 					errs++;
 				}
 				/* use existing value of common sym */
 				sp = asymFromCexpSym(abfd,ts,ld->depend,mod);
+
+				syms[i]=sp; /* use new instance */
 			} else {
-				/* it's the first definition of this common symbol */
 
-				/* we'll have to add it to our internal symbol table */
-				sp->flags |= BSF_KEEP|BSF_OLD_COMMON;
-
-				/* 
-				 * we must not change the order of the symbol list;
-				 * _elf_bfd_canonicalize_reloc() relies on the order being
-				 * preserved.
-				 * Therefore, we create an array of pointers which
-				 * we can sort in any desired way...
+				/* it's the first definition of this common symbol,
+				 * we'll have to add it to our internal symbol table
 				 */
-				ld->new_commons=(asymbol***)xrealloc(ld->new_commons,
-													sizeof(*ld->new_commons)*(num_new_commons+1));
-				ld->new_commons[num_new_commons] = syms+i;
-				num_new_commons++;
+
+				add_new_common(ld, sp, syms+i);
 			}
-			syms[i]=sp; /* use new instance */
 		} else {
 			/* any other symbol, i.e. neither undefined nor common */
 			if (ts) {
@@ -1207,15 +1237,22 @@ int			i,num_new_commons=0,errs=0;
 					/* use existing instance */
 					sp=syms[i]=asymFromCexpSym(abfd,ts,ld->depend,mod);
 				} else {
-					fprintf(stderr,"Symbol '%s' already exists\n",symname);
+					fprintf(stderr,"Symbol '%s' already exists",symname);
 					errs++;
 					/* TODO: check size and alignment; allow multiple
 					 *       definitions??? - If yes, we have to track
 					 *		 the dependencies also.
 					 */
 					/* TODO: we should allow a new 'strong' symbol to
-					 *       override an existing 'weak' one.
+					 *       override an existing 'weak' one. This is
+					 *       hard to do however because we would have
+					 *       to change all old relocations referring
+					 *       to the existing weak definition!
 					 */
+					if ( ts->flags & CEXP_SYMFLG_WEAK ) {
+						fprintf(stderr," (as a weak symbol, but I cannot re-link already loaded objects, sorry)");
+					}
+					fputc('\n',stderr);
 				}
 			} else {
 				/* new symbol defined by the loaded object; account for it */
@@ -1225,7 +1262,7 @@ int			i,num_new_commons=0,errs=0;
 		}
 	}
 
-	return errs ? -errs : num_new_commons;
+	return errs ? -errs : ld->num_new_commons;
 }
 
 /* make a dummy section holding the new common data objects introduced by
@@ -1234,12 +1271,12 @@ int			i,num_new_commons=0,errs=0;
  * RETURNS: 0 on failure, nonzero on success
  */
 static int
-make_new_commons(bfd *abfd, LinkData ld, int num_new_commons)
+make_new_commons(bfd *abfd, LinkData ld)
 {
 unsigned long	i,val;
 asection	*csect;
 
-	if (num_new_commons) {
+	if (ld->num_new_commons) {
 		/* make a dummy section for new common symbols */
 		ld->dummy_section_name = bfd_get_unique_section_name(abfd,".dummy",0);
 		csect=bfd_make_section(abfd, ld->dummy_section_name);
@@ -1255,7 +1292,7 @@ asection	*csect;
 		bfd_set_section_alignment(abfd, csect, elf_get_align_pwr(abfd,*ld->new_commons[0]));
 
 		/* set new common symbol values */
-		for (val=0,i=0; i<num_new_commons; i++) {
+		for (val=0,i=0; i<ld->num_new_commons; i++) {
 			asymbol *sp;
 			int apwr;
 
@@ -1360,7 +1397,7 @@ long				num_new_commons;
 							 nsyms,
 							 filter, assign, ld);
 
-	if (0!=make_new_commons(abfd,ld, num_new_commons))
+	if (0!=make_new_commons(abfd,ld))
 		goto cleanup;
 
 	ld->st=asyms;
@@ -1600,8 +1637,9 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 			goto cleanup;
 
 	} else {
-		/* it's the system symtab */
-		assert( 0==ldr.new_commons );
+		/* it's the system symtab - there should be no real COMMON symbols */
+		for ( i=0; i<ldr.num_new_commons; i++ )
+			assert( BSF_WEAK & (*ldr.new_commons[i])->flags );
 		if ( ldr.text )
 			ldr.text_vma=bfd_get_section_vma(ldr.abfd,ldr.text);
 	}

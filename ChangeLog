@@ -1,4 +1,12 @@
 Changes since CEXP-1.6.beta
+ 2008/10/7:
+ - Added checks dealing with zero-sized memory segments.
+ - Added support for getting result + status of last evaluation.
+ - Set special user-var 'ans' to result of last successful
+   evaluation.
+ 2008/10/7:
+ - BUGFIX: floating-point numbers w/o fractional part (e.g., 20. 0.) were
+   not scanned correctly.
  2008/10/4:
  - Added changeable prompt (but no smart substitutions available [yet])
  2008/7/25:

@@ -83,8 +83,17 @@ typedef void *PTR;
  * we do need to define TRUE/FALSE namely if
  * opcodes is used together with pmbfd...
  */
+#ifndef TRUE
 #define TRUE  1
+#elif (TRUE) != 1
+#warning "TRUE already defined to a value other than 1!"
+#endif
+
+#ifndef FALSE
 #define FALSE 0
+#elif (FALSE) != 0
+#error   "FALSE already defined to a value other than 0!"
+#endif
 
 typedef long          file_ptr;
 

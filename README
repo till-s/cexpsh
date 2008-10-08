@@ -230,8 +230,8 @@ instances of Cexp). The name of user variables must
 not collide with symbols present in the symbol table.
 (When loading object files [AKA 'modules'], name clashes
 are ignored. A symbol in a newly loaded module that
-conflicts with an already defined user variable is
-silently ignored [object file symbols have a higher
+conflicts with an already defined user variable silently
+takes precedence [object file symbols have a higher
 priority than user variables]. However, after unloading
 the conflicting module, the user variable becomes again
 'visible'.)
@@ -276,6 +276,24 @@ It is then possible to automatically get the correct
 return type:
 
     printf("Let's print a double: %g\n",s(44.34))
+
+The special user variable 'ans' stores the result
+of the last successfully evaluated expression. E.g:
+
+    Cexp> 3+4
+	0x00000007 (7)
+	Cexp> ++ans
+	0x00000008 (8)
+	Cexp> printf("%u\n",ans)
+	8
+	0x00000002 (2)
+	Cexp>
+
+The 'ans' variable is special in the sense that unlike
+other user variables it is not global but local to the
+executing parser, i.e., parsers running in different
+task contexts each maintain their own instances of
+'ans'.
 
 Help Facility
 -------------

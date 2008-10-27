@@ -36,69 +36,9 @@
 
   Till Straumann, 4/2008
 
-diff -crN binutils-2.18.orig/configure.ac binutils-2.18/configure.ac
-*** binutils-2.18.orig/configure.ac	2007-08-28 13:24:26.000000000 -0700
---- binutils-2.18/configure.ac	2008-04-17 14:31:44.000000000 -0700
-***************
-*** 453,458 ****
---- 453,459 ----
-      ;;
-    *-*-rtems*)
-      noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-+     skipdirs="$skipdirs binutils gas gprof intl ld"
-      ;;
-      # The tpf target doesn't support gdb yet.
-    *-*-tpf*)
-***************
-*** 2403,2409 ****
-      # For an installed makeinfo, we require it to be from texinfo 4.4 or
-      # higher, else we use the "missing" dummy.
-      if ${MAKEINFO} --version \
-!        | egrep 'texinfo[^0-9]*([1-3][0-9]|4\.[4-9]|[5-9])' >/dev/null 2>&1; then
-        :
-      else
-        MAKEINFO="$MISSING makeinfo"
---- 2404,2410 ----
-      # For an installed makeinfo, we require it to be from texinfo 4.4 or
-      # higher, else we use the "missing" dummy.
-      if ${MAKEINFO} --version \
-!        | egrep 'texinfo[^0-9]*(4\.([4-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
-        :
-      else
-        MAKEINFO="$MISSING makeinfo"
-diff -crN binutils-2.18.orig/configure binutils-2.18/configure
-*** binutils-2.18.orig/configure	2007-08-06 13:29:40.000000000 -0700
---- binutils-2.18/configure	2008-04-17 14:43:33.000000000 -0700
-***************
-*** 2175,2180 ****
---- 2175,2181 ----
-      ;;
-    *-*-rtems*)
-      noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
-+     skipdirs="$skipdirs binutils gas gprof intl ld"
-      ;;
-      # The tpf target doesn't support gdb yet.
-    *-*-tpf*)
-***************
-*** 6128,6134 ****
-      # For an installed makeinfo, we require it to be from texinfo 4.4 or
-      # higher, else we use the "missing" dummy.
-      if ${MAKEINFO} --version \
-!        | egrep 'texinfo[^0-9]*([1-3][0-9]|4\.[4-9]|[5-9])' >/dev/null 2>&1; then
-        :
-      else
-        MAKEINFO="$MISSING makeinfo"
---- 6129,6135 ----
-      # For an installed makeinfo, we require it to be from texinfo 4.4 or
-      # higher, else we use the "missing" dummy.
-      if ${MAKEINFO} --version \
-!        | egrep 'texinfo[^0-9]*(4\.([4-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
-        :
-      else
-        MAKEINFO="$MISSING makeinfo"
 diff -crN binutils-2.18.orig/bfd/config.bfd binutils-2.18/bfd/config.bfd
 *** binutils-2.18.orig/bfd/config.bfd	2007-08-28 10:19:33.000000000 -0700
---- binutils-2.18/bfd/config.bfd	2007-10-09 14:13:27.000000000 -0700
+--- binutils-2.18/bfd/config.bfd	2008-10-06 11:22:47.000000000 -0700
 ***************
 *** 512,518 ****
       ;;
@@ -150,114 +90,114 @@ diff -crN binutils-2.18.orig/bfd/config.bfd binutils-2.18/bfd/config.bfd
       targ64_selvecs="bfd_elf64_powerpc_vec bfd_elf64_powerpcle_vec"
       ;;
     powerpc-*-kaos*)
-diff -crN binutils-2.18.orig/libiberty/configure.ac binutils-2.18/libiberty/configure.ac
-*** binutils-2.18.orig/libiberty/configure.ac	2007-08-06 12:59:45.000000000 -0700
---- binutils-2.18/libiberty/configure.ac	2007-10-10 20:32:56.000000000 -0700
+diff -crN binutils-2.18.orig/configure binutils-2.18/configure
+*** binutils-2.18.orig/configure	2007-08-06 13:29:40.000000000 -0700
+--- binutils-2.18/configure	2008-10-06 11:22:47.000000000 -0700
 ***************
-*** 393,398 ****
---- 393,429 ----
-    # newlib provide and which ones we will be expected to provide.
-  
-    if test "x${with_newlib}" = "xyes"; then
-+ 
-+   case "${host}" in
-+   *-*-rtems*)
-+     AC_LIBOBJ([basename])
-+     AC_LIBOBJ([insque])
-+     AC_LIBOBJ([random])
-+     for f in $funcs; do
-+       case "$f" in
-+ 	basename | insque | random)
-+ 	  ;;
-+ 	*)
-+ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-+ 	  AC_DEFINE_UNQUOTED($n)
-+ 	  ;;
-+       esac
-+     done
-+ 	# RTEMS has all these from checkfuncs
-+     AC_DEFINE(HAVE_ON_EXIT)
-+     AC_DEFINE(HAVE_SYSCONF)
-+     AC_DEFINE(HAVE_TIMES)
-+     AC_DEFINE(HAVE_SBRK)
-+     AC_DEFINE(HAVE_GETTIMEOFDAY)
-+     AC_DEFINE(HAVE_SYSCTL)
-+ 
-+   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
-+   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
-+   AC_CHECK_DECLS([strverscmp])
-+   libiberty_NEED_DECLARATION(canonicalize_file_name)
-+ 
-+   ;;
-+   *)
-      AC_LIBOBJ([asprintf])
-      AC_LIBOBJ([basename])
-      AC_LIBOBJ([insque])
+*** 2175,2180 ****
+--- 2175,2181 ----
+      ;;
+    *-*-rtems*)
+      noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
++     skipdirs="$skipdirs binutils gas gprof intl ld"
+      ;;
+      # The tpf target doesn't support gdb yet.
+    *-*-tpf*)
 ***************
-*** 410,415 ****
---- 441,448 ----
-  	  ;;
-        esac
-      done
+*** 6128,6134 ****
+      # For an installed makeinfo, we require it to be from texinfo 4.4 or
+      # higher, else we use the "missing" dummy.
+      if ${MAKEINFO} --version \
+!        | egrep 'texinfo[^0-9]*([1-3][0-9]|4\.[4-9]|[5-9])' >/dev/null 2>&1; then
+        :
+      else
+        MAKEINFO="$MISSING makeinfo"
+--- 6129,6135 ----
+      # For an installed makeinfo, we require it to be from texinfo 4.4 or
+      # higher, else we use the "missing" dummy.
+      if ${MAKEINFO} --version \
+!        | egrep 'texinfo[^0-9]*(4\.([4-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
+        :
+      else
+        MAKEINFO="$MISSING makeinfo"
+diff -crN binutils-2.18.orig/configure.ac binutils-2.18/configure.ac
+*** binutils-2.18.orig/configure.ac	2007-08-28 13:24:26.000000000 -0700
+--- binutils-2.18/configure.ac	2008-10-06 11:22:47.000000000 -0700
+***************
+*** 453,458 ****
+--- 453,459 ----
+      ;;
+    *-*-rtems*)
+      noconfigdirs="$noconfigdirs target-libgloss ${libgcj}"
++     skipdirs="$skipdirs binutils gas gprof intl ld"
+      ;;
+      # The tpf target doesn't support gdb yet.
+    *-*-tpf*)
+***************
+*** 2403,2409 ****
+      # For an installed makeinfo, we require it to be from texinfo 4.4 or
+      # higher, else we use the "missing" dummy.
+      if ${MAKEINFO} --version \
+!        | egrep 'texinfo[^0-9]*([1-3][0-9]|4\.[4-9]|[5-9])' >/dev/null 2>&1; then
+        :
+      else
+        MAKEINFO="$MISSING makeinfo"
+--- 2404,2410 ----
+      # For an installed makeinfo, we require it to be from texinfo 4.4 or
+      # higher, else we use the "missing" dummy.
+      if ${MAKEINFO} --version \
+!        | egrep 'texinfo[^0-9]*(4\.([4-9]|[1-9][0-9])|[5-9]|[1-9][0-9])' >/dev/null 2>&1; then
+        :
+      else
+        MAKEINFO="$MISSING makeinfo"
+diff -crN binutils-2.18.orig/configure.gnu binutils-2.18/configure.gnu
+*** binutils-2.18.orig/configure.gnu	1969-12-31 16:00:00.000000000 -0800
+--- binutils-2.18/configure.gnu	2008-10-06 12:12:48.000000000 -0700
+***************
+*** 0 ****
+--- 1,39 ----
++ #!/bin/sh
++ # wrapper script to strip --enable-maintainer-mode; the binutils
++ # use older autotools than the one we use for ssrlApps so we
++ # don't want to touch the stuff in binutils...
++ script=$0
++ 
++ while :
++ do
++ 
++ # Break out if there are no more args
++ 	case $# in
++ 	0)
++ 		break
++ 		;;
++ 	esac
++ 
++ # Get the first arg, and shuffle
++ 	option=$1
++ 	shift
++ 	optarg=`expr "x$option" : 'x[^=]*=\(.*\)'`
++ 
++ 	orig_option=$option	# Save original for error messages
++ 	case $option in
++ 	*-enable-maintainer-mode*)
++ 		option=
 + 	;;
-+   esac
-  
-      # newlib doesnt provide any of the variables in $vars, so we
-      # dont have to check them here.
-***************
-*** 511,516 ****
---- 544,591 ----
-  if test -z "${setobjs}"; then
-    case "${host}" in
-  
-+   *-*-rtems*)
-+     # Handle RTEMS configuration specially, since we can't link
-+     # w/o RTEMS specs and other snippets from RTEMS makefiles...
-+     AC_LIBOBJ([basename])
-+     AC_LIBOBJ([insque])
-+     AC_LIBOBJ([mkstemps])
-+     AC_LIBOBJ([random])
-+     AC_LIBOBJ([sigsetmask])
-+     AC_LIBOBJ([stpcpy])
-+     AC_LIBOBJ([stpncpy])
-+     AC_LIBOBJ([strverscmp])
-+ 
-+     for f in $funcs; do
-+       case "$f" in
-+     basename | insque | mkstemps | random | sigsetmask)
-+ 	  ;;
-+     stpcpy | stpncpy | strverscmp)
-+ 	  ;;
 + 	*)
-+ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
-+ 	  AC_DEFINE_UNQUOTED($n)
-+ 	  ;;
-+       esac
-+     done
++ 	;;
++ 	esac
++ 	echo option "$option"
 + 
-+ 	# RTEMS has all these from checkfuncs
-+     AC_DEFINE(HAVE_ON_EXIT)
-+     AC_DEFINE(HAVE_STRERROR)
-+     AC_DEFINE(HAVE_SYSCONF)
-+     AC_DEFINE(HAVE_TIMES)
-+     AC_DEFINE(HAVE_SBRK)
-+     AC_DEFINE(HAVE_GETTIMEOFDAY)
-+     AC_DEFINE(HAVE_SYSCTL)
++ 	args="$args '$option'"
++ 		
++ done
 + 
-+   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
-+   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
-+   AC_CHECK_DECLS([strverscmp])
-+   libiberty_NEED_DECLARATION(canonicalize_file_name)
++ args="$args --disable-nls"
 + 
-+     setobjs=yes
-+     ;;
-+ 
-    *-*-vxworks*)
-      # Handle VxWorks configuration specially, since on VxWorks the
-      # libraries are actually on the target board, not in the file
++ echo running /bin/sh `dirname $script`/configure $args
++ exec sh -c "`dirname $script`/configure $args"
 diff -crN binutils-2.18.orig/libiberty/configure binutils-2.18/libiberty/configure
 *** binutils-2.18.orig/libiberty/configure	2007-08-06 12:59:45.000000000 -0700
---- binutils-2.18/libiberty/configure	2007-10-10 17:37:30.000000000 -0700
+--- binutils-2.18/libiberty/configure	2008-10-06 11:22:47.000000000 -0700
 ***************
 *** 1,25 ****
   #! /bin/sh
@@ -16867,29 +16807,114 @@ diff -crN binutils-2.18.orig/libiberty/configure binutils-2.18/libiberty/configu
   
   { (exit 0); exit 0; }
   _ACEOF
-diff -crN binutils-2.18.orig/libiberty/Makefile.in binutils-2.18/libiberty/Makefile.in
-*** binutils-2.18.orig/libiberty/Makefile.in	2007-08-06 12:59:45.000000000 -0700
---- binutils-2.18/libiberty/Makefile.in	2007-11-07 19:34:13.000000000 -0800
+diff -crN binutils-2.18.orig/libiberty/configure.ac binutils-2.18/libiberty/configure.ac
+*** binutils-2.18.orig/libiberty/configure.ac	2007-08-06 12:59:45.000000000 -0700
+--- binutils-2.18/libiberty/configure.ac	2008-10-06 11:22:47.000000000 -0700
 ***************
-*** 350,356 ****
-  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
-  # default multilib, so we have to take LIBCFLAGS into account as well,
-  # since it will be passed the multilib flags.
-! MULTIOSDIR = `$(CC) $(LIBCFLAGS) -print-multi-os-directory`
-  install_to_libdir: all
-  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
-  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
---- 370,376 ----
-  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
-  # default multilib, so we have to take LIBCFLAGS into account as well,
-  # since it will be passed the multilib flags.
-! #MULTIOSDIR = `$(CC) $(LIBCFLAGS) -print-multi-os-directory`
-  install_to_libdir: all
-  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
-  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
+*** 393,398 ****
+--- 393,429 ----
+    # newlib provide and which ones we will be expected to provide.
+  
+    if test "x${with_newlib}" = "xyes"; then
++ 
++   case "${host}" in
++   *-*-rtems*)
++     AC_LIBOBJ([basename])
++     AC_LIBOBJ([insque])
++     AC_LIBOBJ([random])
++     for f in $funcs; do
++       case "$f" in
++ 	basename | insque | random)
++ 	  ;;
++ 	*)
++ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
++ 	  AC_DEFINE_UNQUOTED($n)
++ 	  ;;
++       esac
++     done
++ 	# RTEMS has all these from checkfuncs
++     AC_DEFINE(HAVE_ON_EXIT)
++     AC_DEFINE(HAVE_SYSCONF)
++     AC_DEFINE(HAVE_TIMES)
++     AC_DEFINE(HAVE_SBRK)
++     AC_DEFINE(HAVE_GETTIMEOFDAY)
++     AC_DEFINE(HAVE_SYSCTL)
++ 
++   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
++   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
++   AC_CHECK_DECLS([strverscmp])
++   libiberty_NEED_DECLARATION(canonicalize_file_name)
++ 
++   ;;
++   *)
+      AC_LIBOBJ([asprintf])
+      AC_LIBOBJ([basename])
+      AC_LIBOBJ([insque])
+***************
+*** 410,415 ****
+--- 441,448 ----
+  	  ;;
+        esac
+      done
++ 	;;
++   esac
+  
+      # newlib doesnt provide any of the variables in $vars, so we
+      # dont have to check them here.
+***************
+*** 511,516 ****
+--- 544,591 ----
+  if test -z "${setobjs}"; then
+    case "${host}" in
+  
++   *-*-rtems*)
++     # Handle RTEMS configuration specially, since we can't link
++     # w/o RTEMS specs and other snippets from RTEMS makefiles...
++     AC_LIBOBJ([basename])
++     AC_LIBOBJ([insque])
++     AC_LIBOBJ([mkstemps])
++     AC_LIBOBJ([random])
++     AC_LIBOBJ([sigsetmask])
++     AC_LIBOBJ([stpcpy])
++     AC_LIBOBJ([stpncpy])
++     AC_LIBOBJ([strverscmp])
++ 
++     for f in $funcs; do
++       case "$f" in
++     basename | insque | mkstemps | random | sigsetmask)
++ 	  ;;
++     stpcpy | stpncpy | strverscmp)
++ 	  ;;
++ 	*)
++ 	  n=HAVE_`echo $f | tr 'abcdefghijklmnopqrstuvwxyz' 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'`
++ 	  AC_DEFINE_UNQUOTED($n)
++ 	  ;;
++       esac
++     done
++ 
++ 	# RTEMS has all these from checkfuncs
++     AC_DEFINE(HAVE_ON_EXIT)
++     AC_DEFINE(HAVE_STRERROR)
++     AC_DEFINE(HAVE_SYSCONF)
++     AC_DEFINE(HAVE_TIMES)
++     AC_DEFINE(HAVE_SBRK)
++     AC_DEFINE(HAVE_GETTIMEOFDAY)
++     AC_DEFINE(HAVE_SYSCTL)
++ 
++   AC_CHECK_DECLS([basename, ffs, asprintf, vasprintf, snprintf, vsnprintf])
++   AC_CHECK_DECLS([calloc, getenv, getopt, malloc, realloc, sbrk])
++   AC_CHECK_DECLS([strverscmp])
++   libiberty_NEED_DECLARATION(canonicalize_file_name)
++ 
++     setobjs=yes
++     ;;
++ 
+    *-*-vxworks*)
+      # Handle VxWorks configuration specially, since on VxWorks the
+      # libraries are actually on the target board, not in the file
 diff -crN binutils-2.18.orig/libiberty/getopt1.c binutils-2.18/libiberty/getopt1.c
 *** binutils-2.18.orig/libiberty/getopt1.c	2005-05-16 11:02:47.000000000 -0700
---- binutils-2.18/libiberty/getopt1.c	2008-04-17 15:42:28.000000000 -0700
+--- binutils-2.18/libiberty/getopt1.c	2008-10-06 11:22:47.000000000 -0700
 ***************
 *** 52,57 ****
 --- 52,64 ----
@@ -16908,7 +16933,7 @@ diff -crN binutils-2.18.orig/libiberty/getopt1.c binutils-2.18/libiberty/getopt1
   
 diff -crN binutils-2.18.orig/libiberty/getopt.c binutils-2.18/libiberty/getopt.c
 *** binutils-2.18.orig/libiberty/getopt.c	2005-07-23 08:17:18.000000000 -0700
---- binutils-2.18/libiberty/getopt.c	2008-04-17 15:42:10.000000000 -0700
+--- binutils-2.18/libiberty/getopt.c	2008-10-06 11:22:47.000000000 -0700
 ***************
 *** 61,66 ****
 --- 61,73 ----
@@ -16925,8 +16950,50 @@ diff -crN binutils-2.18.orig/libiberty/getopt.c binutils-2.18/libiberty/getopt.c
   #ifndef ELIDE_CODE
   
   
-*** binutils-2.18/Makefile.in.orig	2008-10-05 21:43:09.000000000 -0700
---- binutils-2.18/Makefile.in	2008-10-05 21:53:08.000000000 -0700
+diff -crN binutils-2.18.orig/libiberty/Makefile.in binutils-2.18/libiberty/Makefile.in
+*** binutils-2.18.orig/libiberty/Makefile.in	2007-08-06 12:59:45.000000000 -0700
+--- binutils-2.18/libiberty/Makefile.in	2008-10-27 12:22:35.000000000 -0700
+***************
+*** 31,36 ****
+--- 31,38 ----
+  libdir = @libdir@
+  includedir = @includedir@
+  target_header_dir = @target_header_dir@
++ host_os  = @host_os@
++ host_cpu = @host_cpu@
+  
+  SHELL = @SHELL@
+  
+***************
+*** 350,356 ****
+  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
+  # default multilib, so we have to take LIBCFLAGS into account as well,
+  # since it will be passed the multilib flags.
+! MULTIOSDIR = `$(CC) $(LIBCFLAGS) -print-multi-os-directory`
+  install_to_libdir: all
+  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
+  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
+--- 352,358 ----
+  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
+  # default multilib, so we have to take LIBCFLAGS into account as well,
+  # since it will be passed the multilib flags.
+! #MULTIOSDIR = `$(CC) $(LIBCFLAGS) -print-multi-os-directory`
+  install_to_libdir: all
+  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
+  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
+***************
+*** 1181,1183 ****
+--- 1183,1189 ----
+  	else true; fi
+  	$(COMPILE.c) $(srcdir)/xstrndup.c $(OUTPUT_OPTION)
+  
++ install-data:
++ .PHONY: install-data
++ install-exec: all install
++ .PHONY: install-exec
+diff -crN binutils-2.18.orig/Makefile.in binutils-2.18/Makefile.in
+*** binutils-2.18.orig/Makefile.in	2007-08-28 13:21:41.000000000 -0700
+--- binutils-2.18/Makefile.in	2008-10-06 11:22:47.000000000 -0700
 ***************
 *** 49490,49493 ****
 --- 49490,49498 ----
@@ -16939,59 +17006,3 @@ diff -crN binutils-2.18.orig/libiberty/getopt.c binutils-2.18/libiberty/getopt.c
 + .PHONY: install-exec
 + 
   # end of Makefile.in
-*** binutils-2.18/libiberty/Makefile.in.orig	2008-10-05 22:28:41.000000000 -0700
---- binutils-2.18/libiberty/Makefile.in	2008-10-05 22:28:58.000000000 -0700
-***************
-*** 1181,1183 ****
---- 1181,1187 ----
-  	else true; fi
-  	$(COMPILE.c) $(srcdir)/xstrndup.c $(OUTPUT_OPTION)
-  
-+ install-data:
-+ .PHONY: install-data
-+ install-exec: all install
-+ .PHONY: install-exec
-*** binutils-2.18/configure.gnu.orig	1969-12-31 16:00:00.000000000 -0800
---- binutils-2.18/configure.gnu	2008-10-06 12:12:48.000000000 -0700
-***************
-*** 0 ****
---- 1,39 ----
-+ #!/bin/sh
-+ # wrapper script to strip --enable-maintainer-mode; the binutils
-+ # use older autotools than the one we use for ssrlApps so we
-+ # don't want to touch the stuff in binutils...
-+ script=$0
-+ 
-+ while :
-+ do
-+ 
-+ # Break out if there are no more args
-+ 	case $# in
-+ 	0)
-+ 		break
-+ 		;;
-+ 	esac
-+ 
-+ # Get the first arg, and shuffle
-+ 	option=$1
-+ 	shift
-+ 	optarg=`expr "x$option" : 'x[^=]*=\(.*\)'`
-+ 
-+ 	orig_option=$option	# Save original for error messages
-+ 	case $option in
-+ 	*-enable-maintainer-mode*)
-+ 		option=
-+ 	;;
-+ 	*)
-+ 	;;
-+ 	esac
-+ 	echo option "$option"
-+ 
-+ 	args="$args '$option'"
-+ 		
-+ done
-+ 
-+ args="$args --disable-nls"
-+ 
-+ echo running /bin/sh `dirname $script`/configure $args
-+ exec sh -c "`dirname $script`/configure $args"

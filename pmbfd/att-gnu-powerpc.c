@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 #define Tag_GNU_Power_ABI_FP	4
 #define Tag_GNU_Power_ABI_VEC	8
@@ -140,7 +141,7 @@ int                   rval = 0;
 	if ( tn )
 		rval += fprintf(f, "%25s",tn);
 	else
-		rval += fprintf(f, "%25u",tag);
+		rval += fprintf(f, "%25"PRIu32,tag);
 
 	rval += fprintf(f, " == ");
 
@@ -148,9 +149,9 @@ int                   rval = 0;
 		rval += fprintf(f, "%s", tv);
 	else {
 		if ( Tag_Compat == tag )
-			rval += fprintf(f, "%u, %s", a->i, a->s ? a->s : "<NONE>");
+			rval += fprintf(f, "%"PRIu32", %s", a->i, a->s ? a->s : "<NONE>");
 		else if ( TAG_NUMERICAL(tag) ) 
-			rval += fprintf(f, "%u", a->i);
+			rval += fprintf(f, "%"PRIu32"", a->i);
 		else
 			rval += fprintf(f, "%s", a->s ? a->s : "<NULL>");
 	}

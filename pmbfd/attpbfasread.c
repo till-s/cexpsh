@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 
 /* Allocation chunk size */
@@ -102,7 +103,7 @@ unsigned              csz;
 
 		/* FIXME: we cannot have multiple identical tags in the array (but could in the linked list part) */
 		if ( (tag <= patbl->pv->max_tag && Tag_Compat != tag) && patbl->map[tag] ) {
-			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_read() tag %i already defined\n", tag);
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_read() tag %"PRIi32" already defined\n", tag);
 			goto cleanup;
 		}
 
@@ -117,7 +118,7 @@ unsigned              csz;
 
 		switch ( tagt ) {
 			default:
-				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_read() unknown tag %i\n", tag );
+				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_read() unknown tag %"PRIi32"\n", tag );
 				goto cleanup;
 			case Pmelf_Attribute_Type_none:
 				continue;

@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 /*
  * Read 32-bit 'length' and byte-swap if necessary
@@ -91,6 +92,7 @@ pmelf_getword(int needswap, const uint8_t *b, int sz, Elf32_Word *pval, char *nm
 #define GNU_Power_ABI_ALTIVEC	2
 #define GNU_Power_ABI_NOVEC     1
 
+#if DEBUG > 0
 /* PPC-specific (SYSV FP and ALTIVEC ABIs) tags */
 static Pmelf_pub_attribute_t
 pmelf_ppc_attribute_tag_t(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
@@ -106,7 +108,7 @@ pmelf_ppc_attribute_tag_t(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 }
 
 /* PPC-specific (SYSV FP and ALTIVEC ABIs) tag descriptions */
-static const char * const
+static const char *
 pmelf_ppc_attribute_tag_n(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 {
 	switch ( tag ) {
@@ -174,7 +176,7 @@ int                   rval = 0;
 	if ( tn )
 		rval += fprintf(f, "%25s",tn);
 	else
-		rval += fprintf(f, "%25u",tag);
+		rval += fprintf(f, "%25"PRIu32,tag);
 
 	rval += fprintf(f, " == ");
 
@@ -182,9 +184,9 @@ int                   rval = 0;
 		rval += fprintf(f, "%s", tv);
 	else {
 		if ( Tag_Compat == tag )
-			rval += fprintf(f, "%u, %s", a->i, a->s ? a->s : "<NONE>");
+			rval += fprintf(f, "%"PRIu32", %s", a->i, a->s ? a->s : "<NONE>");
 		else if ( TAG_NUMERICAL(tag) ) 
-			rval += fprintf(f, "%u", a->i);
+			rval += fprintf(f, "%"PRIu32, a->i);
 		else
 			rval += fprintf(f, "%s", a->s ? a->s : "<NULL>");
 	}
@@ -264,7 +266,6 @@ static int
 pmelf_ppc_file_attributes_match(Pmelf_attribute_tbl *patbl, Pmelf_attribute_tbl *pbtbl)
 {
 int         tag;
-const char *str;
 int         va,vb;
 
 	if ( !patbl && !pbtbl )
@@ -329,6 +330,7 @@ static Pmelf_attribute_vendor gnu_ppc_vendor = {
 	file_attribute_print:        pmelf_ppc_file_attribute_print,
 	max_tag:                     10
 };
+#endif
 
 #endif
 

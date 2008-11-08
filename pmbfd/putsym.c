@@ -71,7 +71,10 @@ Elf64_Sym nsym;
 int
 pmelf_putsym32(Elf_Stream s, Elf32_Sym *psym)
 {
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 Elf32_Sym nsym;
+#endif
+
 	if ( s->needswap ) {
 #ifdef PMELF_CONFIG_NO_SWAPSUPPORT
 		return -2;

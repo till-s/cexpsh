@@ -76,7 +76,10 @@ Elf64_Shdr nshdr;
 int
 pmelf_putshdr32(Elf_Stream s, Elf32_Shdr *pshdr)
 {
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 Elf32_Shdr nshdr;
+#endif
+
 	if ( s->needswap ) {
 #ifdef PMELF_CONFIG_NO_SWAPSUPPORT
 		return -2;

@@ -50,7 +50,9 @@ Elf32_Word *
 pmelf_getgrp(Elf_Stream s, Elf_Shdr *psect, Elf32_Word *data)
 {
 Elf32_Word *buf;
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 int        j;
+#endif
 Pmelf_Off  sh_size;
 Pmelf_Off  ne;
 

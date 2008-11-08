@@ -102,7 +102,9 @@ int
 pmelf_putehdr32(Elf_Stream s, Elf32_Ehdr *pehdr)
 {
 uint8_t magic[4] = { ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3 };
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 Elf32_Ehdr nehdr;
+#endif
 
 	if ( memcmp(magic, pehdr->e_ident+EI_MAG0, sizeof(magic)) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an ELF file\n");

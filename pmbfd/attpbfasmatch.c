@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 /*
  * Return the first 'Tag_Compat' element in the list attached
@@ -113,7 +114,7 @@ Elf32_Word            flg;
 				pb = pn;
 				if ( !pb || Tag_Compat != pb->att.pub.tag ) {
 					/* flag not found in set B */
-					PMELF_PRINTF(pmelf_err, PMELF_PRE"pmelf_match_attribute_set(): flag %u present in object %s not found in object %s\n", flg, nma, nmb);
+					PMELF_PRINTF(pmelf_err, PMELF_PRE"pmelf_match_attribute_set(): flag %"PRIu32" present in object %s not found in object %s\n", flg, nma, nmb);
 					return -1;
 				}
 				pn = pn->next;

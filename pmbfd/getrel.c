@@ -50,7 +50,9 @@ void *
 pmelf_getrel(Elf_Stream s, Elf_Shdr *psect, void *data)
 {
 void      *buf;
+#ifndef PMELF_CONFIG_NO_SWAPSUPPORT
 int        j;
+#endif
 Pmelf_Off  sh_size, entsz;
 Pmelf_Off  ne;
 

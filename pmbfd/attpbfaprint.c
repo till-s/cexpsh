@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 /*
  * Generic routine to print an attribute in 'public' representation w/o any deeper knowledge
@@ -63,7 +64,7 @@ Pmelf_pub_attribute   *a = att;
 
 	rval += fprintf(f,"Tag: ");
 	rval += pmelf_pub_print_tag(patbl, f, tag);
-	rval +=	fprintf(f,", ival: %9u, sval: %s\n", a->i, a->s ? a->s : "<NONE>");
+	rval +=	fprintf(f,", ival: %9"PRIu32", sval: %s\n", a->i, a->s ? a->s : "<NONE>");
 
 	return rval;
 }

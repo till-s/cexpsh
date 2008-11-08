@@ -48,6 +48,7 @@
 #include <pmelfP.h>
 #include <attrP.h>
 #include <stdio.h>
+#include <inttypes.h>
 
 static Pmelf_attribute_vendor *known_vendors = 0;
 
@@ -180,7 +181,7 @@ Elf32_Word             len,tag,sublen;
 					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_read_attribute_set(): Tag_Symbol no yet supported\n");
 					goto cleanup;
 			default:
-					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_read_attribute_set(): unsupported tag %i\n", tag);
+					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_read_attribute_set(): unsupported tag %"PRIi32"\n", tag);
 					goto cleanup;
 		}
 

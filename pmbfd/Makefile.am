@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = foreign no-installinfo no-installman
 AM_CFLAGS=-Wall
 
 lib_LIBRARIES    = libpmelf.a libpmbfd.a
-libpmelf_a_SOURCES = pmelfP.h attP.h
+libpmelf_a_SOURCES = pmelfP.h attrP.h
 libpmelf_a_SOURCES+=symname.c secname.c putdat.c dmpgrps.c
 libpmelf_a_SOURCES+=strm.c fstrm.c mstrm.c
 libpmelf_a_SOURCES+=dmpsym.c dmpsymtab.c

@@ -89,6 +89,8 @@ EXTRA_SRCS+= cexpsegs.c cexpsegs-powerpc-rtems.c
 EXTRA_SRCS+= $(SYMF_SRCS)
 EXTRA_SRCS+= $(TECLA_SRCS)
 
+EXTRA_DIST = cexp.y
+
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c
 

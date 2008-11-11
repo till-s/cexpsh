@@ -1,12 +1,12 @@
 m4_define([CEXPVERSION],TILLAC_CVSTAG([$Name$]))
 
-AC_INIT(cexp, CEXPVERSION, <strauman@slac.stanford.edu>)
+AC_INIT(cexp, TILLAC_CVSTAG([$Name $]), <strauman@slac.stanford.edu>)
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(cexp, CEXPVERSION)
+AM_INIT_AUTOMAKE([foreign 1.10])
 AM_MAINTAINER_MODE
 
 # Check for critical programs we need for building

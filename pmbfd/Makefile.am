@@ -50,7 +50,7 @@ test_attr_LDADD=-L. -lpmelf
 test_attr_DEPENDENCIES=libpmelf.a
 endif
 
-libpmbfd_a_SOURCES =bfd.c
+libpmbfd_a_SOURCES =bfd.c pmbfdP.h pmbfd.h
 libpmbfd_a_SOURCES+=opcodesup.c
 EXTRA_libpmbfd_a_SOURCES=$(wildcard $(srcdir)/bfd-reloc-*.c)
 if HAVE_RELOCS
@@ -59,3 +59,5 @@ libpmbfd_a_DEPENDENCIES=$(RELOCS:%.c=%.$(OBJEXT))
 endif
 
 include_HEADERS  = pmelf.h
+
+EXTRA_DIST       = LICENSE makefile

@@ -78,18 +78,21 @@ if USELOADER
 SEGS_SRCS        = $(SEGS_CPU_SRC) cexpsegs.c
 endif
 
-SRCS = cexp.c ctyps.c cexpsyms.c vars.c ctyps.h  cexpsyms.h  cexpsymsP.h
+SRCS = cexp.c ctyps.c cexpsyms.c vars.c cexplock.h ctyps.h  cexpsyms.h  cexpsymsP.h
 SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
-SRCS+= cexpsegsP.h
+SRCS+= cexpsegsP.h cexp_regex.h teclastuff.h rtems-hackdefs.h
 SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
 SRCS+= help.c
 
 EXTRA_SRCS=
-EXTRA_SRCS+= cexpsegs.c cexpsegs-powerpc-rtems.c
+EXTRA_SRCS+= cexpsegs.c cexpsegs-powerpc-rtems.c cexpsegs-dflt.c
 EXTRA_SRCS+= $(SYMF_SRCS)
 EXTRA_SRCS+= $(TECLA_SRCS)
 
-EXTRA_DIST = cexp.y
+EXTRA_DIST = cexp.y binutils-2.18.diff jumptab.c gentab.c config-ml.in
+EXTRA_DIST+= README.ld.snippet Makefile LICENSE Makefile.syms
+EXTRA_DIST+= wrap.c
+EXTRA_DIST+= cpptest
 
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c

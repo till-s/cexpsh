@@ -93,6 +93,7 @@ EXTRA_DIST = cexp.y binutils-2.18.diff jumptab.c gentab.c config-ml.in
 EXTRA_DIST+= README.ld.snippet Makefile LICENSE Makefile.syms
 EXTRA_DIST+= wrap.c
 EXTRA_DIST+= cpptest
+EXTRA_DIST+= makefile.top.am makefile.top.in
 
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c

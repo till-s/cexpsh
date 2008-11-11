@@ -1,5 +1,5 @@
 AC_INIT(pmbfd, 1.0, strauman@slac.stanford.edu)
-AM_INIT_AUTOMAKE(pmbfd, 1.0)
+AM_INIT_AUTOMAKE([foreign 1.10])
 AM_MAINTAINER_MODE
 AC_CANONICAL_HOST
 

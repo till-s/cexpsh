@@ -58,11 +58,7 @@ if test ! -f $srcdir/"$RELOCS" ; then
 fi
 AM_CONDITIONAL(HAVE_RELOCS, test ! "$RELOCS"xx = xx )
 
-if test -f ./config-ml.in || test -f ../config-ml.in ; then
-AM_ENABLE_MULTILIB([Makefile],[..])
-dnl install multilibs into MULTISUBDIR
-AC_SUBST(libdir,[${libdir}'$(MULTISUBDIR)'])
-fi
+TILLAM_MULTISUB_INSTALLDIR
 
 AM_CONDITIONAL(BUILD_UTILS, [case "$host_os" in *[[rR]][[tT]][[eE]][[mM]][[sS]]*) false;; *) true;; esac])
 AM_CONDITIONAL(BUILD_TESTS, [test "$enable_tests" = "yes"])

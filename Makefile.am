@@ -2,8 +2,10 @@ AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@
+HOSTCFLAGS=-O2 -g
 
 MOSTLYCLEANFILES =
+CLEANFILES       =
 
 if USETECLA
 TECLA_SRCS       = teclastuff.c
@@ -141,9 +143,9 @@ else #DO_CEXPLIB
 # cross-tools only
 gencore_CPPFLAGS = $(xsyms_CPPFLAGS)
 if USEBFD
-bin_PROGRAMS=xsyms gencore
+hostbin_PROGRAMS=xsyms gencore
 else
-bin_PROGRAMS=xsyms
+hostbin_PROGRAMS=xsyms
 endif
 endif #DO_CEXPLIB
 
@@ -158,13 +160,14 @@ cexpsyms.o: cexp.tab.h cexpsyms.c
 cexp.tab.c cexp.tab.h: cexp.y
 	bison -v -d -p cexp $^
 
-%ctyps.o: jumptab.c
+%ctyps.o: $(srcdir)/jumptab.c
 
-jumptab.c: gentab
-	./$^ > $@
+$(srcdir)/jumptab.c: $(srcdir)/gentab.c
+	$(HOSTCC) $(HOSTCFLAGS) -o gentab $^
+	./gentab > $@
 
-gentab: gentab.c
-	$(HOSTCC) $(CFLAGS) -o $@ $^
+CLEANFILES+=gentab
+
 
 builddate.c: $(libcexp_a_SOURCES) $(EXTRA_SRCS) Makefile
 	echo 'char *cexp_build_date="'`date +%Y%m%d%Z%T`'";' > $@

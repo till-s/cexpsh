@@ -20,7 +20,8 @@ libraries ('poor-man's BFD) that comes with Cexp or libbfd.
 The latter is more powerful:
  - not limited to the ELF object format.
  - supports many more machine types (pmbfd currently 
-   only supports 32-bit powerpc, m68k and i386).
+   only supports 32-bit powerpc, m68k and i386 and 64-bit
+   x86_64).
  - using BFD / libopcodes, a disassembler comes for free.
 
 Otoh, using pmbfd/pmelf has the following advantages:
@@ -420,7 +421,7 @@ sequences...):
 Loadable Modules / Runtime Loader
 ---------------------------------
 
-When built aginst the BFD library, Cexp is capable of
+When built aginst the pmbfd or BFD library, Cexp is capable of
 dynamically loading object files into a running program.
 Cexp keeps track of module dependencies. Note that this
 only covers symbol table dependencies. Cexp rejects
@@ -797,6 +798,88 @@ modules, the compiler's -msdata flag must not be set to either of 'eabi', 'sysv'
 or 'use'. If you try to load code compiled with an improper -msdata setting,
 you will get a 'Relocation of unsupported size/type requested' error for the
 relocation type 'R_PPC_EMB_SDA21' or 'R_PPC_SDAREL16' or similar.
+
+PowerPC Branch Relocation Information
+-------------------------------------
+When generating PPC code, gcc usually (i.e., unless giving the -mlongcall
+option which -- according to the gcc documentation -- may some day
+disappear) emits branch instructions which cannot jump farther than
++/-32MB from the current PC location. This is a problem on systems with
+more that 64MB of memory. Since the space required for loadable modules
+is allocated from the regular 'malloc'-heap there is no guarantee
+that all modules (and the base executable) are all located closely
+enough together to be reachable and the loader may thus fail
+complaining that a R_PPC_REL24 relocation cannot be resolved.
+
+In order to solve this problem, Cexp now supports 'memory segments'
+and tries to load all text sections into a separate segment which
+is smaller than 32M and entirely reachable from the base executable.
+
+There are different ways for configuring Cexp's PPC text segment:
+
+ 1) Do not reserve/use a dedicated text segment (OK for boards
+    with less than 32M of memory).
+ 2) Automatically reserve memory for the text segment within the 
+    base executable's '.bss' section.
+ 3) Application provides memory via a two global variables
+ 4) Application provides memory via linker script.
+
+The Cexp '--enable-text-segment' configuration option is used
+to define the desired behavior when Cexp is 'configure'd.
+
+ 1) Configure with '--enable-text-segment=no'
+
+ 2) Specify the desired amount of memory to be automatically
+    reserved (in bytes):
+
+	  --enable-text-segment=<number_gt_zero>
+
+	e.g.
+
+	  --enable-text-segment=0x800000
+
+	or simply (for a default of 8MB)
+
+	  --enable-text-segment=yes
+
+ 3) Configure with --enable-text-segment=0 (which is also
+    the default, i.e, you may omit the configuration option).
+
+	The application must provide two variables
+
+	  unsigned long cexpTextRegionSize = <desired size>;
+	  unsigned char cexpTextRegion[<desired size>];
+
+ 4) Configure with --enable-text-segment=0 (which is also
+    the default, i.e, you may omit the configuration option).
+
+    The application provides two symbols (most likely from
+	a linker script) defining the start and end of the
+	text segment (keep in mind that this region AND the 
+	text sections of the base executable MUST be closer
+	than 32MB together)
+
+	_cexpTextRegionStart, _cexpTextRegionEnd
+	
+NOTE: Some BSP's linker script ('linkcmds') for no good reason
+      limit the size of an executable to <4MB by defining a
+	  MEMORY {} region -- often named 'CODE' -- in the linker
+	  script which is only 4MB in size. 
+	  When you try to reserve a reasonably sized text segment
+	  on such a system (e.g., 16MB on a board with 512MB of 
+	  memory) then linking the application will fail because
+	  it wouldn't fit into the small 'CODE' region.
+	  You can simply fix this by increasing the size of this
+	  region to 32MB, e.g., the fixed MEMORY definition of the
+	  powerpc/shared linkcmds would look like this:
+
+        MEMORY {
+          VECTORS : ORIGIN = 0x0 ,    LENGTH = 0x3000
+             CODE : ORIGIN = 0x3000 , LENGTH = 32M - 0x3000
+        }
+
+	  (the original LENGTH of CODE was 4MB.)
+
 
 LICENSING & DISCLAIMERS
 -----------------------

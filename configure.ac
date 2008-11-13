@@ -69,7 +69,7 @@ AC_ARG_ENABLE(text-segment,
         platforms with more than 32M of memory so that no far jumps
         are needed.
         <size> may be 'no' (disable feature), 'yes' (reserve default
-        [[16MB]]) or a number. If <size> is zero then the application
+        [[8MB]]) or a number. If <size> is zero then the application
         must provide the following two global variables:
 
             unsigned long cexpTextRegionSize=<desired_size>;

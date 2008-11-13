@@ -37,15 +37,15 @@ Building:
 
 Quick/Automated Method
 ----------------------
-The top-level source directory now features a Makefile providing
-some simple rules to automate the build process. The rules create
-build subdirectories, 'configure' and 'make' the package.
-Type 'make' in the Cexp top directory for instructions. The main
-make targets are:
+
+The build system uses the well-known GNU 'configure' method.
 
 a) Host Demo
 
-  make host
+  mkdir build-host
+  cd    build-host
+  ../configure
+  make
 
 for building the host demo in a 'build-host' subdirectory. Both,
 a 'cexp' demo executable and a 'xsyms' utility program (for
@@ -59,52 +59,40 @@ play with the demo:
 Note that the symbol table is like any other object file
 searched for using the PATH environment variable. E.g., if
 '.' is not in your PATH you must specify the path to cexp.sym
-explicitly.
+explicitly (-s ./cexp.sym; just '-s cexp.sym' only works if
+'.' is in your PATH).
 
 b) Build Cexp target library and cross xsyms tool for a specific
    RTEMS BSP
 
-   setenv RTEMS_MAKEFILE_PATH <dir where BSP's Makefile.inc is located>
-   make   rtemsbsp
-   make   rtemsbsp-install
+     mkdir  build-mvme3100
+     cd     build-mvme3100
+     ../configure --with-rtems-top=/path/to/rtems --host=powerpc-rtems
+     make
 
-Note that the rule only performes the 'configure' step once, i.e.,
-at the same time the 'build-' directories are created. If a 'build-TARCH'
-directory is already present, 'configure' is not re-run. You have to
-remove it (either manually or by executing 'make clean' from the top-directory)
-in order to re-configure.
+   NOTES:
+    * point '--with-rtems-top' to RTEMS' 'PROJECT_ROOT', i.e., the
+	  directory where RTEMS' '<cpu>-rtems' and 'make' directories
+	  are found.
+    * cross tools must be found in PATH
+	* will build for all BSPs found under <with-rtems-top>/<host-cpu>-rtems/
+	  but you can restrict the BSPs built using --enable-rtemsbsp='bsp1 bsp2'
 
-The CEXP target library can be installed using the 'make rtemsbsp-install' rule.
+   Build cross xsyms tool:
 
-The cross 'xsyms' tool needs to be installed manually
-	install  build-X-<cpu>-rtems/xsyms <cross_toolchain_bindir>/<cpu>-rtems-xsyms
+     mkdir build-xsyms
+	 cd    build-xsyms
+	 ../configure --disable-cexp --target=powerpc-rtems
+	 make
 
-c) Target library and cross xsyms tool
 
-  make cross-TARCH
+c) Build CEXP multilibs. Note that this requires a multilibbed
+   RTEMS cpukit.
 
-configures CEXP for running on target architecture 'TARCH' in a
-'build-TARCH' subdirectory. The 'cross-xsyms' tool is configured
-and built in a 'build-X-TARCH' subdirectory. E.g.,
-
-  make cross-powerpc-rtems TGT_CONFIG_OPTS='--prefix=/opt/rtems CFLAGS=-msoft-float'
-
-Note that the rule only performes the 'configure' step once, i.e.,
-at the same time the 'build-' directories are created. If a 'build-TARCH'
-directory is already present, 'configure' is not re-run. You have to
-remove it (either manually or by executing 'make clean' from the top-directory)
-in order to re-configure.
-
-The cross CEXP can be installed using the 'make install-TARCH' rule.
-You might want to use a 'prefix=<destdir>' definition on the
-command line (necessary if --prefix was not given at configuration time). 
-
-The cross 'xsyms' tool needs to be installed manually
-
-Examples:
-
-    make install-powerpc-rtems prefix=/real/installpath
-	install  build-X-powerpc-rtems/xsyms <cross_toolchain_bindir>/powerpc-rtems-xsyms
+     mkdir build-powerpc-rtems
+	 cd    build-powerpc-rtems
+	 ../configure --with-rtems-top=/path/to/rtems --host=powerpc-rtems --enable-multilib
+	 make
 
 Manual Method in Detail
 ----------------------
@@ -117,61 +105,157 @@ chdir to the source topdir and make a directory, e.g.
 
 chdir to the new directory and issue
 
-	../configure --disable-nls
+	../configure
+
+This configures Cexp so that a native demo program is built
+which can be executed on the host (e.g., linux) system.
 
 When doing a 'cross-build' (e.g. for RTEMS), you need to
-set the CC environment variable an specify the host architecture
-on which Cexp shall be executed:
+specify the host architecture on which Cexp shall be executed.
+Also, you must point the configure script to your RTEMS 
+installation, i.e., the directory where the target libraries
+are located under "<cpu>-rtems/<bsp>/lib/". This is usually
+/opt/rtems-<version>
 
-	setenv CC powerpc-rtems-gcc
-	../configure --host=powerpc-rtems --disable-nls
+	../configure --host=powerpc-rtems --with-rtems-top=/opt/rtems-4.9.0
 
-If you use a later gcc version with multilib support (such as
-gcc-3.2 distributed by OAR/RTEMS) you most probably want to
-select your CPU model (unless you are confident you will live
-long enough to see the results and you can afford the disk space
-it will take):
+This builds Cexp for all installed BSP's of the 'powerpc-rtems'
+architecture. You may restrict the list of BSPs by using the
+--enable-rtemsbsp='bsp1 bsp2 bsp3' option.
 
-	../configure --host=powerpc-rtems --with-multisubdir=m750 --disable-nls
+The configure script recognizes several other options:
 
-this example restricts the build to PowerPC mpc750...
+	--help	list known options.
 
-The configure script recognizes several options:
+	--disable-nls
+	        disable native language support.
 
-	--help	list known options
+	--disable-bfd
+	        use pmbfd instead of libbfd (only relevant if you
+	        have BFD sources installed).
 
-	--disable-nls	disable native language support.
-			You probably _must_ specify this as several
-			directories have been deleted from the distributed
-			libbfd...
-
-	--disable-bfd	use pmbfd instead of libbfd.
-
-	--disable-loader disable the run-time loader. An ELF symbol file
+	--disable-loader
+	        disable the run-time loader. An ELF symbol file
 	        can still be read. If you disable both, the loader AND
 			pmbfd (--disable-loader --disable-pmbfd) then all support
 			for reading files is removed. You must create, compile
 			and link a 'built-in' symbol table in this case.
 
-    --disable-opcodes don't use the opcodes library. This removes the
-	        disassembler.
+    --disable-opcodes
+	        don't use the opcodes library. This removes the
+	        disassembler. This option is only relevant if you
+			have BFD sources installed.
 
-	--disable-tecla	don't use the TECLA library (discouraged)
+	--disable-tecla
+	        don't use the TECLA library (discouraged)
 
-	--disable-readline don't use GNU readline either (this option is only
+	--disable-readline
+	        don't use GNU readline either (this option is only
 			effective if --disable-tecla is also specified)
 
 			If both, TECLA and readline are disabled then a minimal
 			built-in editor is used.
 
-	--enable-multilib build all variants the compiler knows about.
+	--enable-multilib
+	        Build all variants the compiler knows about.
 	        Contrary to the help text multilibs are NOT enabled by
 			default. Also, since binutils is not multilib-capable
 			multilib support is only available if BFD is not used.
 			(pmbfd can be multilibbed).
+			NOTE: multilibs can only be built if RTEMS' cpukit
+			      was built with multilibs enabled.
 
-	--prefix=<path> where the libraries, headers and GNU documentation
-			should be installed
+	--prefix=<path>
+	        Top directory under which everything gets installed
+			(libraries, headers, documentation etc.).
+
+	--exec-prefix-<path>
+	        Prefix for libraries, executables and (by default) 
+			headers. Default:
+
+			   PREFIX/target/ssrlApps/${host_cpu}-rtems/${rtems_bsp}/
+
+    --libdir
+	        Where the libraries are to be installed. Defaults to
+
+			   EPREFIX/lib
+
+	--includedir
+	        Where headers are to be installed. Defaults to
+
+			   EPREFIX/include
+
+	--bindir
+	        Where executables are to be installed. Defaults to
+
+			   EPREFIX/bin
+
+    --enable-std-rtems-installdirs
+            Install directly into the RTEMS installation directories;
+			by default a location *outside* of the standard location
+			is used. If you don't use this option you can also fine-tune
+			the installation using the usual --prefix, --exec-prefix,
+			--libdir, --includedir etc. options. If you use this
+			option '--prefix' & friends are effectively overridden.
+
+	--with-hostbindir=<path>
+			Where tools, i.e., programs that execute on the development
+			platform are to be installed. Defaults to
+
+			   PREFIX/host/${build_alias}/bin
+
+    --enable-text-segment= yes | no | 0 | <size>
+	        Define how memory for PowerPC text segments is to be
+			set aside (ignored on other platforms). Consult the
+			README ('PowerPC Branch Relocation Information') for
+			more information about this option.
+
+Configuring Cexp using the GNU BFD library
+- - - - - - - - - - - - - - - - - - - - - -
+
+By default, Cexp now uses the 'poor man's bfd and elf'
+libraries as a replacement for the GNU BFD library
+but you can still use the GNU BFD library. The main
+reason for using BFD would be the desire to use Cexp
+on a target that is unsupported by pmbfd (however,
+for any ELF target you are encouraged to implement
+relocations and contribute the code to Cexp).
+
+Also, if you want to use the disassembler then you need
+to install the BFD/opcodes libraries (note that you may
+use opcodes with pmbfd yielding a smaller executable).
+
+In order to use BFD, opcodes or both you need to
+perform the following steps:
+
+  a) download binutils-2.18 source
+  b) untar and install the source into the 'cexp' source directory
+  c) create a symlink binutils -> binutils-2.18
+  d) *patch* the binutils-2.18 sources running
+
+       patch -b -p0 < binutils-2.18.diff
+
+	 from the cexp source directory (it is always a good idea
+	 to try '--dry-run' first).
+
+  e) configure and make cexp in the usual way. Note that
+     by default both the BFD and opcodes libraries are
+	 configured and used if 'configure' finds binutils
+	 sources in the cexp source dir.
+     The following 'configure' options are relevant if
+	 you have binutils sources available:
+
+	   --disable-bfd
+	        do NOT use BFD but use pmbfd. By default
+			BFD is used if binutils sources are found.
+
+	   --disable-opcodes
+	        Disable disassembler support.
+
+     E.g., if you want to configure Cexp to use pmbfd
+	 and and opcodes (for disassembler support) then say
+
+	   --disable-bfd
 
 Building Cexp :
 - - - - - - - -
@@ -183,7 +267,7 @@ In the directory where you configured 'cexp', issue
 	make
 
 this builds the object file interface librarie(s) (libbfd, libopcode, libiberty
-of libpmbfd/libpmelf), the tecla library, the regexp library, the cexp
+or libpmbfd/libpmelf), the tecla library, the regexp library, the cexp
 library and (on a host only) the 'cexp' demo program and the 'xsyms' utility.
 
 
@@ -192,28 +276,38 @@ Building xsyms:
 'xsyms' is a 'cross-tool', i.e. it runs on a host working on target object
 files. Hence, if you want 'libcexp' for a target and the 'xsyms' tool for
 generating symbol tables you must build the package twice:
- - a cross-configuration ('../configure CC=<cross>-gcc --host=<cross>') will
-   generate 'libcexp' for running 'cexp' on the target.
+ - a cross-configuration
+
+     '../configure --with-rtems-top=<path> --host=<cpu>-rtems'
+
+   will generate 'libcexp' for running 'cexp' on the target.
    E.g., 
      mkdir build-powerpc-rtems
      cd    build-powerpc-rtems
-     ../configure --prefix=/opt/rtems CC=powerpc-rtems-gcc --host=powerpc-rtems --with-multisubdir=m750 --disable-nls
+     ../configure --with-rtems-top=/opt/rtems --prefix=/opt/rtems --host=powerpc-rtems
      make
      make install
 
- - a cross-tool-configuration ('../configure CC=gcc --target=<cross>') will
-   generate 'xsyms' which can be used for extracting symbol tables on
+ - a cross-tool-configuration
+
+     '../configure --target=<cpu>-rtems --disable-cexp'
+	 
+   will generate 'xsyms' which can be used for extracting symbol tables on
    target-objects. E.g.,
+
      mkdir build-X-powerpc-rtems
      cd    build-X-powerpc-rtems
-     ../configure --target=powerpc-rtems
+     ../configure --build=i386-linux26 --target=powerpc-rtems --disable-cexp --prefix=/opt/rtems
      make
-     cp xsyms  <cross_toolchain_bin>/powerpc-rtems-xsyms
- 
-   Note that I manually installed the 'cross-xsyms' for sake of simplicity.  
+     make install
+
+   Note: 'xsyms' is installed in the 'hostbindir' (see --with-hostbindir
+         above) in this example the executable will be installed as
+
+		   /opt/rtems/host/i386-linux26/bin/powerpc-rtems-xsyms
 
 [
- - a native configuration ('configure CC=gcc') builds 'libcexp' as well
+ - a native configuration ('configure') builds 'libcexp' as well
    as the 'cexp' demo and 'xsyms'. The demo can be run on the host and
    'xsyms' can extract its symbol table ('xsyms cexp cexp.sym').
 ]
@@ -234,6 +328,45 @@ installed into one of the directories searched by the (system's)
 runtime linker. Use the LD_LIBRARY_PATH environment variable and set
 it to point to the directory where libtecla was built.
 
+Linking an Application (Library Dependencies)
+---------------------------------------------
+Consult the README for important information about how to produce
+auxiliary files that force linkage of essential std library code.
+
+Here we only document the library dependencies: In order to use
+Cexp, your application needs to link
+
+      -lcexp -lspencer_regexp
+
+  if NOT configured with --disable-tecla then add
+
+      -ltecla_r 
+
+  if binutils sources are available and Cexp was NOT configured
+  with --disable-opcodes then add
+
+      -lopcodes
+
+  if NOT configured with --disable-loader then add
+
+    EITHER (binutils sources not installed or --disable-bfd given)
+
+      -lpmbfd -lpmelf  
+
+    OR (binutils sources available and --disable-bfd NOT given)   
+	  
+	    -lbfd 
+
+  else (i.e., --disable-loader *was* given)
+  if --disable-elfsyms was NOT given then add
+
+      -lpmelf
+
+  Finally, if you end up using either -lbfd or -lopcodes (or both)
+  then you also need to add
+
+      -liberty
+
 Tested Configurations:
 ----------------------
  - linux-x86
@@ -252,5 +385,5 @@ Tested Configurations:
 
 Installing Cexp:
 - - - - - - - - -
-'make install' should do the job. Choose the standard prefixes
-to meet your needs.
+'make install' should do the job. Choose the prefixes or
+--enable-std-rtems-installdirs to meet your needs.

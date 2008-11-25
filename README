@@ -96,8 +96,8 @@ linkage into the final executable. This usually involves linking
 the executable twice:
   1) compile and link all sources, libraries etc.; build an executable
   2) xsyms -C executable  mysymtab.c
-  3) compile mysymtab.c (set -I to Cexp source directory, since
-     cexpsyms.h is included)
+  3) compile mysymtab.c (set -I to Cexp installation 'include' directory
+     or Cexp source directory, since <cexpsyms.h> is included)
   4) link application again, but this time add 'mysymtab.c' to the
      list of sources.
   NOTES: Step 1) linking succeeds without a symtab.o because there's

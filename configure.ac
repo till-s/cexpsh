@@ -420,17 +420,6 @@ fi
 # don't recall what these were for...
 AC_HAVE_FUNCS(rcmd vsnprintf)
 
-AM_CONDITIONAL(DO_CEXPLIB, [test ! "$enable_cexp"    = "no"])
-# if host=target AND host=build, then to the demo
-AM_CONDITIONAL(DO_DEMO,    [test "$host_os" = "$build_os" && test "$host_os" = "$target_os"])
-AM_CONDITIONAL(USEBFD,     [test ! "$enable_bfd"     = "no"])
-AM_CONDITIONAL(USETECLA,   [test ! "$enable_tecla"   = "no"])
-AM_CONDITIONAL(USEOPCODES, [test ! "$enable_opcodes" = "no"])
-AM_CONDITIONAL(USELOADER,  [test ! "$enable_loader"  = "no"])
-AM_CONDITIONAL(USEPMBFD,   [test ! "$enable_pmbfd"   = "no"])
-AM_CONDITIONAL(USEELFSYMS, [test ! "$enable_elfsyms" = "no"])
-AM_CONDITIONAL(OS_RTEMS,   [case "$host_os" in *rtems* ) : ;; *) false ;; esac])
-
 AH_VERBATIM(NO_THREAD_PROTECTION,[
 /* Disable thread protection on OS other than RTEMS */
 #ifndef __rtems__
@@ -459,5 +448,17 @@ SEGS_CPU_SRC=cexpsegs-"$canon_cpu"-"$canon_os".c
 if test ! -f $srcdir/"$SEGS_CPU_SRC" ; then
 	SEGS_CPU_SRC=cexpsegs-dflt.c
 fi
+
+AM_CONDITIONAL(DO_CEXPLIB, [test ! "$enable_cexp"    = "no"])
+# if host=target AND host=build, then to the demo
+AM_CONDITIONAL(DO_DEMO,    [test "$host_os" = "$build_os" && test "$host_os" = "$target_os"])
+AM_CONDITIONAL(USEBFD,     [test ! "$enable_bfd"     = "no"])
+AM_CONDITIONAL(USETECLA,   [test ! "$enable_tecla"   = "no"])
+AM_CONDITIONAL(USEOPCODES, [test ! "$enable_opcodes" = "no"])
+AM_CONDITIONAL(USELOADER,  [test ! "$enable_loader"  = "no"])
+AM_CONDITIONAL(USEPMBFD,   [test ! "$enable_pmbfd"   = "no"])
+AM_CONDITIONAL(USEELFSYMS, [test ! "$enable_elfsyms" = "no"])
+AM_CONDITIONAL(OS_RTEMS,   [case "$host_os" in *rtems* ) : ;; *) false ;; esac])
+
 
 AC_OUTPUT

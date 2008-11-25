@@ -393,7 +393,6 @@ Pmelf_attribute_vendor *x;
 
 	for ( x = known_vendors; x; x=x->next ) {
 		if ( !strcmp(x->name, pv->name) ) {
-			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_attributes_vendor_register(): vendor \"%s\" already registered\n", pv->name);
 			return -1;
 		}
 	}

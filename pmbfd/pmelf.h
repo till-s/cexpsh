@@ -890,7 +890,11 @@ extern Pmelf_attribute_vendor pmelf_attributes_vendor_gnu_ppc;
 Pmelf_attribute_vendor *
 pmelf_attributes_vendor_find_gnu(Elf32_Word machine, Elf32_Word osabi);
 
-/* register a vendor (attribute parser + filter) */
+/* register a vendor (attribute parser + filter)
+ *
+ * RETURNS: 0 on success, -1 if vendor with new vendor's name
+ *          is already registered.
+ */
 int
 pmelf_attributes_vendor_register(Pmelf_attribute_vendor *pv);
 	

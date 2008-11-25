@@ -34,6 +34,21 @@ AC_ARG_ENABLE(tests,
 		[enable test programs])
 )
 
+AC_ARG_ENABLE(attributes-vendors-all,
+	AC_HELP_STRING([--enable-attributes-vendors-all],
+		[compile-in all supported file attribute parsers; by default
+		 only parsers for the host OS/CPU/ABI are compiled (if available)]),
+	[],
+	[case "${host_os}" in
+		*[[rR]][[tT]][[eE]][[mM]][[sS]]*)
+		:
+		;;
+		*)
+		enable_attributes_vendors_all=yes
+		;;
+	esac]
+)
+
 
 if test "${enable_pmelf64}" = "yes"; then
 	AC_DEFINE([PMELF_CONFIG_ELF64SUPPORT],1,[enable support for 64-bit ELF files])
@@ -42,6 +57,10 @@ AM_CONDITIONAL(NO_64BIT, test "$enable_pmelf64" != "yes")
 
 if test "${enable_byteswap}" = "no"; then
 	AC_DEFINE([PMELF_CONFIG_NO_SWAPSUPPORT],1,[disable support for byte-swapping (non-native ELF)])
+fi
+
+if test "${enable_attributes_vendors_all}" = "yes" ; then
+	AC_DEFINE([PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL],1,[enable support for all known file attribute parsers])
 fi
 
 pmbfd_cpu=$host_cpu

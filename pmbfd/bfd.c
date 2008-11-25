@@ -48,6 +48,10 @@
 #include "pmbfdP.h"
 #include <errno.h>
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 static void
 bfd_set_section_name(asection *sect, const char *name)
 {
@@ -873,7 +877,11 @@ bfd_init(void)
 	if ( !inited ) {
 		pmelf_set_errstrm(stdout);
 		memset( &thebfd, 0, sizeof(thebfd));
-#ifdef PMELF_ATTRIBUTE_VENDOR
+#if defined(PMELF_ATTRIBUTE_VENDOR) && !defined(PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL)
+		/* If compiled for only a specific vendor then register that here;
+		 * if compiled for all supported vendors then detect them when
+		 * opening the BFD
+		 */
 		if ( pmelf_attributes_vendor_register(PMELF_ATTRIBUTE_VENDOR) ) {
 			WRNPR("Failed to register object attribute parser (vendor '%s');\n"
 			      "ignoring '.gnu.attributes' sections.\n",
@@ -1148,7 +1156,7 @@ Elf32_Shdr        *shdr;
 						break;
 
 		case SHT_GNU_ATTRIBUTES:
-#ifdef PMELF_ATTRIBUTE_VENDOR
+#if defined(PMELF_ATTRIBUTE_VENDOR) || defined(PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL)
 						if ( abfd->att_sh ) {
 							ERRPR("Only one attribute set ('.gnu.attributes' section) per BFD supported\n");
 							p->err = -1;
@@ -1294,10 +1302,14 @@ bfd  *rval;
 bfd *
 bfd_openstreamr(const char *fname, const char *target, FILE *f)
 {
-const char        *strs;
-struct elf2bfddat d;
-struct bfd        *abfd = &thebfd;
-int               nrels;
+const char             *strs;
+struct elf2bfddat      d;
+struct bfd             *abfd = &thebfd;
+int                    nrels;
+#if defined(PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL)
+unsigned               m,abi;
+Pmelf_attribute_vendor *pv;
+#endif
 
 	if ( ! inited ) {
 		ERRPR("pmbfd: not initialized\n");
@@ -1318,6 +1330,20 @@ int               nrels;
 	if ( pmelf_getehdr(abfd->s, &abfd->ehdr) ) {
 		goto cleanup;
 	}
+
+#if defined(PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL)
+	/* Hack: layout of elf32 and elf64 matches... */
+	m   = abfd->ehdr.e32.e_machine;
+	abi = abfd->ehdr.e_ident[EI_OSABI]; 
+
+	if ( ! (pv = pmelf_attributes_vendor_find_gnu(m,abi)) ) {
+		fprintf(stderr,"No 'vendor' for attribute parsing/matching found (machine %u, abi %u)\n",m,abi);
+		goto cleanup;
+	}
+
+	/* ignore failure of this call (same vendor was already registered) */
+	pmelf_attributes_vendor_register(pv);
+#endif
 
 	if ( !strcmp(myarch.arch_name, bfd_get_target(abfd)) ) {
 		/* assume it's our own architecture */
@@ -1622,7 +1648,7 @@ Pmelf_attribute_set *rval;
 	if ( ! abfd->att_sh )
 		return 0;
 
-#ifdef PMELF_ATTRIBUTE_VENDOR
+#if defined(PMELF_ATTRIBUTE_VENDOR) || defined(PMELF_CONFIG_ATTRIBUTE_VENDOR_ALL)
 	if ( ! (rval = pmelf_create_attribute_set(abfd->s, abfd->att_sh)) ) {
 			WRNPR("Unable to parse '.gnu.attributes' section; ignoring attributes\n");
 	}

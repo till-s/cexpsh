@@ -33,7 +33,7 @@ unsigned               m,abi;
 	}
 
 	if ( pmelf_attributes_vendor_register(pv) ) {
-		fprintf(stderr,"Registration of vendor %s failed\n", pmelf_attributes_vendor_name(pv));
+		fprintf(stderr,"Registration of vendor %s failed (already registered)\n", pmelf_attributes_vendor_name(pv));
 		goto cleanup;
 	}
 

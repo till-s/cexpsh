@@ -371,6 +371,36 @@ const char *sname = ( BSF_SECTION_SYM & ps->flags ) ?
 	return sname;
 }
 
+static void
+dump_gnu_attributes(bfd *abfd, asection *sect, void *closure)
+{
+FILE          *f = closure;
+unsigned char *atts;
+bfd_size_type l;
+int           i;
+
+	if ( 0 == strcmp(bfd_get_section_name(abfd, sect), ".gnu.attributes") ) {
+		if ( ! (atts = malloc( (l = bfd_get_section_size(sect)) ) ) ) {
+			fprintf(stderr,"ERROR: No memory for contents of .gnu.attributes\n");
+			exit(1);
+		}
+		bfd_get_section_contents(abfd, sect, atts, 0, l);
+		fprintf(f,"/* contents of .gnu.attributes section */\n");
+		fprintf(f,"static const unsigned char thebytes[] = {\n");
+		for (i=0; i<l; ) {
+			fprintf(f,"0x%02x, ",atts[i]);
+			if ( 0 ==  (++i & 15) )
+				fprintf(f,"\n");
+		}
+		if ( (i & 15) )
+			fprintf(f,"\n");
+		fprintf(f,"};\n");
+		fprintf(f,"const unsigned char *cexpSystemAttributes     = thebytes;\n");
+		fprintf(f,"const unsigned       cexpSystemAttributesSize = sizeof(thebytes);\n");
+		free(atts);
+	}
+}
+
 int
 main(int argc, char **argv)
 {
@@ -569,6 +599,8 @@ int							sectsyms=0;
 		fprintf(ofeil,"\t},\n");
 		fprintf(ofeil,"};\n");
 		fprintf(ofeil,"CexpSym cexpSystemSymbols = systemSymbols;\n");
+
+		bfd_map_over_sections(ibfd, dump_gnu_attributes, ofeil);
 	} else
 	{
 	fprintf(stderr,"WARNING: the use of %s is deprecated; use 'objcopy --extract-symbol' instead\n",

@@ -187,3 +187,9 @@ cexp-builtin-symtab.$(OBJEXT):	cexp-builtin-symtab.c
 cexp_main.c:
 	@echo '#include "cexp.h"' > $@
 	@echo 'int main(int argc, char **argv) { return cexp_main(argc,argv); }' >>$@
+
+dist-hook:
+	if test "$(PACKAGE_VERSION)" = "untagged" ; then \
+		echo "Need tagged version to cut a dist!";   \
+		exit 1;                                      \
+	fi

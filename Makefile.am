@@ -1,5 +1,7 @@
 AUTOMAKE_OPTIONS=foreign no-installinfo no-installman
 
+ACLOCAL_AMFLAGS=-I./m4
+
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@
 HOSTCFLAGS=-O2 -g

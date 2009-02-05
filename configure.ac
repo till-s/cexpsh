@@ -1,4 +1,4 @@
-m4_define([CEXPVERSION],TILLAC_CVSTAG([$Name$]))
+m4_include([./m4/cvstag.m4])
 
 AC_INIT(cexp, TILLAC_CVSTAG([$Name $]), <strauman@slac.stanford.edu>)
 

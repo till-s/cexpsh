@@ -1,5 +1,7 @@
 AUTOMAKE_OPTIONS = foreign no-installinfo no-installman
 
+ACLOCAL_AMFLAGS=-I../m4
+
 AM_CFLAGS=-Wall
 
 lib_LIBRARIES    = libpmelf.a libpmbfd.a

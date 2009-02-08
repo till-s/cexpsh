@@ -52,13 +52,18 @@ pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *i
 {
 Elf32_Word     pc    = bfd_get_section_vma(abfd, input_section);
 Elf32_Rela     *rela = &r->rela32;
-
+uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 unsigned       sz;
 int32_t        val;
 int8_t         cval;
 int16_t        sval;
 uint32_t       pcadd=0;
 int32_t        lim;
+
+	if ( R_68K_NONE == type ) {
+		/* No-op; BFD uses a zero dst_mask... */
+		return bfd_reloc_ok;
+	}
 
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
@@ -72,7 +77,7 @@ int32_t        lim;
 	 * not be an issue.
 	 */
 
-	switch ( ELF32_R_TYPE(rela->r_info) ) {
+	switch ( type ) {
 
 		default:
 		return bfd_reloc_notsupported;

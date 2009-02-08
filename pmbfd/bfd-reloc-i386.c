@@ -50,9 +50,15 @@
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
-Elf32_Word     pc = bfd_get_section_vma(abfd, input_section);
-Elf32_Word     val, add;
+Elf32_Word     pc   = bfd_get_section_vma(abfd, input_section);
 Elf32_Rel      *rel = &r->rel32;
+uint8_t        type = ELF32_R_TYPE(rel->r_info);
+Elf32_Word     val, add;
+
+	if ( R_386_NONE == type ) {
+		/* No-op; BFD uses a zero dst_mask... */
+		return bfd_reloc_ok;
+	}
 
 	if ( rel->r_offset + sizeof(Elf32_Word) > bfd_get_section_size(input_section) )
 		return bfd_reloc_outofrange;
@@ -64,7 +70,7 @@ Elf32_Rel      *rel = &r->rel32;
 
 
 	val = 0;
-	switch ( ELF32_R_TYPE(rel->r_info) ) {
+	switch ( type ) {
 		default:
 		return bfd_reloc_notsupported;
 

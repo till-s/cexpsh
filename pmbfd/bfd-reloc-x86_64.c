@@ -55,13 +55,18 @@
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
-Elf64_Addr     pc = bfd_get_section_vma(abfd, input_section);
-int64_t        val;
+Elf64_Addr     pc   = bfd_get_section_vma(abfd, input_section);
 Elf64_Rela     *rel = &r->rela64;
+uint8_t        type = ELF64_R_TYPE(rel->r_info);
+int64_t        val;
 int64_t        lim;
 unsigned       sz;
 Elf64_Word     v32;
 	
+	if ( R_X86_64_NONE == type ) {
+		/* No-op; BFD uses a zero dst_mask... */
+		return bfd_reloc_ok;
+	}
 
 	pc += rel->r_offset;
 
@@ -73,7 +78,7 @@ Elf64_Word     v32;
 	lim = 0;
 	sz  = sizeof(Elf64_Addr);
 
-	switch ( ELF64_R_TYPE(rel->r_info) ) {
+	switch ( type ) {
 		default:
 		return bfd_reloc_notsupported;
 

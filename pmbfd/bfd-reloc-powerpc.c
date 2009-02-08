@@ -60,7 +60,7 @@ Elf32_Rela     *rela = &r->rela32;
 uint8_t        type  = ELF32_R_TYPE(rela->r_info);
 
 	if ( R_PPC_NONE == type ) {
-		/* No-op */
+		/* No-op; BFD uses a zero dst_mask... */
 		return bfd_reloc_ok;
 	}
 

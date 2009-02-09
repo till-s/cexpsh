@@ -894,8 +894,11 @@ unsigned long vma;
 #endif
 			if ( err ) {
 				fprintf(stderr,
-					"Relocation of type '%s' failed: %s (check compiler flags!)\n",
+					"Relocation of type '%s'@%p[%s] ->'%s' failed: %s (check compiler flags!)\n",
 					reloc_get_name(abfd, r),
+					reloc_get_address(abfd, r),
+					bfd_get_section_name(abfd,sect),
+					bfd_asymbol_name(*ppsym),
 					err >= NumberOf(reloc_err_msg) ? "unknown error" : reloc_err_msg[err]);
 				ld->errors++;
 			}

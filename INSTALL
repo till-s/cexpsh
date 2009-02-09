@@ -77,6 +77,14 @@ b) Build Cexp target library and cross xsyms tool for a specific
     * cross tools must be found in PATH
 	* will build for all BSPs found under <with-rtems-top>/<host-cpu>-rtems/
 	  but you can restrict the BSPs built using --enable-rtemsbsp='bsp1 bsp2'
+    * if no '--host' option is given (but the build system 'knows'
+      that the host system is RTEMS because of the --with-rtems-top option)
+      then all BSPs for all architectures found under <with-rtems-top>
+      are configured. It is possible to build for a subset of BSPs
+      simply by listing them in --with-rtemsbsp -- the BSPs need not
+      belong to the same host architecture (but if --host is given
+      then they do).
+
 
    Build cross xsyms tool:
 

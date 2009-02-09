@@ -430,7 +430,7 @@ AH_VERBATIM(NO_THREAD_PROTECTION,[
 AC_CONFIG_FILES(Makefile)
 
 # cannot use multilibs with BFD
-if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test ! "${enable_multilib}" = "no" ; then
+if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test "${enable_multilib}" = "yes" ; then
 	AC_MSG_ERROR([cannot build multilibbed BFD (or opcodes); please configure with --disable-multilib (or --disable-bfd --disable-opcodes)])
 fi
 

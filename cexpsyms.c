@@ -150,7 +150,7 @@ fd_set	r,w,e;
 char	errbuf[1000],*ptr,*buf;
 struct  timeval timeout;
 
-register long ntot=0,got;
+register long ntot=0,got,put,idx;
 
 	if (n<fd)		n=fd;
 	if (n<errfd)	n=errfd;
@@ -185,9 +185,19 @@ register long ntot=0,got;
 							strerror(errno));
 					goto cleanup;
 				}
-				if (got)
-					write(2,errbuf,got);
-				else {
+				if (got) {
+					idx = 0;
+					do {
+						put = write(2,errbuf+idx,got);
+						if ( put <= 0 ) {
+							fprintf(stderr,"rsh error (writing stderr): %s.\n",
+									strerror(errno));
+							goto cleanup;
+						}
+						idx += put;
+						got -= put;
+					} while ( got > 0 );
+				} else {
 					errfd=-1; 
 				}
 		}

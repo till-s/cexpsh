@@ -375,8 +375,7 @@ struct winsize	win;
 		printf("More (Y/n)?:"); fflush(stdout);
 		if (tsaved>0)
 			tcsetattr(STDIN_FD,TCSANOW,&rawatts);
-		read(STDIN_FD,&ans,1);
-		ch=ans;
+		ch = (1 == read(STDIN_FD,&ans,1) ? ans : 'Y');
 		if ('Y'==toupper(ch) || '\n'==ch || '\r'==ch)
 			ch=0;
 		if (tsaved>0)

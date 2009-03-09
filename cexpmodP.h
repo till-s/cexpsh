@@ -95,7 +95,7 @@ typedef struct CexpModuleRec_ {
 	CexpSymTbl			symtbl;
 	ModuleId 			id;			/* unique ID                                   */
 	CexpSegment         segs;       /* array of actual memory segments             */
-	unsigned            memSize;    /* total memory occupied by binary             */
+	unsigned long       memSize;    /* total memory occupied by binary             */
 	BITMAP_DECLARE(neededby);		/* bitmap module ids that depend on this one   */
 	BITMAP_DECLARE(needs);			/* bitmap of module ids this module depends on */
 	VoidFnPtr			*ctor_list;

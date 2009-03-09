@@ -56,7 +56,7 @@ ifdef tools_prefix
 PATH:= $(tools_prefix):$(PATH)
 endif
 
-ACLOCAL    = $(AUTOPATH)aclocal -I$(shell pwd)/../autognu
+ACLOCAL    = $(AUTOPATH)aclocal -I$(shell pwd)/m4
 AUTOCONF   = $(AUTOPATH)autoconf 
 AUTOHEADER = $(AUTOPATH)autoheader
 AUTOMAKE   = $(AUTOPATH)automake

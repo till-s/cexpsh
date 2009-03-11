@@ -1,8 +1,9 @@
 #include <pmelf.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static Pmelf_attribute_set *
-read_atts(char *filenm)
+read_atts(char *filenm, int force_vendor_missing)
 {
 Elf_Stream             s;
 Pmelf_Shtab            shtab = 0;
@@ -27,14 +28,14 @@ unsigned               m,abi;
 	m   = eh.e32.e_machine;
 	abi = eh.e_ident[EI_OSABI]; 
 
-	if ( ! (pv = pmelf_attributes_vendor_find_gnu(m,abi)) ) {
-		fprintf(stderr,"No 'vendor' for attribute parsing/matching found (machine %u, abi %u)\n",m,abi);
-		goto cleanup;
-	}
-
-	if ( pmelf_attributes_vendor_register(pv) ) {
-		fprintf(stderr,"Registration of vendor %s failed (already registered)\n", pmelf_attributes_vendor_name(pv));
-		goto cleanup;
+	if ( ! force_vendor_missing ) {
+		if ( ! (pv = pmelf_attributes_vendor_find_gnu(m,abi)) ) {
+			fprintf(stderr,"No 'vendor' for attribute parsing/matching found (machine %u, abi %u)\n",m,abi);
+		} else {
+			if ( pmelf_attributes_vendor_register(pv) ) {
+				fprintf(stderr,"Registration of vendor %s failed (already registered ?)\n", pmelf_attributes_vendor_name(pv));
+			}
+		}
 	}
 
 	if ( ! (shtab = pmelf_getshtab(s, &eh)) ) {
@@ -51,7 +52,7 @@ unsigned               m,abi;
 		shdr =  (shtab->clss == ELFCLASS64 ? (Elf_Shdr*)&shtab->shdrs.p_s64[i] : (Elf_Shdr*)&shtab->shdrs.p_s32[i]);
 		if ( SHT_GNU_ATTRIBUTES == shdr->s32.sh_type ) {
 			if ( ! (pa = pmelf_create_attribute_set(s, shdr)) ) {
-				fprintf(stderr,"Creating attribute set failed\n");
+				fprintf(stderr,"Creating attribute set failed -- unable to parse '.gnu.attributes' section\n");
 				goto cleanup;
 			}
 			break;
@@ -78,23 +79,34 @@ cleanup:
 int
 main(int argc, char **argv)
 {
-int                  i;
 Pmelf_attribute_set *pa    = 0;
 Pmelf_attribute_set *pb    = 0;
 int                  rval  = 1;
+int                  opt;
+int                  novendor = 0;
+
+	while ( -1 != (opt = getopt(argc, argv, "m")) ) {
+		switch ( opt ) {
+			case 'm':
+				novendor = 1;
+			break;
+			default:
+			break;
+		}
+	}
 
 	pmelf_set_errstrm(stderr);
 
-	if ( argc < 2 ) {
+	if ( argc - optind < 1 ) {
 		fprintf(stderr,"Need object file arg\n");
 		return 1;
 	}
 
-	if ( ( pa = read_atts(argv[1]) ) ) {
+	if ( ( pa = read_atts(argv[optind], novendor) ) ) {
 		pmelf_print_attribute_set(pa, stdout);
 	}
 
-	if ( argc > 2 && ( pb = read_atts(argv[2]) ) ) {
+	if ( argc - optind > 1 && ( pb = read_atts(argv[optind+1], novendor) ) ) {
 		pmelf_print_attribute_set(pb, stdout);
 		if ( pmelf_match_attribute_set(pa,pb) ) {
 			printf("Attribute mismatch\n");
@@ -106,7 +118,9 @@ int                  rval  = 1;
 
 	rval = 0;
 
+ /*
 cleanup:
+ */
 
 	if ( pa )
 		pmelf_destroy_attribute_set(pa);

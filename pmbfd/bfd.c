@@ -1336,13 +1336,12 @@ Pmelf_attribute_vendor *pv;
 	m   = abfd->ehdr.e32.e_machine;
 	abi = abfd->ehdr.e_ident[EI_OSABI]; 
 
-	if ( ! (pv = pmelf_attributes_vendor_find_gnu(m,abi)) ) {
-		fprintf(stderr,"No 'vendor' for attribute parsing/matching found (machine %u, abi %u)\n",m,abi);
-		goto cleanup;
-	}
-
-	/* ignore failure of this call (same vendor was already registered) */
-	pmelf_attributes_vendor_register(pv);
+	if ( (pv = pmelf_attributes_vendor_find_gnu(m,abi)) ) {
+		pmelf_attributes_vendor_register(pv);
+	} 
+	/* else: ignore failure of this call (same vendor was already
+	 *       registered or this machine/abi has no known vendor)
+	 */
 #endif
 
 	if ( !strcmp(myarch.arch_name, bfd_get_target(abfd)) ) {

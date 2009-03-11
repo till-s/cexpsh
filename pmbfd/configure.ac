@@ -30,7 +30,7 @@ AC_ARG_ENABLE(byteswap,
 )
 
 AC_ARG_ENABLE(tests,
-	AC_HELP_STRING([--enable-test],
+	AC_HELP_STRING([--enable-tests],
 		[enable test programs])
 )
 

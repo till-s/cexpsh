@@ -137,7 +137,7 @@ cexp_SOURCES  = cexp_main.c
 cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_DEPENDENCIES=libcexp.a 
-cexp_LDFLAGS  = -L. $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
+cexp_LDFLAGS  = -L. -Wl,-u,printf $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 bin_PROGRAMS  = cexp
 bin_PROGRAMS += xsyms
 endif #DO_DEMO

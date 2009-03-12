@@ -126,6 +126,13 @@ typedef struct bfd bfd;
 #define BSF_FILE			0x4000
 #define BSF_DEBUGGING		0x0008
 
+/* BSF_THREAD_LOCAL is 0x40000 in BFD
+ * we only support it so we can strip
+ * TLS symbols when creating a symbol
+ * table for the cexp demo program.
+ */
+#define BSF_THREAD_LOCAL	0x2000
+
 #define SEC_ALLOC			0x00000001
 #define SEC_RELOC			0x00000004
 #define SEC_GROUP			0x04000000

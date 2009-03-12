@@ -553,7 +553,9 @@ const int symsz = get_symsz(abfd);
 
 			asym->secndx = st_shndx;
 
-			/* if the section already has a vma recalculate the offset */
+			/* Hack to support demo program ... 
+			 * if the section already has a vma recalculate the offset
+			 */
 			asym->val   -= bfd_get_section_vma(abfd, symsec);
 
 			switch ( sym_bind ) {
@@ -573,6 +575,7 @@ const int symsz = get_symsz(abfd);
 			}
 
 			switch ( sym_type ) {
+				case STT_TLS:		asym->flags |= BSF_THREAD_LOCAL;            break;
 				case STT_FUNC:		asym->flags |= BSF_FUNCTION;				break;
 				case STT_OBJECT:	asym->flags |= BSF_OBJECT;					break;
 				case STT_FILE:		asym->flags |= BSF_FILE | BSF_DEBUGGING;	break;

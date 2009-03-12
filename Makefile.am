@@ -136,7 +136,7 @@ cexp_SOURCES  = cexp_main.c
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
-cexp_DEPENDENCIES=libcexp.a 
+cexp_DEPENDENCIES=libcexp.a  $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_LDFLAGS  = -L. -Wl,-u,printf $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 bin_PROGRAMS  = cexp
 bin_PROGRAMS += xsyms
@@ -151,7 +151,7 @@ hostbin_PROGRAMS=xsyms
 endif
 endif #DO_CEXPLIB
 
-XSYMS=xsyms
+XSYMS=$(builddir)/xsyms
 
 #we can't use automake for this because
 # - we _need_ bison

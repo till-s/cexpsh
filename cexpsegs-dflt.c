@@ -92,7 +92,7 @@ cexpSegsInit(CexpSegment *ptr)
  * RETURNS: non-negative number or -1 on error.
  */
 CexpSegment
-cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s)
+cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s)
 {
 	return &segArray[0];
 }

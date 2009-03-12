@@ -351,7 +351,7 @@ unsigned long     sz;
  * Find segment index for a given section.
  */
 CexpSegment
-cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s)
+cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s)
 {
 const char *nam = bfd_get_section_name(abfd, (asection*)s);
 

@@ -104,7 +104,7 @@ struct sec;
  * Find segment for a given section.
  * RETURNS: segment or NULL on error.
  */
-CexpSegment cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, struct sec *s);
+CexpSegment cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s);
 
 
 /* A segment of output memory */

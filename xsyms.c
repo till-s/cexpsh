@@ -334,6 +334,14 @@ static int
 symfilter(bfd *abfd, asymbol *s, int accept_sect_syms)
 {
 asection *sect = bfd_get_section(s);
+	/* drop TLS symbols for now; these should only
+	 * appear in the cexp host demo program...
+	 */
+	if ( BSF_THREAD_LOCAL & s->flags ) {
+		fprintf(stderr,"WARNING: dropping thread-local symbol '%s'\n", bfd_asymbol_name(s));
+		return 0;
+	}
+
 	if ( BSF_LOCAL & s->flags ) {
 		/* keep local symbols only if they are section symbols of allocated sections */
 		if ( accept_sect_syms && (BSF_SECTION_SYM & s->flags) && (SEC_ALLOC & bfd_get_section_flags(abfd,sect)) ) {

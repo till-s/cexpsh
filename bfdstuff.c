@@ -1174,6 +1174,11 @@ int			i,errs=0;
 		/* non-local, i.e. global or undefined */
 		symname = bfd_asymbol_name(sp);
 
+		if ( BSF_THREAD_LOCAL & sp->flags ) {
+			fprintf(stderr,"Warning: ignoring thread-local symbol '%s'; no TLS support\n", symname);
+			continue; /* proceed with the next symbol */
+		}
+
 		ts=cexpSymLookup(symname, &mod);
 
 		if (bfd_is_und_section(sect)) {

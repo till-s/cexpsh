@@ -145,9 +145,9 @@ else #DO_CEXPLIB
 # cross-tools only
 gencore_CPPFLAGS = $(xsyms_CPPFLAGS)
 if USEBFD
-bin_PROGRAMS=xsyms gencore
+hostbin_PROGRAMS=xsyms gencore
 else
-bin_PROGRAMS=xsyms
+hostbin_PROGRAMS=xsyms
 endif
 endif #DO_CEXPLIB
 

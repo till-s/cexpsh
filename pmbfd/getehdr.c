@@ -174,13 +174,15 @@ int     rval;
 			}
 
 			s->machine = pehdr->e64.e_machine;
+
+			break;
 #else
 			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: cannot read 64-bit ELF file; pmelf was configured and built without 64-bit support!\n");
 			return -3;
 #endif
 		default:
 			s->clss = ELFCLASSNONE;
-			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not an 32/64-bit ELF file\n");
+			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: not a 32/64-bit ELF file\n");
 			return -1;
 	}
 

@@ -1,0 +1,5 @@
+ 20090625 (T.S.):
+ - Added ChangeLog
+ - minor 64-bit fixes:
+   o getehdr.c: added missing 'break;' to switch
+       statement in pmelf_getehdr().

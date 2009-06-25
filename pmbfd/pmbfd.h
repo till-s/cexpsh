@@ -225,6 +225,17 @@ enum bfd_architecture {
 #define bfd_mach_mcf_isa_b_float               22
 #define bfd_mach_mcf_isa_b_float_mac           23
 #define bfd_mach_mcf_isa_b_float_emac          24
+	bfd_arch_sparc        =  6,
+#define bfd_mach_sparc                          1
+#define bfd_mach_sparc_sparclet                 2
+#define bfd_mach_sparc_sparclite                3
+#define bfd_mach_sparc_v8plus                   4
+#define bfd_mach_sparc_v8plusa                  5
+#define bfd_mach_sparc_sparclite_le             6
+#define bfd_mach_sparc_v9                       7
+#define bfd_mach_sparc_v9a                      8
+#define bfd_mach_sparc_v8plusb                  9
+#define bfd_mach_sparc_v9b                     10
 	bfd_arch_i386         =  9,
 #define bfd_mach_i386_i386	                    1
 #define bfd_mach_i386_i8086                     2

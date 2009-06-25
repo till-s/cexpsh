@@ -1,7 +1,13 @@
  20090625 (T.S.):
+ - bfd.c, dmpehdr.c, dmprels.c, getehdr.c, pmbfd.h,
+   pmelf.h, bfd-reloc-sparc.c (stub only): Added basic
+   support for SPARC (no relocations yet).
+
+ 20090625 (T.S.):
  - Added ChangeLog
  - minor 64-bit fixes:
    o getehdr.c: added missing 'break;' to switch
        statement in pmelf_getehdr().
    o dmprels.c: Fixed wrong member name
        (p_p_s64 -> p_s64) in dmprels.c
+

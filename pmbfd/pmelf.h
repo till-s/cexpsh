@@ -83,6 +83,7 @@ typedef  int64_t Elf64_Sxword;
 #define ET_HIPROC	0xffff	/* processor specific */
 
 /* Machine type (supported by us so far)          */
+#define EM_SPARC			 2
 #define EM_386				 3
 #define EM_68K				 4
 #define EM_PPC				20
@@ -308,6 +309,72 @@ typedef union {
 /**************************************************/
 /*  RELOCATION RECORDS                            */
 /**************************************************/
+
+/*
+ * Sysv relocation types for SPARC.
+ */
+
+#define R_SPARC_NONE              0
+#define R_SPARC_8                 1
+#define R_SPARC_16                2
+#define R_SPARC_32                3
+#define R_SPARC_DISP8             4
+#define R_SPARC_DISP16            5
+#define R_SPARC_DISP32            6
+#define R_SPARC_WDISP30           7
+#define R_SPARC_WDISP22           8
+#define R_SPARC_HI22              9
+#define R_SPARC_22               10
+#define R_SPARC_12               11
+#define R_SPARC_LO10             12
+#define R_SPARC_GOT10            13	/* unimpl */
+#define R_SPARC_GOT13            14	/* unimpl */
+#define R_SPARC_GOT22            15	/* unimpl */
+#define R_SPARC_PC10             16
+#define R_SPARC_PC22             17
+#define R_SPARC_WPLT30           18	/* unimpl */
+#define R_SPARC_COPY             19	/* unimpl */
+#define R_SPARC_GLOB_DAT         20	/* unimpl */
+#define R_SPARC_JMP_SLOT         21	/* unimpl */
+#define R_SPARC_RELATIVE         22	/* unimpl */
+#define R_SPARC_UA32             23
+#define R_SPARC_PLT32            24	/* unimpl */
+#define R_SPARC_HIPLT22          25	/* unimpl */
+#define R_SPARC_LOPLT10          26	/* unimpl */
+#define R_SPARC_PCPLT32          27	/* unimpl */
+#define R_SPARC_PCPLT22          28	/* unimpl */
+#define R_SPARC_PCPLT10          29	/* unimpl */
+#define R_SPARC_10               30
+#define R_SPARC_11               31
+/**/
+#define R_SPARC_HH22             34
+#define R_SPARC_HM10             35
+#define R_SPARC_LM22             36
+#define R_SPARC_PC_HH22          37
+#define R_SPARC_PC_HM10          38
+#define R_SPARC_PC_LM22          39
+#define R_SPARC_WDISP16          40
+#define R_SPARC_WDISP19          41
+/**/
+#define R_SPARC_7                43
+#define R_SPARC_5                44
+#define R_SPARC_6                45
+/**/
+#define R_SPARC_HIX22            48
+#define R_SPARC_LOX10            49
+#define R_SPARC_H44              50
+#define R_SPARC_M44              51
+#define R_SPARC_L44              52
+#define R_SPARC_REGISTER         53	/* unimpl */
+/**/
+#define R_SPARC_UA16             55
+/**/
+#define R_SPARC_GOTDATA_HIX22    80	/* unimpl */
+#define R_SPARC_GOTDATA_LOX10    81	/* unimpl */
+#define R_SPARC_GOTDATA_OP_HIX22 82	/* unimpl */
+#define R_SPARC_GOTDATA_OP_LOX10 83	/* unimpl */
+#define R_SPARC_GOTDATA_OP       84	/* unimpl */
+
 
 /*
  * SysvR4 relocation types for i386. Statically linked objects
@@ -1011,8 +1078,79 @@ pmelf_getrel(Elf_Stream s, Elf_Shdr *psect, void *data);
  */
 #define pmelf_namecase(rel)	case rel: return #rel;
 
-static __inline__ 
-const char *pmelf_i386_rel_name(Elf32_Rel *r)
+static __inline__ const char *
+pmelf_sparc_rel_name(Elf32_Rela *r)
+{
+	switch ( ELF32_R_TYPE(r->r_info) ) {
+		pmelf_namecase( R_SPARC_NONE             )
+		pmelf_namecase( R_SPARC_8                )
+		pmelf_namecase( R_SPARC_16               )
+		pmelf_namecase( R_SPARC_32               )
+		pmelf_namecase( R_SPARC_DISP8            )
+		pmelf_namecase( R_SPARC_DISP16           )
+		pmelf_namecase( R_SPARC_DISP32           )
+		pmelf_namecase( R_SPARC_WDISP30          )
+		pmelf_namecase( R_SPARC_WDISP22          )
+		pmelf_namecase( R_SPARC_HI22             )
+		pmelf_namecase( R_SPARC_22               )
+		pmelf_namecase( R_SPARC_12               )
+		pmelf_namecase( R_SPARC_LO10             )
+		pmelf_namecase( R_SPARC_GOT10            )
+		pmelf_namecase( R_SPARC_GOT13            )
+		pmelf_namecase( R_SPARC_GOT22            )
+		pmelf_namecase( R_SPARC_PC10             )
+		pmelf_namecase( R_SPARC_PC22             )
+		pmelf_namecase( R_SPARC_WPLT30           )
+		pmelf_namecase( R_SPARC_COPY             )
+		pmelf_namecase( R_SPARC_GLOB_DAT         )
+		pmelf_namecase( R_SPARC_JMP_SLOT         )
+		pmelf_namecase( R_SPARC_RELATIVE         )
+		pmelf_namecase( R_SPARC_UA32             )
+		pmelf_namecase( R_SPARC_PLT32            )
+		pmelf_namecase( R_SPARC_HIPLT22          )
+		pmelf_namecase( R_SPARC_LOPLT10          )
+		pmelf_namecase( R_SPARC_PCPLT32          )
+		pmelf_namecase( R_SPARC_PCPLT22          )
+		pmelf_namecase( R_SPARC_PCPLT10          )
+		pmelf_namecase( R_SPARC_10               )
+		pmelf_namecase( R_SPARC_11               )
+/**/
+		pmelf_namecase( R_SPARC_HH22             )
+		pmelf_namecase( R_SPARC_HM10             )
+		pmelf_namecase( R_SPARC_LM22             )
+		pmelf_namecase( R_SPARC_PC_HH22          )
+		pmelf_namecase( R_SPARC_PC_HM10          )
+		pmelf_namecase( R_SPARC_PC_LM22          )
+		pmelf_namecase( R_SPARC_WDISP16          )
+		pmelf_namecase( R_SPARC_WDISP19          )
+/**/
+		pmelf_namecase( R_SPARC_7                )
+		pmelf_namecase( R_SPARC_5                )
+		pmelf_namecase( R_SPARC_6                )
+/**/
+		pmelf_namecase( R_SPARC_HIX22            )
+		pmelf_namecase( R_SPARC_LOX10            )
+		pmelf_namecase( R_SPARC_H44              )
+		pmelf_namecase( R_SPARC_M44              )
+		pmelf_namecase( R_SPARC_L44              )
+		pmelf_namecase( R_SPARC_REGISTER         )
+/**/
+		pmelf_namecase( R_SPARC_UA16             )
+/**/
+		pmelf_namecase( R_SPARC_GOTDATA_HIX22    )
+		pmelf_namecase( R_SPARC_GOTDATA_LOX10    )
+		pmelf_namecase( R_SPARC_GOTDATA_OP_HIX22 )
+		pmelf_namecase( R_SPARC_GOTDATA_OP_LOX10 )
+		pmelf_namecase( R_SPARC_GOTDATA_OP       )
+
+		default:
+			break;
+	}
+	return "UNKNOWN";
+}
+
+static __inline__ const char *
+pmelf_i386_rel_name(Elf32_Rel *r)
 {
 	switch ( ELF32_R_TYPE(r->r_info) ) {
 		pmelf_namecase( R_386_NONE     )

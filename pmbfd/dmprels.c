@@ -60,6 +60,7 @@
 static const char *reltype(unsigned mach, Elf_Reloc *r)
 {
 	switch ( mach ) {
+		case EM_SPARC:  return pmelf_sparc_rel_name( &r->ra32 );
 		case EM_386:    return pmelf_i386_rel_name( &r->r32 );
 		case EM_68K:    return pmelf_m68k_rel_name( &r->ra32 );
 		case EM_PPC:    return pmelf_ppc_rel_name( &r->ra32 );

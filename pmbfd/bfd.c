@@ -101,9 +101,15 @@ static const bfd_arch_info_type arches[] = {
 	{
 	arch_name: "elf64-x86_64",
 	arch:      bfd_arch_i386,
-	mach:      bfd_mach_x86_64,
 	elf_id:    EM_X86_64,
+	mach:      bfd_mach_x86_64,
 	},
+	{
+	arch_name: "elf32-sparc",
+	arch:      bfd_arch_sparc,
+	elf_id:    EM_SPARC,
+	mach:      bfd_mach_sparc,
+	}
 };
 
 static const bfd_arch_info_type myarch = {
@@ -132,6 +138,11 @@ static const bfd_arch_info_type myarch = {
 	arch:      bfd_arch_i386,
 	mach:      bfd_mach_x86_64,
 	elf_id:    EM_X86_64,
+#elif defined(__sparc__)
+	arch_name: "elf32-sparc",
+	arch:      bfd_arch_sparc,
+    mach:      bfd_mach_sparc,
+    elf_id:    EM_SPARC,
 #else
 #error "Undefined architecture"
 #endif

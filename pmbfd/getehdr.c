@@ -187,6 +187,7 @@ int     rval;
 	}
 
 	switch ( s->machine ) {
+		case EM_SPARC:
 		case EM_386:
 		case EM_68K:
 		case EM_PPC:

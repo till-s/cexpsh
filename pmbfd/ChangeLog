@@ -3,3 +3,5 @@
  - minor 64-bit fixes:
    o getehdr.c: added missing 'break;' to switch
        statement in pmelf_getehdr().
+   o dmprels.c: Fixed wrong member name
+       (p_p_s64 -> p_s64) in dmprels.c

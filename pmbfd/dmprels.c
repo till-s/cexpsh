@@ -96,7 +96,7 @@ uint64_t    st_value;
 #ifdef PMELF_CONFIG_ELF64SUPPORT
 			case ELFCLASS64:
 				{
-					psect = (Elf_Shdr*)&sht->shdrs.p_p_s64[idx];
+					psect = (Elf_Shdr*)&sht->shdrs.p_s64[idx];
 					switch ( psect->s64.sh_type ) {
 						case SHT_REL:   type = T_REL64;  break;
 						case SHT_RELA:  type = T_RELA64; break;

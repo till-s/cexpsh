@@ -1,4 +1,10 @@
  20090625 (T.S.):
+ - bfd.c: Fixed conditional compilation in elf2bfdsec():
+   If 64-bit support is enabled then the 32-bit code
+   must still be compiled (there is a run-time test for
+   64/32-bit).
+
+ 20090625 (T.S.):
  - bfd.c, dmpehdr.c, dmprels.c, getehdr.c, pmbfd.h,
    pmelf.h, bfd-reloc-sparc.c (stub only): Added basic
    support for SPARC (no relocations yet).

@@ -1140,7 +1140,7 @@ Elf32_Shdr        *shdr;
 								sym_type = ELF64_ST_TYPE(sym.t64.st_info);
 							}
 							else
-#else
+#endif
 							{
 								if ( pmelf_getsym32(abfd->s, &sym.t32) ) {
 									bfd_perror("unable to read group signature symbol");
@@ -1150,7 +1150,6 @@ Elf32_Shdr        *shdr;
 								st_name = sym.t32.st_name;
 								sym_type = ELF32_ST_TYPE(sym.t32.st_info);
 							}
-#endif
 
 							/* apparently, ld -r puts the group name into the section name
 							 * and the symbol linked by the group header's sh_link

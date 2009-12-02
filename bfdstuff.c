@@ -153,6 +153,11 @@
  */
 static  cexp_regex	*ctorDtorRegexp=0;
 
+/*
+ * Allow to override the object-attribute matcher
+ */
+int _cexpForceIgnoreObjAttrMismatches = 0;
+
 #ifdef HAVE_BFD_DISASSEMBLER
 /* as a side effect, this code gives access to a disassembler which
  * itself is implemented by libopcodes
@@ -1571,7 +1576,11 @@ CexpModule                      m;
 			fprintf(stderr,
 			        "Mismatch of object file attributes (ABI) with module '%s' found\n",
 					m->name);
-			goto cleanup;
+			if ( _cexpForceIgnoreObjAttrMismatches ) {
+				fprintf(stderr,"WARNING: forced to ignore mismatch\n");
+			} else {
+				goto cleanup;
+			}
 		}
 	}
 #endif

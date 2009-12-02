@@ -1,4 +1,11 @@
 Changes since CEXP-2.0.beta
+ 2009/12/02:
+ - pmelf: bugfix in PPC attribute matcher;
+ - pmelf: added support for Tag_GNU_Power_ABI_Struct_Return.
+ - bfdstuff.c: added undocumented global variable
+   '_cexpForceIgnoreObjAttrMismatches' which can be set to nonzero
+   in order to force the BFD loader to ignore object attribute
+   mismatches.
  2009/06/25: 
  - pmelf: added basic support for SPARC
 

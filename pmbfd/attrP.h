@@ -101,20 +101,19 @@ typedef struct Pmelf_pub_attribute_ {
  */
 typedef uint8_t Pmelf_opaque_attribute[];
 
+typedef union Pmelf_attribute_ {
+	Pmelf_pub_attribute       pub;
+	Pmelf_opaque_attribute *p_opq;
+} Pmelf_attribute;
+
 /*
  * Tag-Value pair which can be on a linked-list
  */
 typedef struct Pmelf_attribute_list_ {
 	struct Pmelf_attribute_list_ *next;
-	union {
-		struct {
-			int                 tag;
-			Pmelf_pub_attribute val;
-		}                         pub;
-		struct {
-			int                 tag;
-			uint8_t             val[];
-		}                         opq;
+	struct {
+		int                     tag;
+		Pmelf_attribute         val;
 	}                             att;
 } Pmelf_attribute_list;
 
@@ -125,10 +124,7 @@ typedef struct Pmelf_attribute_list_ {
 typedef struct {
 	struct Pmelf_attribute_set_    *aset;       /* pointer back to the container            */
 	struct Pmelf_attribute_vendor_ *pv;         /* vendor knowing how to handle this set    */
-	union   {
-		Pmelf_opaque_attribute *p_opq;
-		Pmelf_pub_attribute    *p_pub;
-	}                               vals;       /* pointer to array of values belonging to
+	union  Pmelf_attribute_        *vals;       /* pointer to array of values belonging to
 	                                             * tags registered in 'map'
 	                                             */
 	uint8_t	                        avail;      /* # of free units in 'vals' array          */
@@ -328,6 +324,14 @@ pmelf_pub_print_tag(Pmelf_attribute_tbl *patbl, FILE *f, int tag);
  */
 int
 pmelf_print_attribute(Pmelf_attribute_tbl *patbl, FILE *f, Elf32_Word tag, void *att);
+
+/*
+ * Read value associated with 'tag' into *p_val.
+ *
+ * RETURNS: 0 on success, nonzero on error (e.g., tag not found).
+ */
+int
+pmelf_attribute_get_tag_val(Pmelf_attribute_tbl *pa, Elf32_Word tag, Pmelf_attribute **p_val);
 
 /*
  * Read 32-bit word and byte-swap if requested (caller must know whether

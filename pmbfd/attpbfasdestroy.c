@@ -56,8 +56,8 @@ pmelf_pub_file_attributes_destroy(Pmelf_attribute_tbl *patbl)
 Pmelf_attribute_list *el;
 
 	if ( patbl ) {
-		free( patbl->vals.p_pub );
-		patbl->vals.p_pub = 0;
+		free( patbl->vals );
+		patbl->vals = 0;
 
 		while ( (el = patbl->lst) ) {
 			patbl->lst  = patbl->lst->next;

@@ -59,7 +59,7 @@ find_compat(Pmelf_attribute_tbl *patbl)
 {
 Pmelf_attribute_list *el;
 	for ( el=patbl->lst; el; el=el->next )
-		if ( Tag_Compat == el->att.pub.tag )
+		if ( Tag_Compat == el->att.tag )
 			break;
 	return el;
 }
@@ -73,18 +73,18 @@ Pmelf_attribute_list *el;
 static int filter_nongnu(const char *nm, Pmelf_attribute_list *el)
 {
 int flgs_gt_1 = 0;
-	while ( el && Tag_Compat == el->att.pub.tag ) {
-		if ( el->att.pub.val.i > 0 ) {
-			if ( !el->att.pub.val.s ) {
+	while ( el && Tag_Compat == el->att.tag ) {
+		if ( el->att.val.pub.i > 0 ) {
+			if ( !el->att.val.pub.s ) {
 				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_match_compat - filter_nongnu: no tag string???\n");
 				PMELF_PRINTF( pmelf_err, "(Tag_Compat, object %s\n", nm);
 				return -1;
 			}
-			if ( strcmp("gnu", el->att.pub.val.s) ) {
-				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_match_compat - object '%s' requests toolchain '%s'\n", nm, el->att.pub.val.s);
+			if ( strcmp("gnu", el->att.val.pub.s) ) {
+				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_match_compat - object '%s' requests toolchain '%s'\n", nm, el->att.val.pub.s);
 				return -1;
 			}
-			if ( el->att.pub.val.i > 1 )
+			if ( el->att.val.pub.i > 1 )
 				flgs_gt_1++;
 		}
 		el = el->next;
@@ -107,18 +107,18 @@ filter_gt1(const char *nma, const char *nmb, Pmelf_attribute_list *ela, Pmelf_at
 Pmelf_attribute_list *pa, *pb, *pn;
 Elf32_Word            flg;
 
-	for ( pa = ela; pa && Tag_Compat == pa->att.pub.tag; pa=pa->next ) {
-		if ( ( flg = pa->att.pub.val.i) > 1 ) {
+	for ( pa = ela; pa && Tag_Compat == pa->att.tag; pa=pa->next ) {
+		if ( ( flg = pa->att.val.pub.i) > 1 ) {
 			pn = elb;
 			do {
 				pb = pn;
-				if ( !pb || Tag_Compat != pb->att.pub.tag ) {
+				if ( !pb || Tag_Compat != pb->att.tag ) {
 					/* flag not found in set B */
 					PMELF_PRINTF(pmelf_err, PMELF_PRE"pmelf_match_attribute_set(): flag %"PRIu32" present in object %s not found in object %s\n", flg, nma, nmb);
 					return -1;
 				}
 				pn = pn->next;
-			} while ( flg != pb->att.pub.val.i );
+			} while ( flg != pb->att.val.pub.i );
 			/* this flag found; proceed to next */
 		}
 	}

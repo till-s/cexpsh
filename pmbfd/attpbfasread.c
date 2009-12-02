@@ -90,7 +90,7 @@ unsigned              csz;
 
 			csz = CHUNKSZ < patbl->pv->max_tag ? CHUNKSZ : patbl->pv->max_tag;
 
-			if ( !(patbl->vals.p_pub = realloc(patbl->vals.p_pub, sizeof(*patbl->vals.p_pub)*(patbl->idx + csz))) ) {
+			if ( !(patbl->vals = realloc(patbl->vals, sizeof(*patbl->vals)*(patbl->idx + csz))) ) {
 				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_pub_file_attributes_read(): no memory\n");
 				goto cleanup;
 			}
@@ -156,21 +156,21 @@ unsigned              csz;
 			}
 			/* append to possibly existing instances of 'tag' */
 			for ( pp = &patbl->lst; *pp; pp = &(*pp)->next ) {
-				if ( (*pp)->att.pub.tag == tag ) {
-					for ( pn = &(*pp)->next; *pn && (*pn)->att.pub.tag == tag; pp = pn)
+				if ( (*pp)->att.tag == tag ) {
+					for ( pn = &(*pp)->next; *pn && (*pn)->att.tag == tag; pp = pn)
 						;
 					break;
 				}
 			}
-			el->next                = *pp;
-			*pp                     = el;
-			el->att.pub.tag         = tag;
-			el->att.pub.val.i       = ival;
-			el->att.pub.val.s       = sval;
+			el->next          = *pp;
+			*pp               = el;
+			el->att.tag       = tag;
+			el->att.val.pub.i = ival;
+			el->att.val.pub.s = sval;
 		} else {
-			patbl->map[tag]             = patbl->idx;
-			patbl->vals.p_pub[patbl->idx].i = ival;
-			patbl->vals.p_pub[patbl->idx].s = sval;
+			patbl->map[tag]               = patbl->idx;
+			patbl->vals[patbl->idx].pub.i = ival;
+			patbl->vals[patbl->idx].pub.s = sval;
 			patbl->idx++;
 		}
 	}

@@ -160,11 +160,11 @@ Elf32_Word             len,tag,sublen;
 						goto cleanup;
 					}
 
-					patbl->vals.p_pub   = 0;
-					patbl->avail        = 0;
-					patbl->idx          = 1;	/* first entry is empty/unused */
-					patbl->pv           = pv;
-					patbl->aset         = rval;
+					patbl->vals  = 0;
+					patbl->avail = 0;
+					patbl->idx   = 1;	/* first entry is empty/unused */
+					patbl->pv    = pv;
+					patbl->aset  = rval;
 
 					rval->attributes[l].file_attributes = patbl;
 				}
@@ -405,4 +405,22 @@ const char *
 pmelf_attributes_vendor_name(Pmelf_attribute_vendor *pv)
 {
 	return pv->name;
+}
+
+int
+pmelf_attribute_get_tag_val(Pmelf_attribute_tbl *pa, Elf32_Word tag, Pmelf_attribute **p_val)
+{
+Pmelf_attribute_list *el;
+	if ( (tag <= pa->pv->max_tag && Tag_Compat != tag) && pa->map[tag] ) {
+		*p_val = &pa->vals[pa->map[tag]];
+		return 0;
+	} else {
+		for ( el = pa->lst; el; el=el->next ) {
+			if ( el->att.tag == tag ) {
+				*p_val =  &el->att.val;
+				return 0;
+			}
+		}
+	}
+	return -1;
 }

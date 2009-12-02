@@ -50,21 +50,39 @@
 #include <stdio.h>
 #include <inttypes.h>
 
-#define Tag_GNU_Power_ABI_FP	4
-#define Tag_GNU_Power_ABI_VEC	8
+#define Tag_GNU_Power_ABI_FP                   4
+#define Tag_GNU_Power_ABI_Vector               8
+#define Tag_GNU_Power_ABI_Struct_Return       12
 
-#define GNU_Power_ABI_SPE	    3
-#define GNU_Power_ABI_ALTIVEC	2
-#define GNU_Power_ABI_NOVEC     1
+#define GNU_Power_ABI_FP_MAX_KNOWN             3
+#define GNU_Power_ABI_FP_SP_HARD               3
+#define GNU_Power_ABI_FP_SOFT                  2
+#define GNU_Power_ABI_FP_HARD                  1
+
+#define GNU_Power_ABI_Vector_MAX_KNOWN         3
+#define GNU_Power_ABI_Vector_SPE               3
+#define GNU_Power_ABI_Vector_ALTIVEC           2
+#define GNU_Power_ABI_Vector_GENERIC           1
+
+#define GNU_Power_ABI_Struct_Return_MAX_KNOWN  2
+#define GNU_Power_ABI_Struct_Return_MEMORY     2
+#define GNU_Power_ABI_Struct_Return_R3_R4      1
+
+struct Gnu_PPC_Attributes {
+	int         tag;
+	int         max_known_tag_val;
+	const char  *(*valfn)(const int val);
+};
 
 /* PPC-specific (SYSV FP and ALTIVEC ABIs) tags */
 static Pmelf_pub_attribute_t
 pmelf_ppc_attribute_tag_t(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 {
 	switch ( tag ) {
-		case Tag_Compat:            return Pmelf_Attribute_Type_both;
-		case Tag_GNU_Power_ABI_FP:  return Pmelf_Attribute_Type_num;
-		case Tag_GNU_Power_ABI_VEC: return Pmelf_Attribute_Type_num;
+		case Tag_Compat:                      return Pmelf_Attribute_Type_both;
+		case Tag_GNU_Power_ABI_FP:            return Pmelf_Attribute_Type_num;
+		case Tag_GNU_Power_ABI_Vector:        return Pmelf_Attribute_Type_num;
+		case Tag_GNU_Power_ABI_Struct_Return: return Pmelf_Attribute_Type_num;
 		default:
 		break;
 	}
@@ -76,9 +94,10 @@ static const char *
 pmelf_ppc_attribute_tag_n(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 {
 	switch ( tag ) {
-		case Tag_Compat:            return "Tag_Compat";
-		case Tag_GNU_Power_ABI_FP:  return "Tag_GNU_Power_ABI_FP";
-		case Tag_GNU_Power_ABI_VEC: return "Tag_GNU_Power_ABI_VEC";
+		case Tag_Compat:                      return "Tag_Compat";
+		case Tag_GNU_Power_ABI_FP:            return "Tag_GNU_Power_ABI_FP";
+		case Tag_GNU_Power_ABI_Vector:        return "Tag_GNU_Power_ABI_Vector";
+		case Tag_GNU_Power_ABI_Struct_Return: return "Tag_GNU_Power_ABI_Struct_Return";
 		default:
 		break;
 	}
@@ -87,12 +106,13 @@ pmelf_ppc_attribute_tag_n(Pmelf_attribute_tbl *patbl, Elf32_Word tag)
 
 /* PPC-specific (SYSV FP ABI) attribute value descriptions */
 static const char *
-ppc_abi_fp_val(int val)
+ppc_abi_fp_val(const int val)
 {
 	switch ( val ) {
-		case 0: return "hard-or-soft-float";
-		case 1:	return "hard-float";
-		case 2:	return "soft-float";
+		case 0: return "abi-float-AGNOSTIC";
+		case 1:	return "abi-hard-float";
+		case 2:	return "abi-soft-float";
+		case 3: return "abi-single-precision-hard-float";
 		default:
 		break;
 	}
@@ -101,17 +121,46 @@ ppc_abi_fp_val(int val)
 
 /* PPC-specific (SYSV ALTIVEC ABI) attribute value descriptions */
 static const char *
-ppc_abi_vec_val(int val)
+ppc_abi_vec_val(const int val)
 {
 	switch ( val ) {
-		case 1:	return "abi-no-vec";
-		case 2:	return "abi-altivec";
-		case 3:	return "abi-spe";
+		case 0: return "abi-vec-AGNOSTIC";
+		case 1:	return "abi-vec-generic";
+		case 2:	return "abi-vec-altivec";
+		case 3:	return "abi-vec-spe";
 		default:
 				break;
 	}
 	return 0;
 }
+
+static const char *
+ppc_abi_srtn_val(const int val)
+{
+	switch ( val ) {
+		case 0: return "abi-struct_rtn-AGNOSTIC";
+		case 1:	return "abi-struct_rtn-r3_r4";
+		case 2:	return "abi-struct_rtn-memory";
+		default:
+				break;
+	}
+	return 0;
+}
+
+static struct Gnu_PPC_Attributes gnu_ppc_atts[] = {
+	{	tag:                Tag_GNU_Power_ABI_FP,
+		max_known_tag_val:  GNU_Power_ABI_FP_MAX_KNOWN,
+		valfn:              ppc_abi_fp_val
+	},
+	{	tag:                Tag_GNU_Power_ABI_Vector,
+		max_known_tag_val:  GNU_Power_ABI_Vector_MAX_KNOWN,
+		valfn:              ppc_abi_vec_val
+	},
+	{	tag:                Tag_GNU_Power_ABI_Struct_Return,
+		max_known_tag_val:  GNU_Power_ABI_Struct_Return_MAX_KNOWN,
+		valfn:              ppc_abi_srtn_val
+	},
+};
 
 /*
  * Dump PPC-specific (SYSV FP and ALTIVEC ABIs) attribute in 'public'
@@ -132,8 +181,12 @@ int                   rval = 0;
 			tv = ppc_abi_fp_val(a->i);
 		break;
 
-		case Tag_GNU_Power_ABI_VEC:
+		case Tag_GNU_Power_ABI_Vector:
 			tv = ppc_abi_vec_val(a->i);
+		break;
+
+		case Tag_GNU_Power_ABI_Struct_Return:
+			tv = ppc_abi_srtn_val(a->i);
 		break;
 	}
 
@@ -167,7 +220,8 @@ gnu_ppc_unknown(Elf32_Word tag)
 	switch ( tag ) {
 		case Tag_Compat:
 		case Tag_GNU_Power_ABI_FP:
-		case Tag_GNU_Power_ABI_VEC:
+		case Tag_GNU_Power_ABI_Vector:
+		case Tag_GNU_Power_ABI_Struct_Return:
 		return -1;
 	}
 	return tag;
@@ -194,7 +248,7 @@ const char           *str;
 	}
 
 	for ( el = patbl->lst; el; el=el->next ) {
-		if ( (rval = gnu_ppc_unknown(el->att.pub.tag)) >= 0 )
+		if ( (rval = gnu_ppc_unknown(el->att.tag)) >= 0 )
 			goto bail;
 	}
 
@@ -230,8 +284,12 @@ const char *str;
 static int
 pmelf_ppc_file_attributes_match(Pmelf_attribute_tbl *patbl, Pmelf_attribute_tbl *pbtbl)
 {
-int         tag;
-int         va,vb;
+int             tag;
+int             va=0,vb=0;
+int             vav,vbv;
+int             i;
+const char      *tagnm;
+Pmelf_attribute *a;
 
 	if ( !patbl && !pbtbl )
 		return 0;
@@ -248,50 +306,46 @@ int         va,vb;
 		return -1;
 	}
 
-	va = patbl->vals.p_pub[patbl->map[Tag_GNU_Power_ABI_FP]].i;
-	vb = pbtbl->vals.p_pub[pbtbl->map[Tag_GNU_Power_ABI_FP]].i;
+	for ( i=0; i<sizeof(gnu_ppc_atts)/sizeof(gnu_ppc_atts[0]); i++ ) {
 
-	if ( va > 2 ) {
-		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of GNU_Power_ABI_FP attribute in %s\n", va, patbl->aset->obj_name);
-	}
-	if ( vb > 2 ) {
-		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of GNU_Power_ABI_FP attribute in %s\n", vb, pbtbl->aset->obj_name);
-	}
+		tag   = gnu_ppc_atts[i].tag;
+		tagnm = pmelf_ppc_attribute_tag_n(patbl, tag);
 
-	if ( va != vb && ( va != 0 && vb != 0 ) ) {
-		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): mismatch of GNU_Power_ABI_FP attribute\n");
+		if ( 0 == ( vav = pmelf_attribute_get_tag_val(patbl, tag,  &a) ) ) {
+			va = a->pub.i;
+		}
+		if ( 0 == ( vbv = pmelf_attribute_get_tag_val(pbtbl, tag,  &a) ) ) {
+			vb = a->pub.i;
+		}
 
-		ppc_complain(patbl->aset->obj_name, ppc_abi_fp_val, va);
-		ppc_complain(pbtbl->aset->obj_name, ppc_abi_fp_val, vb);
+		if ( vav && vbv ) {
+			/* Tag not present in either file */
+	continue;
+		} else if ( vav ) {
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): Tag %s present in %s but not in %s (incompatibility due to different compilers used?)\n", tagnm, pbtbl->aset->obj_name, patbl->aset->obj_name);
+			return -1;
+		} else if ( vbv ) {
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): Tag %s present in %s but not in %s (incompatibility due to different compilers used?)\n", tagnm, patbl->aset->obj_name, pbtbl->aset->obj_name);
+			return -1;
+		}
 
-		return -1;
-	}
+		if ( va > gnu_ppc_atts[i].max_known_tag_val ) {
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of %s attribute in %s\n", va, tagnm, patbl->aset->obj_name);
+		}
+		if ( vb > gnu_ppc_atts[i].max_known_tag_val ) {
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): unkown value %u of %s attribute in %s\n", vb, tagnm, pbtbl->aset->obj_name);
+		}
 
-	va = patbl->vals.p_pub[patbl->map[Tag_GNU_Power_ABI_VEC]].i;
-	vb = pbtbl->vals.p_pub[pbtbl->map[Tag_GNU_Power_ABI_VEC]].i;
+		if ( va != vb && ( va != 0 && vb != 0 ) ) {
+			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): mismatch of %s attribute\n", tagnm);
 
-	if ( va != vb ) {
-#if 0
-		if (    (va == GNU_Power_ABI_NOVEC && vb == GNU_Power_ABI_ALTIVEC)
-	         || (vb == GNU_Power_ABI_NOVEC && va == GNU_Power_ABI_ALTIVEC) ) {
-			/* let altivec live with no-altivec (but not spe) -- I can't see any
-			 * incompatibilities ATM
-			 */
-			/* UPDATE: there *are* incompatibilities. I believe the ALTIVEC ABI
-			 *         passes arguments in vector registers, the non-ALTIVEC ABI
-			 *         passes vector args on the stack!
-			 */
-		} else
-#endif
-		{
-			PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_ppc_file_attributes_match(): mismatch of GNU_Power_ABI_VEC attribute\n");
-
-			ppc_complain(patbl->aset->obj_name, ppc_abi_vec_val, va);
-			ppc_complain(pbtbl->aset->obj_name, ppc_abi_vec_val, vb);
+			ppc_complain(patbl->aset->obj_name, gnu_ppc_atts[i].valfn, va);
+			ppc_complain(pbtbl->aset->obj_name, gnu_ppc_atts[i].valfn, vb);
 
 			return -1;
 		}
 	}
+
 	return pmelf_pub_file_attributes_match_compat(patbl,pbtbl);
 }
 

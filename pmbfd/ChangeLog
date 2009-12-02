@@ -1,3 +1,18 @@
+ 20091202 (T.S.):
+ - att-gnu-powerpc.c: BUGFIX: scanning for ABI tags would access
+   bad memory if tag was not present in object file. 
+   Added Tag_GNU_Power_ABI_Struct_Return.
+   Added GNU_Power_ABI_FP_SP_HARD (new value for FP tag).
+ - attrP.h, attpbfasdestroy.c, att-gnu-powerpc.c, attpbfasmatch.c,
+   attbpfasprint.c, attpbfasread.c, attset.c:
+   Introduced new union combining 'public' and 'opaque' values.
+   Previous implementation was wrong since it would not correctly
+   store 'opaque' values (arrays assumed 'public' layout).
+   The new union is now used in both, the array and list parts
+   of an attribute table.
+ - attrP.h, attset.c, att-gnu-powerpc.c: Added new function
+   'pmelf_attribute_get_tag_val()' for retrieving the value associated
+   with a particular tag.
  20090625 (T.S.):
  - bfd.c: Fixed conditional compilation in elf2bfdsec():
    If 64-bit support is enabled then the 32-bit code

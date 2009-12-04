@@ -789,7 +789,7 @@ void (*p_a)();             /* declare function pointer to 'a()'              */
 Another method is using the interpreter (slower, of course). Since the
 interpreter is re-entrant, this involves dragging around context information:
 
-CexpParserCtx c = cexpCreateParserCtx(0);
+CexpParserCtx c = cexpCreateParserCtx(0,0,0,0);
 
 	/* these two calls could/should be wrapped into 'cexpParseLine'... */
 	cexpResetParserCtx(c, "a()");

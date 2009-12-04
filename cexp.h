@@ -188,22 +188,22 @@ cexpSymValue(CexpSym sym);
 typedef struct CexpParserCtxRec_	*CexpParserCtx;
 
 /* create and initialize a parser context
+ *
+ * Parser output and error messages are written to 'outf'
+ * and 'errf', respectively. Either argument may be NULL
+ * to suppress printing of messages.
  * 
- * NOTE: Essentially because bison does not
- *       pass the parser argument/context
- *       to the error messenger (yyerror()),
- *       it is not possible to pass that routine
- *       a file descriptor.
- *       Hence, all error printing is done to stderr,
- *       Before calling the parser, you may
- *       try to redirect stderr...
- *       All normal output (i.e. the evaluated expression)
- *       is sent to 'f'. 'f' may be passed NULL in
- *       which case all normal output is discarded.
+ * Note that this doesn't affect the normal stdio streams.
+ * Any functions called by the parser that write to stdio
+ * still use those streams.
+ * 
+ * The 'redir_cb()' is invoked (if non-NULLO whenever stdio
+ * are changed as a result of redirection.
+ * 
  */
 
 CexpParserCtx
-cexpCreateParserCtx(FILE *f);
+cexpCreateParserCtx(FILE *outf, FILE *errf, void (*redir_cb)(CexpParserCtx ctx, void *uarg), void *uarg);
 
 /* reset a parser context; this routine
  * must be called before calling the parser
@@ -228,6 +228,10 @@ cexpResetParserCtx(CexpParserCtx ctx, const char *linebuf);
  *       the parser context - they are currently
  *       managed globally.
  *
+ *       The connected 'out' and 'err' streams
+ *       passed to cexpCreateParserContext() are NOT
+ *       closed.
+ *
  */
 void
 cexpFreeParserCtx(CexpParserCtx ctx);
@@ -241,7 +245,7 @@ cexpFreeParserCtx(CexpParserCtx ctx);
  *      / * Note: the system module/symbol table must be
  *        *       loaded prior to calling this.
  *        * /
- *      CexpParserCtx ctx=cexpCreateParserCtx();
+ *      CexpParserCtx ctx=cexpCreateParserCtx(stdout, stderr, 0, 0);
  *		char        *line;
  *
  *           while ((line=readline("prompt>"))) {
@@ -258,19 +262,8 @@ cexpFreeParserCtx(CexpParserCtx ctx);
  *        * /
  */
 
-#ifndef _INSIDE_CEXP_Y
-/* pass a CexpParserCtx pointer, this is the public interface
- * NOTE: this requires the BISON '%pure_parser' extension.
- */
 int
 cexpparse(CexpParserCtx ctx);
-#else
-/* private interface for bison generated code to which
- * the argument is opaque.
- */
-int
-cexpparse(void*);
-#endif
 
 /* Retrieve value last successful evaluation;
  *

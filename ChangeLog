@@ -1,4 +1,15 @@
 Changes since CEXP-2.0.beta
+ 2009/12/04:
+ - fixed all reduce/reduce and some shift/reduce conflicts in
+   the grammar.
+ - added stdio redirection.
+ - deprecated '<' for sourceing scripts; should now use '.'
+ - now have a dedicated FILE descriptor for parser error messages
+   (can be passed to cexpCreateParserCtx())
+ - added new callback argument to cexpCreateParserCtx() which
+   allows the user to be notified when stdio redirection occurs.
+ - added new '-c' option instructing cexpsh() to parse the option
+   string argument.
  2009/12/02:
  - pmelf: bugfix in PPC attribute matcher;
  - pmelf: added support for Tag_GNU_Power_ABI_Struct_Return.

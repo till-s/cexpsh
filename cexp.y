@@ -51,16 +51,16 @@
  */ 
 
 #include <stdio.h>
+#include <sys/errno.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#define _INSIDE_CEXP_Y
 #include "cexpsyms.h"
 #include "cexpmod.h"
-#undef  _INSIDE_CEXP_Y
 #include "vars.h"
+#include <stdarg.h>
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -71,17 +71,16 @@
 #define CONFIG_STRINGS_LIVE_FOREVER
 #endif
 
-#define YYPARSE_PARAM	parm
-#define YYLEX_PARAM		parm
+#define YYLEX_PARAM		ctx
 #define YYERROR_VERBOSE
 
-#define EVAL_INH	 (((CexpParserCtx)YYPARSE_PARAM)->evalInhibit)
+#define EVAL_INH	 ((ctx)->evalInhibit)
 #define PSHEVAL(inh) do { EVAL_INH<<=1; if (inh) EVAL_INH++; } while(0)
 #define POPEVAL      do { EVAL_INH>>=1; } while(0)
 #define EVAL(stuff)  if (! EVAL_INH ) do { stuff; } while (0)
 
 #define CHECK(cexpTfuncall) do { const char *e=(cexpTfuncall);\
-					 if (e) { yyerror(e); YYERROR; } } while (0)
+					 if (e) { yyerror(ctx, e); YYERROR; } } while (0)
 
 /* acceptable characters for identifiers - must not
  * overlap with operators
@@ -92,10 +91,17 @@
 /* ugly hack; helper for word completion */
 #define LEXERR_INCOMPLETE_STRING	-100
 
-void yyerror(const char*msg);
+       void yyerror(CexpParserCtx ctx, const char*msg);
+static void errmsg(CexpParserCtx ctx, const char *msg, ...);
+static void wrnmsg(CexpParserCtx ctx, const char *msg, ...);
+
 int  yylex();
 
 typedef char *LString;
+
+struct CexpParserCtxRec_;
+
+typedef void (*RedirCb)(struct CexpParserCtxRec_ *, void *);
 
 typedef struct CexpParserCtxRec_ {
 	const char		*chpt;
@@ -104,16 +110,25 @@ typedef struct CexpParserCtxRec_ {
 	CexpValU		rval;
 	int             status;         
 	unsigned long	evalInhibit;
-	FILE			*f;				/* where to print evaluated value			  */
+	FILE			*outf;			/* where to print evaluated value			  */
+	FILE			*errf;			/* where to print error messages 			  */
 	char            sbuf[1000];		/* scratch space for strings                  */
+	FILE            *o_stdout;      /* redirection */
+	FILE            *o_stderr;      /* redirection */
+	FILE            *o_stdin;       /* redirection */
+	FILE            *o_outf;
+	FILE            *o_errf;
+	RedirCb         redir_cb;
+	void            *cb_arg;
 } CexpParserCtxRec;
 
 static CexpSym
-varCreate(char *name, CexpType type)
+varCreate(CexpParserCtx ctx, char *name, CexpType type)
 {
 CexpSym rval;
 	if (!(rval=cexpVarLookup(name,1)/*allow creation*/)) {
-		yyerror("unable to add new user variable");
+		if ( ctx->errf )
+			fprintf(ctx->errf, "unable to add new user variable");
 		return 0;
 	}
 	rval->value.type = type;
@@ -130,6 +145,16 @@ CexpSym rval;
 	}
 	return rval;
 }
+
+static int
+cexpRedir(CexpParserCtx ctx, unsigned long op, void *opath, void *ipath);
+
+static void
+cexpUnredir(CexpParserCtx ctx);
+
+/* Redefine so that we can wrap */
+#undef yyparse
+#define yyparse __cexpparse
 
 %}
 %pure_parser
@@ -151,6 +176,7 @@ CexpSym rval;
 		char				*mname;		/* string kept in the line string table */
 	}							method;
 	unsigned long				ul;
+	char                        *chrp;
 }
 
 %token <val>	NUMBER
@@ -163,8 +189,14 @@ CexpSym rval;
 %token			KW_FLOAT	/* keyword 'float' */
 %token			KW_DOUBLE	/* keyword 'double' */
 %token <binop>	MODOP		/* +=, -= & friends */
+%token <ul>     REDIR
+%token <ul>     REDIRBOTH
+%token <ul>     REDIRAPPEND
+%token <ul>     REDIRAPPENDBOTH
 
+%type  <varp>	nonfuncvar
 %type  <varp>	anyvar
+%type  <chrp>   redirarg
 %type  <val>	def redef newdef line
 %type  <val>	commaexp
 %type  <val>	exp
@@ -178,10 +210,9 @@ CexpSym rval;
 %type  <val>	funcp
 %type  <val>	castexp
 %type  <method> symmethod
+%type  <ul>     oredirop
 
 %type  <typ>	fpcast pcast cast typeid fptype
-
-%type  <lval>   clvar lvar
 
 %nonassoc	NONE
 %left		','
@@ -210,9 +241,46 @@ CexpSym rval;
 %left		CALL
 %left		'.'
 
+%parse-param {CexpParserCtx ctx}
+
 %%
 
-input:	line		{ CexpParserCtx pa=parm; if ( TVoid != $1.type ) { pa->rval=$1.tv; pa->rval_sym.value.type = $1.type; } pa->status = 0; YYACCEPT; }
+input:	redir line	{ if ( TVoid != $2.type ) { ctx->rval=$2.tv; ctx->rval_sym.value.type = $2.type; } ctx->status = 0; YYACCEPT; }
+;
+
+oredirop: '>'
+		{ $$=REDIR; }
+	|	SHR
+		{ $$=REDIRAPPEND; }
+	|	'>' '&'
+		{ $$=REDIRBOTH; }
+	|	SHR '&'
+		{ $$=REDIRAPPENDBOTH; }
+;
+
+redirarg: nonfuncvar ':'
+		{
+			if ( TUCharP != $1->type ) {
+				errmsg(ctx, "(bad type): redirector requires string argument\n");
+				YYERROR;
+			}
+			$$ = $1->ptv->p;
+		}
+	|     STR_CONST  ':'
+		{
+			$$ = $1.tv.p;
+		}
+;
+
+redir:  /* nothing */
+	|  oredirop redirarg
+		{ if ( cexpRedir( ctx, $1, $2,  0 ) ) YYERROR; }
+	|  '<'      redirarg
+		{ if ( cexpRedir( ctx,  0,  0, $2 ) ) YYERROR; }
+	|  '<'      redirarg  oredirop redirarg
+		{ if ( cexpRedir( ctx, $3, $4, $2 ) ) YYERROR; }
+	|  oredirop redirarg  '<'      redirarg
+		{ if ( cexpRedir( ctx, $1, $2, $4 ) ) YYERROR; }
 ;
 
 redef:	typeid anyvar
@@ -225,17 +293,17 @@ redef:	typeid anyvar
 
 newdef: typeid IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($2, $1))) YYERROR; \
+					  EVAL(if (!(found = varCreate(ctx, $2, $1))) YYERROR; \
 					  		CHECK(cexpTA2TV(&$$,&found->value)) );
 					}
 	| 	typeid '*' IDENT
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($3, CEXP_TYPE_BASE2PTR($1)))) YYERROR; \
+					  EVAL(if (!(found = varCreate(ctx, $3, CEXP_TYPE_BASE2PTR($1)))) YYERROR; \
 					  		CHECK(cexpTA2TV(&$$,&found->value)));
 					}
 	| 	fptype '(' '*' IDENT ')' '(' ')'
 					{ CexpSym found;
-					  EVAL(if (!(found = varCreate($4, $1))) YYERROR; \
+					  EVAL(if (!(found = varCreate(ctx, $4, $1))) YYERROR; \
 					  		CHECK(cexpTA2TV(&$$,&found->value)));
 					}
 ;
@@ -253,16 +321,16 @@ line:	'\n'
 	|	IDENT '\n'
 					{
 						$$.type=TVoid;
-						yyerror("unknown symbol/variable; '=' expected");
+						yyerror(ctx, "unknown symbol/variable; '=' expected");
 						YYERROR;
 					}
 	|	def '\n'
 	|   redef '\n'	{
-						fprintf(stderr,"Symbol already defined; append '!' to enforce recast\n");
+						errmsg(ctx, ": symbol already defined; append '!' to enforce recast\n");
 						YYERROR;
 					}
 	|	commaexp '\n'
-					{FILE *f=((CexpParserCtx)parm)->f;
+					{FILE *f=ctx->outf;
 						$$=$1;
 						if (CEXP_TYPE_FPQ($1.type)) {
 							CHECK(cexpTypeCast(&$1,TDouble,0));
@@ -310,7 +378,7 @@ exp:	binexp
 					}
 	|   IDENT '=' exp
 					{ CexpSym found;
-					  $$=$3; EVAL(if (!(found=varCreate($1, $3.type))) {	\
+					  $$=$3; EVAL(if (!(found=varCreate(ctx, $1, $3.type))) {	\
 									YYERROR; 								\
 								}\
 								CHECK(cexpTVAssign(&found->value, &$3)); );
@@ -403,51 +471,26 @@ unexp:
 	|	'*' castexp %prec DEREF
 					{ CHECK(cexpTVPtrDeref(&$$, &$2)); }
 */
-	|	'&' VAR %prec ADDR
-					{ CHECK(cexpTVPtr(&$$, &$2->value)); }
-	|	'&' UVAR %prec ADDR
-					{ CHECK(cexpTVPtr(&$$, &$2->value)); }
+	|	'&' nonfuncvar %prec ADDR
+					{ CHECK(cexpTVPtr(&$$, $2)); }
 ;
 
-lvar:	 VAR				
-					{ $$=$1->value; }
-	|	UVAR		
-					{ $$=$1->value; }
-	|	'(' lval ')'
-					{ $$=$2; }
-;
+nonfuncvar: VAR
+					{ $$=&$1->value; }
+	|       UVAR		
+					{ $$=&$1->value; }
 
-anyvar:	VAR
-					{ $$=&$1->value; }
-	|	UVAR
-					{ $$=&$1->value; }
+anyvar:	nonfuncvar
+					{ $$=$1; }
 	|	FUNC
 					{ $$=&$1->value; }
 ;
 
-clvar:	lvar			%prec NONE
-	|	cast clvar	%prec VARCAST
-					{ CexpTypedValRec v;
-						v.type=$2.type; v.tv=*$2.ptv;
-						CHECK(cexpTypeCast(&v,$1,1));
-						$$=$2;
-						$$.type=$1;
-					}
-/* TSILL
-	|	'(' typeid ')' clvar	%prec VARCAST
-					{ CexpTypedValRec v;
-						v.type=$4.type; v.tv=*$4.ptv;
-						CHECK(cexpTypeCast(&v,$2,1));
-						$$=$4;
-						$$.type=$2;
-					}
-*/
-;
-
-lval: 	clvar
-		|   '*' castexp %prec DEREF
+lval: 	nonfuncvar  %prec NONE
+					{ $$ = *$1; }
+	|   '*' castexp %prec DEREF
 					{ if (!CEXP_TYPE_PTRQ($2.type) || CEXP_TYPE_FUNQ($2.type)) {
-						yyerror("not a valid lval address");
+						yyerror(ctx, "not a valid lval address");
 						YYERROR;
 					  }
 					  $$.type=CEXP_TYPE_PTR2BASE($2.type);
@@ -484,7 +527,7 @@ pcast:
 fptype:	typeid
 					{ switch ($1) {
 						default:
-							yyerror("invalid type for function pointer cast");
+							yyerror(ctx, "invalid type for function pointer cast");
 						YYERROR;
 
 						case TDouble:
@@ -618,7 +661,8 @@ int				i;
 			return (LString) rval;
 		}
 	}
-	fprintf(stderr,"Cexp: Line String Table exhausted\n");
+	if ( env->errf )
+		fprintf(env->errf,"Cexp: Line String Table exhausted\n");
 	return 0;
 }
 
@@ -627,9 +671,9 @@ int				i;
 
 /* helper to save typing */
 static int
-prerr(void)
+prerr(CexpParserCtx ctx)
 {
-	yyerror("yylex: buffer overflow");
+	errmsg(ctx, "(yylex): buffer overflow\n");
 	return LEXERR;
 }
 
@@ -643,14 +687,14 @@ int hasE=0;
 	if ( isdigit(ch) || 'E' == toupper(ch) ) {
 		do {
 			while(isdigit(ch) && size) {
-				*(chpt++)=(char)ch; if (!--size) return prerr();
+				*(chpt++)=(char)ch; if (!--size) return prerr(pa);
 				getch();
 			}
 			if (toupper(ch)=='E' && !hasE) {
-				*(chpt++)=(char)'E'; if (!--size) return prerr();
+				*(chpt++)=(char)'E'; if (!--size) return prerr(pa);
 				getch();
 				if ('-'==ch || '+'==ch) {
-					*(chpt++)=(char)ch; if (!--size) return prerr();
+					*(chpt++)=(char)ch; if (!--size) return prerr(pa);
 					getch();
 				}
 				hasE=1;
@@ -669,10 +713,9 @@ int hasE=0;
 }
 
 int
-yylex(YYSTYPE *rval, void *arg)
+yylex(YYSTYPE *rval, CexpParserCtx pa)
 {
 unsigned long num;
-CexpParserCtx pa=arg;
 int           limit=sizeof(pa->sbuf)-1;
 char          *chpt;
 
@@ -699,14 +742,14 @@ char          *chpt;
 					case '\\': num='\\';break;
 					case '\'': num='\'';break;
 					default:
-						yyerror("Warning: unknown escape sequence, using unescaped char");
+						wrnmsg(pa, ": unknown escape sequence, using unescaped char\n");
 						num=ch;
 					break;
 				}
 			}
 			getch();
 			if ('\''!=ch)
-				yyerror("Warning: missing closing '");
+				wrnmsg(pa, ": missing closing '\n");
 			else
 				getch();
 			rval->val.tv.c=(unsigned char)num;
@@ -748,7 +791,7 @@ char          *chpt;
 				getch();
 			} while (isdigit(ch) && limit);
 			if (!limit) {
-				return prerr();
+				return prerr(pa);
 			}
 			if ('.'==ch) {
 				/* it's a fractional number */
@@ -771,7 +814,7 @@ char          *chpt;
 		} while ((isalnum(ch)||ISIDENTCHAR(ch)) && (--limit > 0));
 		*chpt=0;
 		if (!limit)
-			return prerr();
+			return prerr(pa);
 		/* is it one of the type cast keywords? */
 		if (!strcmp(pa->sbuf,"char"))
 			return KW_CHAR;
@@ -915,7 +958,7 @@ char		**chppt;
 }
 
 CexpParserCtx
-cexpCreateParserCtx(FILE *f)
+cexpCreateParserCtx(FILE *outf, FILE *errf, RedirCb redir_cb, void *uarg)
 {
 CexpParserCtx	ctx=0;
 
@@ -928,8 +971,17 @@ CexpParserCtx	ctx=0;
 	ctx->rval_sym.size       = sizeof(ctx->rval);
 	ctx->rval_sym.flags      = 0;
 	ctx->rval_sym.help       = "value of last evaluated expression";
-	ctx->f = f;
-	ctx->status = -1;
+	ctx->outf                = outf;
+	ctx->errf                = errf;
+	ctx->status              = -1;
+	ctx->o_stdout            = 0;
+	ctx->o_stderr            = 0;
+	ctx->o_stdin             = 0;
+	ctx->o_outf              = 0;
+	ctx->o_errf              = 0;
+	ctx->redir_cb            = redir_cb;
+	ctx->cb_arg              = uarg;
+
 	return ctx;
 }
 
@@ -939,12 +991,14 @@ cexpResetParserCtx(CexpParserCtx ctx, const char *buf)
 	ctx->chpt=buf;
 	ctx->evalInhibit=0;
 	ctx->status = -1;
+	cexpUnredir(ctx);
 	releaseStrings(ctx);
 }
 
 void
 cexpFreeParserCtx(CexpParserCtx ctx)
 {
+	cexpUnredir(ctx);
 	releaseStrings(ctx);
 	free(ctx);
 }
@@ -962,11 +1016,160 @@ cexpParserCtxGetStatus(CexpParserCtx ctx)
 }
 
 void
-yyerror(const char*msg)
+yyerror(CexpParserCtx ctx, const char*msg)
 {
-/* unfortunately, even %pure_parser doesn't pass us the parser argument along.
- * hence, it is not possible for a reentrant parser to tell us where we
- * should print :-( however, our caller may try to redirect stderr...
+va_list ap;
+	if ( ctx->errf ) {
+		fprintf(ctx->errf,"Cexp syntax error: %s\n", msg);
+	}
+}
+
+/* Other errors that are not syntax errors */
+static void
+errmsg(CexpParserCtx ctx, const char *fmt, ...)
+{
+va_list ap;
+	if ( ctx->errf ) {
+		fprintf(ctx->errf,"Cexp error ");
+		va_start(ap, fmt);
+		vfprintf(ctx->errf, fmt, ap); 
+		va_end(ap);
+	}
+}
+
+static void
+wrnmsg(CexpParserCtx ctx, const char *fmt, ...)
+{
+va_list ap;
+	if ( ctx->errf ) {
+		fprintf(ctx->errf,"Cexp warning ");
+		va_start(ap, fmt);
+		vfprintf(ctx->errf, fmt, ap); 
+		va_end(ap);
+	}
+}
+
+
+static int
+cexpRedir(CexpParserCtx ctx, unsigned long op, void *oarg, void *iarg)
+{
+const char *opath = oarg;
+const char *ipath = iarg;
+FILE       *nof = 0, *nif = 0;
+const char *mode;
+
+	if ( !oarg && !iarg ) {
+		errmsg(ctx, "(cexpRedir): NO PATH ARGUMENT ??\n");
+		return -1;
+	}
+
+	if ( opath && (ctx->o_stdout || ctx->o_stderr) ) {
+		errmsg(ctx, "(cexpRedir): OUTPUT ALREADY REDIRECTED ??\n");
+		return -1;
+	}
+
+	if ( ipath && ctx->o_stdin ) {
+		errmsg(ctx, "(cexpRedir): INPUT ALREADY REDIRECTED ??\n");
+		return -1;
+	}
+
+	if ( ipath ) {
+		if ( ! (nif = fopen(ipath, "r")) ) {
+			if ( ctx->errf )
+				fprintf(ctx->errf, "cexpRedir (IN) ERROR - unable to open file: %s\n", strerror(errno));
+			return -1;
+		}
+		ctx->o_stdin = stdin;
+		stdin        = nif;
+	}
+
+	if ( opath ) {
+		if ( REDIRAPPEND == op || REDIRAPPENDBOTH == op )
+			mode = "a";
+		else
+			mode = "w";
+
+		if ( ! (nof = fopen(opath, mode)) ) {
+			if ( ctx->errf )
+				fprintf(ctx->errf, "cexpRedir (OUT) ERROR - unable to open file: %s\n", strerror(errno));
+			if ( nif ) {
+				stdin = ctx->o_stdin;
+				fclose(nif);
+			}
+			return -1;
+		}
+		fflush(stdout);
+		ctx->o_stdout = stdout;
+		stdout = nof;
+
+		if ( ctx->outf ) {
+			fflush(ctx->outf);
+			ctx->o_outf = ctx->outf;
+			ctx->outf   = nof;
+		}
+
+		if ( REDIRBOTH == op || REDIRAPPENDBOTH == op ) {
+			fflush(stderr);
+			ctx->o_stderr = stderr;
+			stderr = nof;
+
+			if ( ctx->errf ) {
+				fflush(ctx->errf);
+				ctx->o_errf = ctx->errf;
+				ctx->errf   = nof;
+			}
+		}
+	}
+
+	if ( ctx->redir_cb )
+		ctx->redir_cb(ctx, ctx->cb_arg);
+
+	return 0;
+}
+
+static void
+cexpUnredir(CexpParserCtx ctx)
+{
+	if ( ctx->o_stdout ) {
+		fclose(stdout);
+		stdout = ctx->o_stdout;
+		ctx->o_stdout = 0;
+	}
+	if ( ctx->o_outf ) {
+		ctx->outf   = ctx->o_outf;
+		ctx->o_outf = 0;
+	}
+
+	if ( ctx->o_stderr ) {
+		stderr = ctx->o_stderr;
+		ctx->o_stderr = 0;
+	}
+	if ( ctx->o_errf ) {
+		ctx->errf   = ctx->o_errf;
+		ctx->o_errf = 0;
+	}
+
+	if ( ctx->o_stdin ) {
+		fclose(stdin);
+		stdin = ctx->o_stdin;
+		ctx->o_stdin = 0;
+	}
+
+	if ( ctx->redir_cb )
+		ctx->redir_cb(ctx, ctx->cb_arg);
+}
+
+/* Trivial wrapper so that we can make sure
+ * redirections are undone always and before
+ * cexpparse() returns to the caller.
  */
-fprintf(stderr,"Cexp syntax error: %s\n",msg);
+int
+cexpparse(CexpParserCtx ctx)
+{
+int rval;
+
+	rval = __cexpparse(ctx);	
+	cexpUnredir( ctx );
+
+	return rval;
 }

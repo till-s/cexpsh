@@ -257,11 +257,13 @@ usage(char *nm)
 	fprintf(stderr," [-s <symbol file>]");
 	fprintf(stderr," [-a <cpu_arch>]");
 	fprintf(stderr," [-p <prompt>]");
+	fprintf(stderr," [-c <expression>]");
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
 	fprintf(stderr, "       -v print version information\n");
 	fprintf(stderr, "       -p <prompt> set prompt\n");
+	fprintf(stderr, "       -c <expression> evaluate expression and return\n");
 	fprintf(stderr, "       -q quiet evaluation of scripts\n");
 #ifdef HAVE_BFD_DISASSEMBLER
 	fprintf(stderr, "       -a set default CPU architecture for disassembler\n");
@@ -615,25 +617,64 @@ static char *skipsp(register char *p)
 	return p; 
 }
 
-static char *getp(register char *p)
+static char *getp(register char *p, char **endp)
 {
-char *e;
+char *e,*t;
 char term;
+int  warn = 0;
+
+	switch ( *p++ ) {
+		case '<':
+			warn = 1;
+		break;
+
+		case '.':
+			/* '.' must be separated by space or there must
+			 * be a string terminator.
+			 */
+			if ( !isspace(*p) && '\'' != *p && '"' != *p )
+				return 0;
+		break;
+
+		default: /* not a 'source script' command */
+			return 0;
+	}
+
 	p = skipsp(p);
 	if ( (term='\'') ==  *p || (term='"') == *p ) {
 		p++;
 		if ( (e = strchr(p,term)) ) {
 			/* '..' or ".." commented string -- no escapes supported */
-			*e=0;
-			return p;
+			t = e+1;
+			goto check_trailing;
 		}
 		/* no terminator found; treat normally */
 		p--;
 	}
 	for ( e=p; *e && !isspace(*e); e++ )
 		;
-	*e = 0;
+	t = e;
+
+check_trailing:
+	/* is there trailing stuff ? */
+	while ( *t ) {
+		if ( !isspace(*t) )
+			return 0;
+		t++;
+	}
+	if ( endp )
+		*endp = e;
+	if ( warn )
+		fprintf(stderr,"WARNING: '<' operator to 'source' scripts is deprecated -- use '.' (followed by blank) instead!\n");
 	return p;	
+}
+
+static void
+source_op_deprec(const char *pop)
+{
+	if ( '<' == *pop ) {
+		fprintf(stderr,"WARNING: '<' operator to 'source' scripts is deprecated -- use '.' (followed by blank) instead!\n");
+	}
 }
 
 static int
@@ -644,8 +685,9 @@ FILE *filestack[ST_DEPTH];
 int  sp=-1;
 char buf[500]; /* limit line length to 500 chars :-( */
 int  i;
+char *endp, *maybecomment;
 
-sprintf(buf,"<%s\n",name);
+sprintf(buf,". %s\n",name);
 
 goto skipFirstPrint;
 
@@ -660,10 +702,10 @@ do {
 	}
 skipFirstPrint:
 
-	p = skipsp(buf);
-    if ( '<' == *p ) {
-		/* extract path */
-        p = getp(p+1);
+	maybecomment = p = skipsp(buf);
+    if ( (p = getp(p, &endp)) ) {
+		/* tag end of extracted path */
+		*endp = 0;
 		/* PUSH a new script on the stack */
 		if ( !quiet ) {
 			for ( i=0; i<=sp; i++ )
@@ -682,7 +724,7 @@ skipFirstPrint:
 		}
     } else {
 		/* handle simple comments as a courtesy... */
-		if ( '#' != *p ) {
+		if ( '#' != *maybecomment ) {
 			cexpResetParserCtx(ctx,buf);
 			cexpparse((void*)ctx);
 		}
@@ -697,13 +739,23 @@ skipFirstPrint:
 return rval;
 }
 
+#ifdef HAVE_TECLA
+static void redir_cb(CexpParserCtx ctx, void *uarg)
+{
+GetLine *gl = uarg;
+	gl_change_terminal(gl, stdin, stdout, 0);
+}
+#else
+#define redir_cb 0
+#endif
+
 int
 cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpContext ctx))
 {
 CexpContextRec		context;	/* the public parts of this instance's context */
 CexpContext			myContext;
 char				*line=0, *prompt=0, *tmp;
-char				*symfile=0, *script=0;
+char				*symfile=0, *script=0, *arg_line = 0 ;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
@@ -717,6 +769,7 @@ char				optstr[]={
 						'v',
 						's',':',
 						'a',':',
+						'c',':',
 						'p',':',
 #ifdef YYDEBUG
 						'd',
@@ -743,6 +796,8 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 			break;
 		case 's': symfile=oc.optarg;
 			break;
+		case 'c': arg_line=oc.optarg;
+			break;
 		case 'a': cexpBuiltinCpuArch = oc.optarg;
 			break;
 
@@ -753,6 +808,11 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 
 if (argc>oc.optind)
 	script=argv[oc.optind];
+
+if ( script && arg_line ) {
+	fprintf(stderr,"Cannot use both: -c option and a script\n");
+	return -1;
+}
 
 /* make sure vital code is initialized */
 
@@ -824,7 +884,7 @@ if ( !context.prompt && context.next && context.next->prompt )
 	context.prompt = strdup(context.next->prompt);
 
 do {
-	if (!(context.parser=cexpCreateParserCtx(quiet ? 0 : stdout))) {
+	if (!(context.parser=cexpCreateParserCtx(quiet ? 0 : stdout, stderr, redir_cb, rl_context))) {
 		fprintf(stderr,"Unable to create parser context\n");
 		usage(argv[0]);
 		rval = CEXP_MAIN_NO_MEM;
@@ -849,6 +909,9 @@ do {
 		if (script) {
 			if ( (rval = process_script(context.parser, script, quiet)) )
 				goto cleanup;
+		} if (arg_line) {
+			cexpResetParserCtx(context.parser,arg_line);
+			cexpparse((void*)context.parser);
 		} else {
 
 			while ( (line=readline_r(
@@ -856,8 +919,9 @@ do {
 							rl_context)) ) {
 				/* skip empty lines */
 				if (*line) {
-					if ( '<' == *(tmp=skipsp(line)) ) {
-						process_script(context.parser,tmp+1,quiet);
+					tmp = skipsp(line);
+					if ( (tmp = getp(tmp, 0)) ) {
+						process_script(context.parser,tmp,quiet);
 					} else {
 						/* interactively process this line */
 						cexpResetParserCtx(context.parser,line);
@@ -868,7 +932,6 @@ do {
 				free(line); line=0;
 			}
 		}
-		
 	} else {
 			fprintf(stderr,"\nOops, exception caught\n");
 			/* setjmp passes 0: first time
@@ -884,7 +947,7 @@ cleanup:
 		free(prompt);           prompt=0;
 		cexpFreeParserCtx(context.parser); context.parser=0;
 	
-} while (-1==rval);
+} while (-1==rval && 0 == arg_line);
 
 free(context.prompt);
 

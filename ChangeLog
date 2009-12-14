@@ -1,4 +1,8 @@
 Changes since CEXP-2.0.beta
+ 2009/12/14:
+ - BUGFIX: cexpsh("script") would not terminate because of missing 'else'
+   in nested if (which should have been 'else if'). This was a new bug
+   introduced with the '-c' option.
  2009/12/04:
  - fixed all reduce/reduce and some shift/reduce conflicts in
    the grammar.

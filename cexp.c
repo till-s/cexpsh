@@ -909,7 +909,7 @@ do {
 		if (script) {
 			if ( (rval = process_script(context.parser, script, quiet)) )
 				goto cleanup;
-		} if (arg_line) {
+		} else if (arg_line) {
 			cexpResetParserCtx(context.parser,arg_line);
 			cexpparse((void*)context.parser);
 		} else {

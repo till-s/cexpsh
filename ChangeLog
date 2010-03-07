@@ -1,4 +1,9 @@
 Changes since CEXP-2.0.beta
+ 2010/02/07:
+ - libtecla/configure.in: added --enable-ansiterm configure option (enabled
+   by default for RTEMS if not explicitly disabled and disabled by default
+   on other OSes) to avoid dependency on curses/termcap (assuming ANSI
+   terminal).
  2009/12/14:
  - BUGFIX: cexpsh("script") would not terminate because of missing 'else'
    in nested if (which should have been 'else if'). This was a new bug

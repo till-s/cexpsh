@@ -1,4 +1,10 @@
 Changes since CEXP-2.0.beta
+ 2010/03/17:
+ - bfdstuff.c: Completely ignore zero-sized sections marked SEC_ALLOC
+   (by removing the SEC_ALLOC flag) so that no section symbol is
+   recorded. Since no space is allocated for such a section the 
+   value of a section symbol would be invalid and this results in
+   gdb confusion...
  2010/02/17:
  - libtecla/getline.c: always include <sys/ioctl.h> (also under __rtems__)
    in order to get TIOCGWINSZ.

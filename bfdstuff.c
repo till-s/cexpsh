@@ -600,8 +600,14 @@ static void
 s_nsects(bfd *abfd, asection *sect, PTR arg)
 {
 LinkData	ld=(LinkData)arg;
-	if ( SEC_ALLOC & bfd_get_section_flags(ld->abfd, sect) )
-		ld->num_section_names++;
+	if ( SEC_ALLOC & bfd_get_section_flags(ld->abfd, sect) ) {
+		if ( 0 == bfd_section_size(ld->abfd, sect) ) {
+			/* Effectively remove zero-sized sections */
+			bfd_set_section_flags( ld->abfd, sect, bfd_get_section_flags( ld->abfd, sect ) & ~SEC_ALLOC);
+		} else {
+			ld->num_section_names++;
+		}
+	}
 }
 
 /* find basic sections and the number of sections which are
@@ -1169,7 +1175,7 @@ int			i,errs=0;
 				 *		 redundant occurrencies have been de-SEC_ALLOCed
 				 *		 from this module.
 				 */
-				if (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) {
+				if ( (SEC_ALLOC & bfd_get_section_flags(abfd, sect)) ) {
 						sp->flags|=BSF_KEEP;
 				}
 			}

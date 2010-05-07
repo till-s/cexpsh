@@ -804,24 +804,9 @@ unsigned long vma;
 			}
 #endif
 			symsect=bfd_get_section(*ppsym);
-			if (   bfd_is_und_section(symsect) ||					
-				   /* reloc references an undefined sym */
-/* FIXME: -- should we allow *any* absolute symbol here (e.g., created with --defsym=XXX) */
-				( !(SEC_ALLOC & bfd_get_section_flags(abfd,symsect)) &&
-				   /* reloc references a dropped linkonce */
-				  !( bfd_is_abs_section(symsect) && (ld->eh_section == sect) ) )
-				   /* it does reference a dropped linkonce but in the eh_frame
-					* this will be ignored by the frame unwinder (I hope - I did
-					* some digging through libgcc (gcc-3.2) sources and it seemed
-					* so although it's a very complicated issue)
-					* NOTE: the converse case - i.e. if an eh_frame section in the
-					*       object we are loading right now	references a 'linkonce'
-					*       section we have deleted - is probably OK. We relocate
-					*       the EH info to a PC range already in memory - this should
-					*       be safe. I also found some comments in bfd/elflink and 
-					*       libgcc which give me some confidence.
-					*/
-			    ) {
+
+			if ( bfd_is_und_section(symsect) ) {
+				/* reloc references an undefined symbol which we have to look-up */
 				CexpModule	mod;
 				asymbol		*sp;
 				CexpSym		ts;
@@ -870,21 +855,55 @@ unsigned long vma;
 						 */
 						sp=asymFromCexpSym(abfd,ts,ld->depend,mod);
 					}
-					*ppsym = sp;
+					*ppsym  = sp;
+					symsect = bfd_get_section(*ppsym);
 				} else {
 					fprintf(stderr,"Unresolved symbol: %s\n",bfd_asymbol_name(sp));
 					ld->errors++;
 		continue;
 				}
 			}
+			/* Ignore relocs that reference dropped linkonce sections */
+			/* FIXME: We really should have a dedicated flag (and not overload SEC_ALLOC)
+			 *        to indicate that we deal with a dropped linkonce. Unfortunately,
+			 *        in BFD, there is no flag available to the user...
+			 */
+			else if ( !(SEC_ALLOC & bfd_get_section_flags(abfd, symsect) ) && ! bfd_is_abs_section(symsect) && !bfd_is_com_section(symsect) ) {
+				/* FIXME: should we add a paranoia check that the 'addend' is zero? gcc only skips
+				 *        NULL relocs in .eh_frame if the relocation value is zero.
+				 */
+#if ! (DEBUG & DEBUG_RELOC)
+				/* reloc referencing a symbol in a dropped linkonce should not happen unless from .eh_frame;
+				 * warn about it:
+				 */
+				if ( sect != ld->eh_section )
+#endif
+				{
+					fprintf(stderr, "WARNING:\n");
+					fprintf(stderr, "Ignoring/skipping reloc   [0x%08lx = %s@%s]\n",
+					                (unsigned long)bfd_asymbol_value(*ppsym),
+					                bfd_asymbol_name(*ppsym),
+					                bfd_get_section_name(abfd, symsect));
+					fprintf(stderr, "  [IN DROPPED LINKONCE] => 0x%08lx@%s (sym_ptr_ptr = 0x%08lx)\n",
+					                (unsigned long)reloc_get_address(abfd, r),
+					                bfd_get_section_name(abfd, sect),
+					                (unsigned long)ppsym
+					       );
+				}
+			continue;
+			}
+
 #if DEBUG & DEBUG_RELOC
-			printf("relocating (%s=",
-					bfd_asymbol_name(*ppsym)
-					);
-			printf("0x%08lx)->0x%08lx [sym_ptr_ptr = 0x%08lx]\n",
-			(unsigned long)bfd_asymbol_value(*ppsym),
-			(unsigned long)reloc_get_address(abfd, r),
-			(unsigned long)ppsym);
+			printf("relocating [0x%08lx = %s@%s]\n",
+			        (unsigned long)bfd_asymbol_value(*ppsym),
+					bfd_asymbol_name(*ppsym),
+			        bfd_get_section_name(abfd, symsect)
+			      );
+			printf("         => 0x%08lx@%s (sym_ptr_ptr = 0x%08lx)\n",
+			       (unsigned long)reloc_get_address(abfd, r),
+			       bfd_get_section_name(abfd, sect),
+			       (unsigned long)ppsym
+			      );
 #endif
 #ifndef _PMBFD_
 			err=bfd_perform_relocation(
@@ -1745,7 +1764,7 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 			if ( ldr.eh_frame_e_sym ) {
 				/* eh_frame was in its own section; hence we have to write a terminating 0
 				 */
-				*(long*)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
+				*(void **)bfd_asymbol_value(ldr.eh_frame_e_sym)=0;
 			}
 			assert(my__register_frame);
 			ehFrame=(void*)bfd_asymbol_value(ldr.eh_frame_b_sym);
@@ -1755,7 +1774,7 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		if (ldr.eh_section) {
 			ehFrame = (void*)eh_vma;
 			/* write terminating 0 to eh_frame */
-			*(long*)( ((unsigned long)ehFrame) + bfd_section_size(ldr.abfd, ldr.eh_section) ) = 0;
+			*(void**)( (ehFrame) + bfd_section_size(ldr.abfd, ldr.eh_section) ) = 0;
 			assert(my__register_frame);
 			my__register_frame(ehFrame);
 		}

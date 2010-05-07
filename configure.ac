@@ -106,6 +106,11 @@ AC_ARG_ENABLE(readline,
 		[disable using the readline library (used only if tecla is disabled)])
 )
 
+AC_ARG_ENABLE(tests,
+	AC_HELP_STRING([--enable-tests],
+		[build test code ])
+)
+
 AC_ARG_WITH(rtems-notepad,
 	AC_HELP_STRING([--with-rtems-notepad=<notepad_number>],
 		[use an RTEMS notepad (0..14) to store context info instead of a
@@ -427,7 +432,21 @@ AH_VERBATIM(NO_THREAD_PROTECTION,[
 #endif
 ])
 
-AC_CONFIG_FILES(Makefile)
+if test ! "${canon_os}" = "rtems" ; then
+	AC_CHECK_HEADER([signal.h],[AC_DEFINE(HAVE_SIGNALS, 1, [If the OS uses signals to indicate faults etc.])])
+	if test "${ac_cv_header_signal_h}" = "yes" ; then
+		AC_CHECK_TYPE([siginfo_t],[AC_DEFINE(HAVE_SIGINFO, 1, [If sigaction supports a siginfo_t arg])],,[#include <signal.h>])
+	fi
+fi
+
+AC_CONFIG_FILES([Makefile])
+
+if test "${enable_tests}" = "yes" ; then
+	AC_CONFIG_FILES([cpptest/Makefile])
+	test_subdirs=cpptest
+else
+	test_subdirs=
+fi
 
 # cannot use multilibs with BFD
 if ( test ! "${enable_bfd}" = "no" || test ! "${enable_opcodes}" = "no" ) && test "${enable_multilib}" = "yes" ; then
@@ -439,7 +458,7 @@ fi
 if test ! "$target_os" = "$host_os" ; then
 	AC_SUBST(THESUBDIRS,['$(patsubst %,'"$subdirs"',$(filter-out install%,$@))'])
 else
-	AC_SUBST(THESUBDIRS,["$subdirs"])
+	AC_SUBST(THESUBDIRS,["$subdirs $test_subdirs"])
 fi
 
 # Our particular snippet

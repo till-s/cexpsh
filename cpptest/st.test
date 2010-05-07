@@ -1,0 +1,27 @@
+setenv("PATH","./cpptest",0)
+ld=cexpModuleLoad
+unld=cexpModuleUnload
+
+ld("com1.obj")
+ld("com2.obj")
+cexp_test_num_errors += run_com_test()
+
+// ctdt.obj increments cexp_test_num_errors
+// if errors are encountered during construction/
+// destruction of global objects
+ctdt_mod = ld("ctdt.obj")
+cppe_mod = ld("cppe.obj")
+cexp_test_num_errors += run_cpp_test()
+
+cexpModuleInfo(ctdt_mod,3,0)
+
+unld(cppe_mod)
+unld(ctdt_mod)
+
+ld("lot1.obj")
+ld("lot2.obj")
+ld("lot3.obj")
+cexp_test_num_errors += run_linkonce_test()
+
+// If this is number is zero then ALL TESTS PASSED
+cexp_test_num_errors

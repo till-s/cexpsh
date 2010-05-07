@@ -32,58 +32,8 @@
 
 extern "C" 
 {
-extern void cpptestStart(void);
+extern int run_cpp_test(void);
 }
-
-extern int num_inst;
-
-class AClass {
-public:
-  AClass(const char *p = "LOCAL" ) : ptr( p )
-    {
-        num_inst++;
-        printf(
-          "%s: Hey I'm in base class constructor number %d for %p.\n",
-          p, num_inst, this
-        );
-
-	/*
-	 * Make sure we use some space
-	 */
-
-        string = new char[50];
-	sprintf(string, "Instantiation order %d", num_inst);
-    };
-
-    virtual ~AClass()
-    {
-        printf(
-          "%s: Hey I'm in base class destructor number %d for %p (string %p).\n",
-          ptr, num_inst, this, string
-        );
-	print();
-        num_inst--;
-		delete string;
-    };
-
-    virtual void print()  { printf("%s\n", string); };
-
-	AClass &operator=(AClass &x) { ptr=x.ptr; strcpy(string,x.string); return *this; };
-
-protected:
-    char  *string;
-    const char *ptr;
-private:
-	AClass(AClass &);	/* string would need to be copied */
-};
-
-
-class BClass : public AClass {
-public:
-  BClass(const char *p = "LOCAL" );
-  ~BClass();
-  void print();
-};
 
 class RtemsException 
 {
@@ -110,12 +60,14 @@ private:
 };
 
 void cdtest(void);
-void foo_function();
+void foo_function(int *);
 
 
 
-void cpptestStart(void)
+int run_cpp_test(void)
 {
+int rval = 0;
+
     printf( "\n\n*** CONSTRUCTOR/DESTRUCTOR TEST ***\n" );
 
     cdtest();
@@ -127,16 +79,26 @@ void cpptestStart(void)
 
     try 
     {
-      foo_function();
+      foo_function( &rval );
+	  fprintf(stderr,"FAILED: - execution flow not changed (char* exception should have been thrown)\n");
+	  rval++;
     }
     catch( const char *e )
     {
        printf( "Success catching a char * exception\n%s\n", e );
     }
+	catch(...)
+	{
+	  fprintf(stderr,"FAILED: - foo_function() threw an unexpected exception\n");
+	  rval++;
+	}
+
     try 
     {
       printf( "throw an instance based exception\n" );
-		throw RtemsException( __FILE__, __LINE__, 0x55 ); 
+	  throw RtemsException( __FILE__, __LINE__, 0x55 ); 
+	  fprintf(stderr,"FAILED: - execution flow not changed (RtemsException should have been thrown)\n");
+	  rval++;
     }
     catch( RtemsException & ex ) 
     {
@@ -145,9 +107,17 @@ void cpptestStart(void)
     }
     catch(...) 
     {
-      printf( "Caught another exception.\n" );
+      printf( "FAILED: Caught another (unexpected) exception.\n" );
+	  rval++;
     }
-    printf( "Exceptions are working properly.\n" );
-    sleep(5);
-    printf( "Global Dtors should be called after unloading the cpptest0 module....\n" );
+	if ( 0 == rval )
+    	fprintf(stderr, "PASSED: Exceptions are working properly.\n" );
+	else 
+		fprintf(stderr, "FAILURE: %i errors encountered\n", rval);
+
+    sleep(2);
+
+    printf( "Global Dtors should be called after unloading the 'ctdt' module....\n" );
+
+	return rval;
 }

@@ -424,10 +424,36 @@ if (!margin)
 }
 
 #ifdef HAVE_SIGNALS
+#ifdef HAVE_SIGINFO
+
+static void (*the_handler)(int) = 0;
+
+static void
+sigact(int signum, siginfo_t *p_info, void *arg)
+{
+	printf("SEGV address %p\n", p_info->si_addr);
+	if ( the_handler )
+		the_handler( signum );
+}
+#endif
+
 static void
 siginstall(void (*handler)(int))
 {
+#ifdef HAVE_SIGINFO
+/* A hack (for debugging) -- we wrap the user handler
+ * so that we can print the violating address.
+ * This is JUST A DEBUGGING device.
+ */
+struct sigaction a;
+	a.sa_sigaction = sigact;
+	sigemptyset(&a.sa_mask);
+	a.sa_flags     = SA_SIGINFO;
+	sigaction(SIGSEGV, &a, 0);
+	the_handler = handler;
+#else
 	signal(SIGSEGV, handler);
+#endif
 	signal(SIGBUS,  handler);
 }
 #endif

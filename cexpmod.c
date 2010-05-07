@@ -172,9 +172,16 @@ int			index;
 static int addrInModule(void *addr, CexpModule m)
 {
 CexpSegment s;
+CexpSymTbl  t;
 	for ( s = m->segs; s->name; s++ ) {
-		if ( ! s->chunk )
+		if ( ! s->chunk ) {
+			if ( m == cexpSystemModule ) {
+				t = m->symtbl;
+				/* assume system module is a single chunk (not allocated though) */
+				return addr >= (void*)t->aindex[0]->value.ptv && addr <= (void*)t->aindex[t->nentries-1]->value.ptv;
+			}
 			continue;
+		}
 
 		if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
 			return 1;
@@ -529,7 +536,12 @@ CexpSegment s;
 			continue;
 
 #ifdef HAVE_SYS_MMAN_H
-		{
+		/* HACK: NEVER remove 'x' attribute. Since our memory segments are not
+		 *       page-aligned it could be that we revoke 'x' for parts of memory
+		 *       that are located outside of our segments which may still be
+		 *       live, executable modules.
+		 */
+		if ( 0 ) {
 			unsigned long nsiz, pgbeg, pgmsk;
 			pgmsk  = getpagesize()-1;
 			pgbeg  = (unsigned long)s->chunk;

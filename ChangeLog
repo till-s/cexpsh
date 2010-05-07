@@ -1,4 +1,39 @@
 Changes since CEXP-2.0.beta
+ 2010/05/06:
+ - Makefile.am:
+    o enforce linking undefined symbols needed by test modules (demo program)
+    o link demo with CXX
+ - bfdstuff.c: BUGFIX -- Ignore relocations that refer to a symbol in a
+               discarded linkonce section.
+               This should also fix a problem reported by Luciano Piccoli where
+               a module refused to load because the .eh_frame section
+               had a relocation referring to the section name of a discarded
+               linkonce. Since that section had been folded into .text in
+               the main executable it could not be found.
+               During testing I also found that just relocating to the
+               previous instance of a linkonce section is incorrect because
+               to compiler would sometimes generate slightly different code
+               resulting in different section sizes (original vs. discarded
+               linkonce). Unless the relocation referring the discarded linkonce
+               is ignored (-> value 0 which is in turn ignored by the libgcc
+               run-time code) a bad/incorrect exception frame could be registered.
+ - cexp.c:    Added 'sigaction' handler which prints offending SIGSEGV address.
+ - cexpmod.c:
+    o BUGFIX -- 'addrInModule()' algorithm skipped system module which
+      is never associated with any segment. Thus 'lkaddr()' never found
+      anything located in the main executable :-(
+    o BUGFIX -- when a module is unloaded (linux demo) then we cannot
+      just revoke 'executable' memory permission; the module memory is
+      not page aligned and therefore 'x' could be removed from adjacent
+      'live' module. Just always leave executable permission on...
+ - configure.ac, Makefile.am, cpptest/*.c, cpptest/*.cc, cpptest/Makefile.am,
+   cpptest/st.test: Added test code. So far, loading of common symbols, 
+   linkonce sections, c++ exceptions and constructor/destructor ordering
+   are tested.
+ - configure.ac: Check for availability of HAVE_SIGNALS, HAVE_SIGINFO
+   on non-rtems systems.
+ - m4/rtems-tools.m4: Look for 'nm' utility, too. 
+ 
  2010/03/17:
  - bfdstuff.c: Completely ignore zero-sized sections marked SEC_ALLOC
    (by removing the SEC_ALLOC flag) so that no section symbol is

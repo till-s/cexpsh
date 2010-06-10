@@ -26,7 +26,7 @@ TILLAC_RTEMS_SETUP(domultilib)
 
 # sys/termios.h and others can only be found outside of
 # the BSP installation area if cpukit was multilibbed :-(
-if test "${enable_multilib}" = "yes" ; then
+if test "${enable_multilib}" = "yes" && TILLAC_RTEMS_HOSTOS_IS_RTEMS ; then
 	AC_MSG_CHECKING([Checking for multilibbed cpukit])
 	if TILLAC_RTEMS_CPUKIT_MULTILIB ; then
 		AC_MSG_RESULT([Yes; good.]);

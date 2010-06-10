@@ -1,4 +1,6 @@
 Changes since CEXP-2.0.beta
+ 2010/06/10:
+ - configure.ac: check for multilibbed cpukit only if host_os is RTEMS.
  2010/05/06:
  - Makefile.am:
     o enforce linking undefined symbols needed by test modules (demo program)

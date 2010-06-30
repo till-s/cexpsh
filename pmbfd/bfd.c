@@ -52,6 +52,10 @@
 #include <config.h>
 #endif
 
+#ifdef HAVE_STRINGS_H
+#include <strings.h>
+#endif
+
 static void
 bfd_set_section_name(asection *sect, const char *name)
 {

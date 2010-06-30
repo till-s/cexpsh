@@ -1,3 +1,7 @@
+ 20100630 (T.S.):
+ - configure.ac, bfd.c: Added test for <strings.h>. rtems-4.10/newlib-1.18
+   declare strcasecmp() in <strings.h> (POSIX). Hence we include that
+   if present.
  20091202 (T.S.):
  - att-gnu-powerpc.c: BUGFIX: scanning for ABI tags would access
    bad memory if tag was not present in object file. 

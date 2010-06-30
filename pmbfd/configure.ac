@@ -49,6 +49,10 @@ AC_ARG_ENABLE(attributes-vendors-all,
 	esac]
 )
 
+AC_CHECK_HEADER([strings.h],
+	[AC_DEFINE(HAVE_STRINGS_H, 1, [Define to 1 if you have <strings.h>.])]
+)
+
 
 if test "${enable_pmelf64}" = "yes"; then
 	AC_DEFINE([PMELF_CONFIG_ELF64SUPPORT],1,[enable support for 64-bit ELF files])

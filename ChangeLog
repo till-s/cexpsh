@@ -1,5 +1,7 @@
 Changes since CEXP-2.0.beta
  2011/07/15:
+ - cexp.c: set terminal to VMIN/VTIME=1/0 in native readline (no readline, no tecla).
+ 2011/07/15:
  - Makefile.am: export rtems_bsp, RTEMS_BSP, enable_rtemsbsp, package_subdir
    variables so third-party makefiles 'inherit' them (in case any is embedded
    in an installation path/prefix).

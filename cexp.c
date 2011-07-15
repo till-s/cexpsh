@@ -165,6 +165,9 @@ char *rval,*cp;
 		tnew.c_cflag &= ~(CSIZE | PARENB);
 		tnew.c_cflag |= CS8;
 
+		tnew.c_cc[VMIN]  = 1;
+		tnew.c_cc[VTIME] = 0;
+
 		tcsetattr(fd, TCSANOW, &tnew);
 	} else {
 		fd = -1;

@@ -10,6 +10,9 @@ export rtems_bsp
 export RTEMS_BSP
 export enable_rtemsbsp
 export package_subdir
+export host_alias
+export host_cpu
+export host_os
 
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@

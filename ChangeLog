@@ -1,6 +1,8 @@
 Changes since CEXP-2.1
 Changes since CEXP-2.0.beta
  2011/10/10:
+ - libtecla/Makefile.am: add manpages to EXTRA_DIST and MAINTAINERCLEANFILES.
+ 2011/10/10:
  - Makefile.am: add cxxdummy to EXTRA_DIST.
  - Makefile.am: add cpptest contents explicitly to EXTRA_DIST (instead of
                 entire subdir which would include CVS/

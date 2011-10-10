@@ -108,8 +108,14 @@ EXTRA_SRCS+= $(TECLA_SRCS)
 EXTRA_DIST = cexp.y binutils-2.18.diff jumptab.c gentab.c config-ml.in
 EXTRA_DIST+= README.ld.snippet Makefile LICENSE Makefile.syms
 EXTRA_DIST+= wrap.c
-EXTRA_DIST+= cpptest
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/*.c)
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/*.cc)
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/*.cpp)
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/*.h)
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/Make*)
+EXTRA_DIST+= $(wildcard $(srcdir)/cpptest/st.*)
 EXTRA_DIST+= makefile.top.am makefile.top.in
+EXTRA_DIST+= dummycxx
 
 xsyms_SOURCES    = xsyms.c
 gencore_SOURCES  = gencore.c

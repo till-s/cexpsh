@@ -193,6 +193,7 @@ typedef union {
 #define SHT_SYMTAB_SHNDX	18
 #define SHT_MAXSUP			18
 #define SHT_GNU_ATTRIBUTES  0x6ffffff5
+#define SHT_GNU_HASH        0x6ffffff6
 #define SHT_GNU_VERSION     0x6fffffff
 #define SHT_GNU_VERSION_R   0x6ffffffe
 #define SHT_LOPROC			0x70000000

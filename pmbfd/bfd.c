@@ -1042,6 +1042,7 @@ Elf32_Shdr        *shdr;
 		case SHT_NULL:	return;
 			
 		/* These should not be in static executables */
+		case SHT_GNU_HASH:
 		case SHT_GNU_VERSION:
 		case SHT_GNU_VERSION_R:
 

@@ -68,6 +68,25 @@ static const char *pmelf_shdr_type_s[] = {
 	"SYMTAB_SHNDX"
 };
 
+static const char *pmelf_gnu_shdr_type_s[] = {
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"attributes",
+	"GNU_HASH",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"unknown",
+	"VERNEED",
+	"VERSYM",
+};
+
 static const char pmelf_shdr_flags_c[] = {
 	'W', 'A', 'X', '?', 'M', 'S', 'I', 'L', 'O', 'G'
 };
@@ -92,6 +111,7 @@ pmelf_dump_shdr32(FILE *f, Elf32_Shdr *pshdr, int format)
 {
 char fbuf[4*sizeof(pshdr->sh_flags)+1];
 const char *fmt;
+unsigned    idx;
 
 	if ( !f )
 		f = stdout;
@@ -103,9 +123,20 @@ const char *fmt;
 		fmt = "%-16s";
 	}
 
-	fprintf( f, fmt,
-		ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
-	);
+	if ( pshdr->sh_type < ElfNumberOf(pmelf_shdr_type_s) ) {
+
+		fprintf( f, fmt,
+				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
+			   );
+
+	} else if ( pshdr->sh_type >= 0x6ffffff0 ) {
+		idx = (unsigned) (pshdr->sh_type - 0x6ffffff0);
+
+		fprintf( f, fmt,
+				ARRSTR(pmelf_gnu_shdr_type_s, idx), idx
+			   );
+
+	}
 
 	fprintf( f, "%08"PRIx32, pshdr->sh_addr);
 	if ( FMT_LONG == format ) {
@@ -147,6 +178,7 @@ pmelf_dump_shdr64(FILE *f, Elf64_Shdr *pshdr, int format)
 {
 char fbuf[4*sizeof(pshdr->sh_flags)+1];
 const char *fmt;
+unsigned    idx;
 
 	if ( !f )
 		f = stdout;
@@ -158,9 +190,20 @@ const char *fmt;
 		fmt = "%-16s";
 	}
 
-	fprintf( f, fmt,
-		ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
-	);
+	if ( pshdr->sh_type < ElfNumberOf(pmelf_shdr_type_s) ) {
+
+		fprintf( f, fmt,
+				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
+			   );
+
+	} else if ( pshdr->sh_type >= 0x6ffffff0 ) {
+		idx = (unsigned) (pshdr->sh_type - 0x6ffffff0);
+
+		fprintf( f, fmt,
+				ARRSTR(pmelf_gnu_shdr_type_s, idx), idx
+			   );
+
+	}
 
 	fprintf( f, "%016"PRIx64, pshdr->sh_addr);
 	if ( FMT_LONG == format ) {

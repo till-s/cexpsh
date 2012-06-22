@@ -1,3 +1,7 @@
+ 20120622 (T.S.):
+ - pmelf.h:   Added definition for SHT_GNU_HASH
+ - bfd.c:     Ignore/skip SHT_GNU_HASH
+ - dmpshdr.c: Print string info for GNU section types.
  20100630 (T.S.):
  - configure.ac, bfd.c: Added test for <strings.h>. rtems-4.10/newlib-1.18
    declare strcasecmp() in <strings.h> (POSIX). Hence we include that

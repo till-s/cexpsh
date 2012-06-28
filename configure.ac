@@ -341,6 +341,7 @@ if test ! "$enable_cexp" = "no" ; then
 		AC_CONFIG_SUBDIRS(libtecla)
 		AC_DEFINE(HAVE_TECLA,1,[the tecla (reentrant line editor) library])
 		AC_CHECK_LIB(curses,tgetnum,[LIBS="$LIBS -lcurses"],[AC_CHECK_LIB(ncurses,tgetnum,[LIBS="$LIBS -lncurses"])])
+		AC_CHECK_LIB(tinfo,tgetnum,[LIBS="$LIBS -ltinfo"])
 	else if test ! "${enable_readline}" = "no" ; then
 		AC_CHECK_HEADER(readline/readline.h)
 		if test "${ac_cv_header_readline_readline_h}" = "yes" ; then

@@ -264,6 +264,8 @@ usage(char *nm)
 	fprintf(stderr," [<script file>]\n");
 	fprintf(stderr, "       C expression parser and symbol table utility\n");
 	fprintf(stderr, "       -h print this message\n");
+	fprintf(stderr, "       -I become interactive after processing script or -c\n");
+	fprintf(stderr, "       -i do not become interactive after processing script or -c\n");
 	fprintf(stderr, "       -v print version information\n");
 	fprintf(stderr, "       -p <prompt> set prompt\n");
 	fprintf(stderr, "       -c <expression> evaluate expression and return\n");
@@ -788,6 +790,13 @@ char				*symfile=0, *script=0, *arg_line = 0 ;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
+int                 become_interactive =
+#ifdef  CEXP_INTERACTIVE_DEFAULT
+	CEXP_INTERACTIVE_DEFAULT
+#else
+	0
+#endif
+	;
 #ifdef HAVE_TECLA
 #define	rl_context  context.gl
 #else
@@ -795,6 +804,8 @@ int					opt;
 #endif
 char				optstr[]={
 						'h',
+						'i',
+						'I',
 						'v',
 						's',':',
 						'a',':',
@@ -816,6 +827,14 @@ while ((opt=mygetopt_r(argc, argv, optstr,&oc))>=0) {
 		case 'h': usage(argv[0]);
 		case 'v': version(argv[0]);
 			return 0;
+
+		case 'i':
+			become_interactive = 0;
+		break;
+
+		case 'I':
+			become_interactive = 1;
+		break;
 
 #ifdef YYDEBUG
 		case 'd': cexpdebug=1;
@@ -981,12 +1000,17 @@ do {
 	}
 	
 cleanup:
-		script=0;	/* become interactive if script is killed */
+		script=0;	   /* become interactive if script is killed     */
+		arg_line=0;	   /* become interactive if expression is killed */
 		free(line);   			line=0;
 		free(prompt);           prompt=0;
 		cexpFreeParserCtx(context.parser); context.parser=0;
-	
-} while (-1==rval && 0 == arg_line);
+
+		if ( become_interactive ) {
+			rval = -1;
+			become_interactive = 0;
+		}
+} while ( -1==rval );
 
 free(context.prompt);
 

@@ -42,6 +42,15 @@ AC_ARG_ENABLE(cexp,
 		[dont build CEXP but only XSYMS])
 )
 
+AC_ARG_ENABLE(interactive-default,
+	AC_HELP_STRING([--enable-interactive-default],
+		[whether CEXP should become interactive by default after
+         processing scripts]),
+	[if test "$enable_interactive_default" = "yes"; then
+	AC_DEFINE(CEXP_INTERACTIVE_DEFAULT,1,
+		[Whether to become interactive by default after processing a script])
+	fi])
+
 AC_ARG_ENABLE(bfd,
 	AC_HELP_STRING([--disable-bfd],
 		[whether to disable using the BFD library; use pmbfd/pmelf

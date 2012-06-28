@@ -851,12 +851,22 @@ if ( script && arg_line ) {
 }
 
 if (!cexpSystemModule) {
+	int tried_builtin = 0;
 	if (!symfile) {
 		/* try to find a builtin table */
-		if ( !cexpModuleLoad(0,0) )
+		if ( !cexpModuleLoad(0,0) ) {
+			tried_builtin = 1;
+			/* Try the program name as a fallback */
+			symfile = argv[0];
+		}
+	} 
+	if ( symfile && !cexpModuleLoad(symfile,"SYSTEM")) {
+		if ( tried_builtin ) {
+			fprintf(stderr,"Unable to load system symbol table\n");
+		} else {
 			fprintf(stderr,"No builtin symbol table -- need a symbol file argument\n");
-	} else if (!cexpModuleLoad(symfile,"SYSTEM"))
-		fprintf(stderr,"Unable to load system symbol table\n");
+		}
+	}
 	if (!cexpSystemModule) {
 		usage(argv[0]);
 		return CEXP_MAIN_NO_SYMS;

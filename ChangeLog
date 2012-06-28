@@ -1,4 +1,8 @@
 Changes since CEXP-2.1
+ 2012/06/28:
+ - cexp.c: fall back to trying argv[0] as a symbol file if no -s given and
+   no internal symbol table is found.
+ - configure.ac: for linux/host demo, link terminfo (libtinfo) if necessary/available.
 Changes since CEXP-2.0.beta
  2011/10/10:
  - libtecla/Makefile.am: add manpages to EXTRA_DIST and MAINTAINERCLEANFILES.

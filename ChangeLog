@@ -1,4 +1,6 @@
 Changes since CEXP-2.1
+ 2012/07/11:
+ - cexpsyms.c, rshload.c, Makefile.am: moved rshLoad() into separate file.
  2012/06/28:
  - cexp.c, configure.ac: added '-i/-I' options and --enable-interactive-default
  - cexp.c: fall back to trying argv[0] as a symbol file if no -s given and

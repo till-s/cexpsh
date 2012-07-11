@@ -54,13 +54,30 @@ pmelf_seek(Elf_Stream s, Pmelf_Off where)
 	return s->seek ? s->seek(s->f, where, SEEK_SET) : -1;
 }
 
+int
+pmelf_tell(Elf_Stream s, Pmelf_Off *ppos)
+{
+off_t pos;
+
+	if ( ! s->tell )
+		return -1;
+
+	if ( ((off_t)-1) == (pos = s->tell(s->f)) )
+		return -1;
+
+	*ppos = (Pmelf_Off)pos;
+	return 0;
+}
+
 void
 pmelf_delstrm(Elf_Stream s, int noclose)
 {
-	if ( !noclose && s && s->close )
-		s->close(s->f);
-	free(s->name);
-	free(s);
+	if ( s ) {
+		if ( !noclose && s->close )
+			s->close(s->f);
+		free(s->name);
+		free(s);
+	}
 }
 
 void

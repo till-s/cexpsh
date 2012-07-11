@@ -1,3 +1,5 @@
+ 20120712 (T.S.):
+ - strm.c: let pmelf_delstrm() accept (and ignore) NULL stream argument.
  20120622 (T.S.):
  - pmelf.h:   Added definition for SHT_GNU_HASH
  - bfd.c:     Ignore/skip SHT_GNU_HASH

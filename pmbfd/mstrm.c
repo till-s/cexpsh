@@ -50,7 +50,7 @@ typedef struct _Elf_Memstream {
 	struct _Elf_Stream s;
 	char               *buf;
 	size_t             len;
-	unsigned long      pos;
+	off_t              pos;
 } *Elf_Memstream;
 
 static size_t mrd(void *buf, size_t size, size_t nelms, void *p)
@@ -68,7 +68,7 @@ size_t        l = size*nelms;
 	return nelms;
 }
 
-static int mseek(void *p, long offset, int whence)
+static int mseek(void *p, off_t offset, int whence)
 {
 Elf_Memstream s = p;
 	if ( SEEK_SET != whence ) {
@@ -81,6 +81,12 @@ Elf_Memstream s = p;
 	}
 	s->pos = offset;
 	return 0;
+}
+
+static off_t mtell(void *p)
+{
+Elf_Memstream s = p;
+	return s->pos;
 }
 
 Elf_Stream
@@ -107,6 +113,7 @@ Elf_Memstream s;
 
 	s->s.read = (void*)mrd;
 	s->s.seek = (void*)mseek;
+	s->s.tell = (void*)mtell;
 
 	return &s->s;
 }

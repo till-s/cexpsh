@@ -58,10 +58,11 @@
 #define DO_SYMS		4
 #define DO_GROUP	8
 #define DO_RELS    16
+#define DO_PHDRS   32
 
 #include <getopt.h>
 
-static char *optstr="achSsHgr";
+static char *optstr="achSsHglr";
 
 static void usage(char *nm)
 {
@@ -70,7 +71,8 @@ static void usage(char *nm)
 	fprintf(stderr,"   -h: print file header (ehdr)\n");
 	fprintf(stderr,"   -S: print section headers (shdr)\n");
 	fprintf(stderr,"   -g: print section groups\n");
-	fprintf(stderr,"   -s: print symbol table\n");
+	fprintf(stderr,"   -l: print program headers\n");
+	fprintf(stderr,"   -s: print symbol table(s)\n");
 	fprintf(stderr,"   -r: print relocation entries\n");
 	fprintf(stderr,"   -a: enable all of -h, -s, -S, -g, -r\n");
 	fprintf(stderr,"   -c: enable 'readelf' compatibility\n");
@@ -95,6 +97,7 @@ Elf_Stream   s;
 Elf_Ehdr     ehdr;
 Pmelf_Shtab  shtab = 0;
 Pmelf_Symtab symtab = 0;
+Pmelf_Symtab dsymtab = 0;
 int          ch;
 int          doit=0;
 int          compat=0;
@@ -109,6 +112,7 @@ int          compat=0;
 			case 's': doit |= DO_SYMS;   break;
 			case 'g': doit |= DO_GROUP;  break;
 			case 'r': doit |= DO_RELS;   break;
+			case 'l': doit |= DO_PHDRS;  break;
 			case 'a': doit |= -1;        break;
 			case 'H': usage(argv[0]);    return 0;
 			default:
@@ -135,27 +139,46 @@ int          compat=0;
 	if ( doit & DO_EHDR )
 		pmelf_dump_ehdr( stdout, &ehdr );
 
+	if ( doit & DO_PHDRS ) {
+		if ( pmelf_dump_phdrs( stdout, s, compat ? FMT_COMPAT : FMT_SHORT ) ) {
+			my_perror("Dumping Program Headers");
+			goto bail;
+		}
+	}
+
 	if ( ! (shtab = pmelf_getshtab(s, &ehdr)) )
 		goto bail;
 		
 	if ( doit & DO_SHDRS )
 		pmelf_dump_shtab( stdout, shtab, compat ? FMT_COMPAT : FMT_SHORT );
 
-	if ( ! (symtab = pmelf_getsymtab(s, shtab)) ) {
-		goto bail;
-	}
+	symtab  = pmelf_getsymtab(s, shtab);
+	dsymtab = pmelf_getdsymtab(s, shtab);
 
 	if ( doit & DO_GROUP )
 		pmelf_dump_groups( stdout, s, shtab, symtab);
 
-	if ( doit & DO_SYMS )
-		pmelf_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
+	if ( doit & DO_SYMS ) {
+		if ( dsymtab ) {
+			fprintf(stdout, "\nSymbol table '%s' contains %lu entries\n",
+			                pmelf_get_section_name(shtab, dsymtab->idx),
+			                dsymtab->nsyms);
+			pmelf_dump_symtab( stdout, dsymtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
+		}
+		if ( symtab ) {
+			fprintf(stdout, "\nSymbol table '%s' contains %lu entries\n",
+			                pmelf_get_section_name(shtab, symtab->idx),
+			                symtab->nsyms);
+			pmelf_dump_symtab( stdout, symtab, compat ? 0 : shtab, compat ? FMT_COMPAT : FMT_SHORT );
+		}
+	}
 
 	if ( doit & DO_RELS )
 		pmelf_dump_rels( stdout, s, shtab, symtab );
 
 	rval = 0;
 bail:
+	pmelf_delsymtab(dsymtab);
 	pmelf_delsymtab(symtab);
 	pmelf_delshtab(shtab);
 	pmelf_delstrm(s,0);

@@ -11,6 +11,7 @@ libpmelf_a_SOURCES+=strm.c fstrm.c mstrm.c
 libpmelf_a_SOURCES+=dmpsym.c dmpsymtab.c
 libpmelf_a_SOURCES+=dmpshdr.c dmpshtab.c
 libpmelf_a_SOURCES+=dmpehdr.c dmprels.c
+libpmelf_a_SOURCES+=dmpphdr.c
 libpmelf_a_SOURCES+=symtab.c
 libpmelf_a_SOURCES+=findsymhdrs.c
 libpmelf_a_SOURCES+=shtab.c
@@ -20,6 +21,7 @@ libpmelf_a_SOURCES+=getscn.c
 libpmelf_a_SOURCES+=getsym.c
 libpmelf_a_SOURCES+=putsym.c
 libpmelf_a_SOURCES+=getshdr.c
+libpmelf_a_SOURCES+=getphdr.c
 libpmelf_a_SOURCES+=putshdr.c
 libpmelf_a_SOURCES+=getehdr.c
 libpmelf_a_SOURCES+=putehdr.c
@@ -39,9 +41,11 @@ libpmelf_a_SOURCES+=noelf64.c
 endif
 
 if BUILD_UTILS
-bin_PROGRAMS=rdelf bfdod
+bin_PROGRAMS=rdelf bfdod scnt
 rdelf_LDADD=-L. -lpmelf
 rdelf_DEPENDENCIES=libpmelf.a
+scnt_LDADD=-L. -lpmelf
+scnt_DEPENDENCIES=libpmelf.a
 bfdod_LDADD=-L. -lpmbfd -lpmelf
 bfdod_DEPENDENCIES=libpmelf.a libpmbfd.a
 endif

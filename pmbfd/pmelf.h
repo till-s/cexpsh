@@ -121,6 +121,12 @@ typedef  int64_t Elf64_Sxword;
 #define EV_CURRENT			 1
 
 #define EI_NIDENT  16
+
+/* if eh_phnum == PN_XNUM then the number of program headers doesn't fit.
+ * it is then stored in the sh_info field of section 0.
+ */
+#define PN_XNUM     0xffff
+
 typedef struct {
 	uint8_t		e_ident[EI_NIDENT];
 	Elf32_Half	e_type;
@@ -191,7 +197,6 @@ typedef union {
 #define SHT_PREINIT_ARRAY	16
 #define SHT_GROUP			17
 #define SHT_SYMTAB_SHNDX	18
-#define SHT_MAXSUP			18
 #define SHT_GNU_ATTRIBUTES  0x6ffffff5
 #define SHT_GNU_HASH        0x6ffffff6
 #define SHT_GNU_VERSION     0x6fffffff
@@ -200,6 +205,7 @@ typedef union {
 #define SHT_HIPROC			0x7fffffff
 #define SHT_LOUSER			0x80000000
 #define SHT_HIUSER			0xffffffff
+#define SHT_ISSUP(i) ( ((i) <= SHT_SYMTAB_SHNDX) || ((i)>=SHT_GNU_ATTRIBUTES && (i)<=SHT_GNU_VERSION) )
 
 #define SHF_WRITE			0x00000001
 #define SHF_ALLOC			0x00000002
@@ -534,6 +540,123 @@ typedef union {
 	Elf64_Rela  ra64;
 } Elf_Reloc;
 
+/**************************************************/
+/*  PROGRAM HEADER                                */
+/**************************************************/
+
+#define PT_NULL			0
+#define PT_LOAD			1
+#define PT_DYNAMIC		2
+#define PT_INTERP		3
+#define PT_NOTE			4
+#define PT_SHLIB		5
+#define PT_PHDR			6
+#define PT_LOOS			0x60000000
+#define PT_GNU_EH_FRAME	0x6474e550
+#define PT_GNU_STACK	0x6474e551
+#define PT_GNU_RELRO	0x6474e552
+#define PT_HIOS			0x6fffffff
+#define PT_LOPROC		0x70000000
+#define PT_HIPROC		0x7fffffff
+#define PT_ISSUP(t) ((t) <= PT_PHDR || ((t)>=PT_GNU_EH_FRAME && (t)<=PT_GNU_RELRO))
+
+#define PF_X			0x1  /* Execute */
+#define PF_W			0x2  /* Write   */
+#define PF_R			0x4  /* Read    */
+#define PF_MASCOS		0x0ff00000
+#define PF_MASCPROC		0xf0000000
+#define PF_MSKSUP       (~(PF_X|PF_W|PF_R))
+
+typedef struct {
+	Elf32_Word		p_type;
+	Elf32_Off		p_offset;
+	Elf32_Addr		p_vaddr;
+	Elf32_Addr		p_paddr;
+	Elf32_Word		p_filesz;
+	Elf32_Word		p_memsz;
+	Elf32_Word		p_flags;
+	Elf32_Word		p_align;
+} Elf32_Phdr;
+
+typedef struct {
+	Elf64_Word		p_type;
+	Elf64_Word		p_flags;
+	Elf64_Off		p_offset;
+	Elf64_Addr		p_vaddr;
+	Elf64_Addr		p_paddr;
+	Elf64_Xword		p_filesz;
+	Elf64_Xword		p_memsz;
+	Elf64_Xword		p_align;
+} Elf64_Phdr;
+
+typedef union {
+	Elf32_Phdr p32;
+	Elf64_Phdr p64;
+} Elf_Phdr;
+
+/**************************************************/
+/*  DYNAMIC SECTION                               */
+/**************************************************/
+
+typedef struct {
+	Elf32_Sword		d_tag;
+	union {
+		Elf32_Word		d_val;
+		Elf32_Addr		d_ptr;
+	} 				d_un;
+} Elf32_Dyn;
+
+typedef struct {
+	Elf64_Sxword	d_tag;
+	union {
+		Elf64_Xword		d_val;
+		Elf64_Addr		d_ptr;
+	} 				d_un;
+} Elf64_Dyn;
+
+typedef union {
+	Elf32_Dyn d32;
+	Elf64_Dyn d64;
+} Elf_Dyn;
+
+#define DT_NULL				0	/* End of array marker									*/
+#define DT_NEEDED			1	/* string table offset of name of needed library		*/
+#define DT_PLTRELSZ			2	/* # relocation entries associated with PLT				*/
+#define DT_PLTGOT			3	/* address associated with PLT or GOT (proc specific)	*/
+#define DT_HASH				4	/* address of symbol hash table							*/
+#define DT_STRTAB			5	/* address of string table								*/
+#define DT_SYMTAB			6	/* address of symbol table								*/
+#define DT_RELA				7	/* address of RELA relocation table						*/
+#define DT_RELASZ			8	/* total size (in bytes) of RELA relocation table		*/
+#define DT_RELAENT			9	/* size (in bytes) of one RELA entry					*/
+#define DT_STRSZ			10	/* size (in bytes) of the string table					*/
+#define DT_SYMENT			11	/* size (in bytes) of a symbol table entry				*/
+#define DT_INIT				12	/* address of initialization function					*/
+#define DT_FINI				13	/* address of termination function						*/
+#define DT_SONAME			14	/* strtab index of shared object name					*/
+#define DT_RPATH			15	/* strtab index of library search path (deprecated)		*/
+#define DT_SYMBOLIC			16	/* start symbol search with this shared object			*/
+#define DT_REL				17	/* address of REL relocation table						*/
+#define DT_RELSZ			18	/* size (in bytes) of REL table							*/
+#define DT_RELENT			19	/* size (in bytes) of a REL entry						*/
+#define DT_PLTREL			20	/* type of PLT relocation (rel/rela)					*/
+#define DT_DEBUG			21	/* debugging; unspecified								*/
+#define DT_TEXTREL			22	/* reloc might modify .text								*/
+#define DT_JMPREL			23	/* address of PLT relocation table						*/
+#define DT_BIND_NOW			24	/* process relocations when loading program				*/
+#define DT_INIT_ARRAY		25	/* address of array of init functions					*/
+#define DT_FINI_ARRAY		26	/* address of array of termination functions			*/
+#define DT_INIT_ARRAYSZ		27	/* size (in bytes) of INIT_ARRAY						*/
+#define DT_FINI_ARRAYSZ		28	/* size (in bytes) of FINI_ARRAY						*/
+#define DT_RUNPATH			29	/* library search path									*/
+#define DT_FLAGS			30	/* flags for shared object being loaded					*/
+#define DT_ENCODING			31	/* start of encoded range								*/
+#define DT_PREINIT_ARRAY	32	/* address of array of preinit functions				*/
+#define DT_PREINIT_ARRAYSZ	33	/* size (in bytes) of PREINIT_ARRAY						*/
+#define DT_LOOS		0x6000000d
+#define DT_HIOS		0x6ffff000
+#define DT_LOPROC	0x70000000
+#define DT_HIPROC	0x7fffffff
 
 /**************************************************/
 /* ANYTHING BELOW HERE IS DEFINED BY THIS LIBRARY */
@@ -657,6 +780,12 @@ pmelf_set_errstrm(FILE *f);
  */
 int
 pmelf_seek(Elf_Stream s, Pmelf_Off where);
+
+/* Obtain current position in stream
+ * RETURNS: 0 on success, nonzero on error
+ */
+int
+pmelf_tell(Elf_Stream s, Pmelf_Off *ppos);
 
 /* Read an ELF file header into *pehdr (storage
  * provided by caller).
@@ -833,6 +962,9 @@ pmelf_sym_name(Pmelf_Symtab symt, Elf_Sym *sym);
 Pmelf_Symtab
 pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab);
 
+Pmelf_Symtab
+pmelf_getdsymtab(Elf_Stream s, Pmelf_Shtab shtab);
+
 /*
  * Destroy symbol table and release memory
  */
@@ -857,6 +989,31 @@ pmelf_delsymtab(Pmelf_Symtab symtab);
  */
 Pmelf_Long
 pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh);
+
+Pmelf_Long
+pmelf_find_dsymhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh);
+
+/* Read an ELF program header into *pphdr (storage
+ * provided by caller).
+ *
+ * The header is byte-swapped if necessary into
+ * host byte order.
+ *
+ * NOTE:    The stream must have been correctly 
+ *          positioned prior to calling this routine.
+ *          After returning successfully from this
+ *          routine the stream is positioned after
+ *          the datum that was read.
+ *
+ *          On reading the last PHDR, p_type == PT_NULL.
+ *
+ * RETURNS: 0 on success, nonzero on error.
+ */
+int
+pmelf_getphdr32(Elf_Stream s, Elf32_Phdr *pphdr);
+int
+pmelf_getphdr64(Elf_Stream s, Elf64_Phdr *pphdr);
+
 
 /* Dump contents of file header to FILE in readable form */
 void
@@ -929,6 +1086,22 @@ pmelf_dump_groups(FILE *f, Elf_Stream s, Pmelf_Shtab shtab, Pmelf_Symtab symtab)
  */
 void
 pmelf_dump_rels(FILE *f, Elf_Stream s, Pmelf_Shtab sht, Pmelf_Symtab symt);
+
+/* Dump contents of program header to FILE in readable form
+ * using one of the formats defined above.
+ *
+ */
+void 
+pmelf_dump_phdr32(FILE *f, Elf32_Phdr *pphdr, int format);
+
+void 
+pmelf_dump_phdr64(FILE *f, Elf64_Phdr *pphdr, int format);
+
+/*
+ * Dump all phdrs to FILE
+ */
+int
+pmelf_dump_phdrs(FILE *f, Elf_Stream s, int format);
 
 /*
  * Object file attributes (stored in '.gnu.attributes' sections of type

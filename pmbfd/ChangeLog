@@ -1,4 +1,10 @@
  20120712 (T.S.):
+ - strm.c, fstrm.c, mstrm.c, pmelfP.h, pmelf.h: added pmelf_tell().
+ - Makefile.am, dmpphdr.c, getphdr.c, scnt.c, rdelf.c, getehdr.c,
+   pmelf.h:
+   initial/rudimentary support for program headers.
+ - symtab.c, rdelf.c, dmpshdr.c, getshdr.c, findsymhdrs.c, pmelf.h:
+   support for dynamic symbols
  - strm.c: let pmelf_delstrm() accept (and ignore) NULL stream argument.
  20120622 (T.S.):
  - pmelf.h:   Added definition for SHT_GNU_HASH

@@ -126,14 +126,14 @@ unsigned    idx;
 	if ( pshdr->sh_type < ElfNumberOf(pmelf_shdr_type_s) ) {
 
 		fprintf( f, fmt,
-				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
+				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type)
 			   );
 
 	} else if ( pshdr->sh_type >= 0x6ffffff0 ) {
 		idx = (unsigned) (pshdr->sh_type - 0x6ffffff0);
 
 		fprintf( f, fmt,
-				ARRSTR(pmelf_gnu_shdr_type_s, idx), idx
+				ARRSTR(pmelf_gnu_shdr_type_s, idx)
 			   );
 
 	}
@@ -193,14 +193,14 @@ unsigned    idx;
 	if ( pshdr->sh_type < ElfNumberOf(pmelf_shdr_type_s) ) {
 
 		fprintf( f, fmt,
-				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type), pshdr->sh_type
+				ARRSTR(pmelf_shdr_type_s, pshdr->sh_type)
 			   );
 
 	} else if ( pshdr->sh_type >= 0x6ffffff0 ) {
 		idx = (unsigned) (pshdr->sh_type - 0x6ffffff0);
 
 		fprintf( f, fmt,
-				ARRSTR(pmelf_gnu_shdr_type_s, idx), idx
+				ARRSTR(pmelf_gnu_shdr_type_s, idx)
 			   );
 
 	}

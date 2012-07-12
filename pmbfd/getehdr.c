@@ -76,6 +76,11 @@ getehdr32_top(Elf_Stream s, Elf32_Ehdr *pehdr)
 		return -1;
 	}
 
+	if ( pehdr->e_phentsize != sizeof( Elf32_Phdr ) ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: PH size mismatch %i"PRIu16"\n", pehdr->e_phentsize);
+		return -1;
+	}
+
 	if ( pehdr->e_shnum > 0 ) {
 		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {
 			PMELF_PRINTF(pmelf_err, PMELF_PRE"error: shstrndx out of bounds\n");
@@ -115,6 +120,12 @@ getehdr64_top(Elf_Stream s, Elf64_Ehdr *pehdr)
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
 		return -1;
 	}
+
+	if ( pehdr->e_phentsize != sizeof( Elf64_Phdr ) ) {
+		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: PH size mismatch %i"PRIu16"\n", pehdr->e_phentsize);
+		return -1;
+	}
+
 
 	if ( pehdr->e_shnum > 0 ) {
 		if ( pehdr->e_shstrndx == 0 || pehdr->e_shstrndx >= pehdr->e_shnum ) {

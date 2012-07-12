@@ -46,8 +46,10 @@
  */ 
 #include "pmelfP.h"
 
-Pmelf_Long
-pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh)
+#define USE_SYM_SH_LINK
+
+static Pmelf_Long
+_pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh, int dynamic)
 {
 Elf_Shdr   *shdr;
 uint32_t   i;
@@ -59,52 +61,70 @@ uint32_t   shdrsz = get_shdrsz(shtab);
 uint32_t   symsz;
 Pmelf_Size sh_size, sh_entsize;
 Pmelf_Off  sh_offset;
+uint32_t   type, destype;
+const char *desname;
+#ifndef USE_SYM_SH_LINK
+const char *desstrn;
+#endif
+
+	if ( dynamic ) {
+		destype = SHT_DYNSYM;
+		desname = ".dynsym";
+#ifndef USE_SYM_SH_LINK
+		desstrn = ".dynstr";
+#endif
+	} else {
+		destype = SHT_SYMTAB;
+		desname = ".symtab";
+#ifndef USE_SYM_SH_LINK
+		desstrn = ".strtab";
+#endif
+	}
+	destype = dynamic ? SHT_DYNSYM : SHT_SYMTAB;
 
 	for ( i = 0, p = shtab->shdrs.p_raw; i<shtab->nshdrs; i++, p+=shdrsz ) {
 		shdr = (Elf_Shdr*)p;
 
-		switch ( get_sh_type(shtab->clss,shdr) ) {
-			default:
-			break;
+		type = get_sh_type(shtab->clss, shdr);
 
-			case SHT_SYMTAB:
-				if ( ! (name = pmelf_sec_name(shtab, shdr)) ) {
-					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: symtab section name out of bounds\n");
+		if ( type == destype ) {
+			if ( ! (name = pmelf_sec_name(shtab, shdr)) ) {
+				PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: symtab section name out of bounds\n");
+				return -1;
+			}
+			if ( !strcmp(desname, name) ) {
+				if ( symsh ) {
+					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: multiple symtabs\n");
 					return -1;
 				}
-				if ( !strcmp(".symtab", name) ) {
-					if ( symsh ) {
-						PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: multiple symtabs\n");
-						return -1;
-					}
-					symsh = shdr;
-#define USE_SYM_SH_LINK
+				symsh = shdr;
 #ifdef USE_SYM_SH_LINK
-					strsh = get_shtabN(shtab,get_sh_link(shtab->clss, symsh));
+				strsh = get_shtabN(shtab,get_sh_link(shtab->clss, symsh));
 #endif
-				}
-			break;
-
+			}
+		}
 #ifndef USE_SYM_SH_LINK
-			case SHT_STRTAB:
+		else if ( SHT_STRTAB == type ) {
 				if ( ! (name = pmelf_sec_name(shtab, shdr)) ) {
 					PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: strtab section name out of bounds\n");
 					return -1;
 				}
-				if ( !strcmp(".strtab", name) ) {
+				if ( !strcmp(desstrn, name) ) {
 					if ( strsh ) {
 						PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: multiple strtabs\n");
 						return -1;
 					}
 					strsh = shdr;
 				}
-			break;
-#endif
 		}
+#endif
 	}
 
 	if ( !symsh ) {
+#if 0
+		/* let the caller barf it they think it is appropriate */
 		PMELF_PRINTF( pmelf_err, PMELF_PRE"pmelf_find_symhdrs: no symtab found\n");
+#endif
 		return -1;
 	}
 
@@ -156,4 +176,15 @@ Pmelf_Off  sh_offset;
 		*pstrsh = strsh;
 
 	return sh_size/symsz;
+}
+
+Pmelf_Long
+pmelf_find_symhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh)
+{
+	return _pmelf_find_symhdrs(s, shtab, psymsh, pstrsh, 0);
+}
+Pmelf_Long
+pmelf_find_dsymhdrs(Elf_Stream s, Pmelf_Shtab shtab, Elf_Shdr **psymsh, Elf_Shdr **pstrsh)
+{
+	return _pmelf_find_symhdrs(s, shtab, psymsh, pstrsh, 1);
 }

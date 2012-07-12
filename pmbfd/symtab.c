@@ -56,8 +56,8 @@ pmelf_delsymtab(Pmelf_Symtab symtab)
 	}
 }
 
-Pmelf_Symtab
-pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab)
+static Pmelf_Symtab
+_pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab, int dynamic)
 {
 Pmelf_Symtab rval    = 0;
 Elf_Shdr     *symsh  = 0;
@@ -65,7 +65,11 @@ Elf_Shdr     *strsh  = 0;
 Pmelf_Long   i,nsyms;
 uint32_t     symsz;
 
-	if ( (nsyms = pmelf_find_symhdrs(s, shtab, &symsh, &strsh)) < 0 )
+	if ( (nsyms = dynamic ?
+	                pmelf_find_dsymhdrs(s, shtab, &symsh, &strsh) :
+	                pmelf_find_symhdrs(s, shtab, &symsh, &strsh)
+	      ) < 0
+	   )
 		return 0;
 
 	if ( !(rval = calloc(1, sizeof(*rval))) )
@@ -119,4 +123,16 @@ uint32_t     symsz;
 bail:
 	pmelf_delsymtab(rval);
 	return 0;
+}
+
+Pmelf_Symtab
+pmelf_getsymtab(Elf_Stream s, Pmelf_Shtab shtab)
+{
+	return _pmelf_getsymtab(s, shtab, 0);
+}
+
+Pmelf_Symtab
+pmelf_getdsymtab(Elf_Stream s, Pmelf_Shtab shtab)
+{
+	return _pmelf_getsymtab(s, shtab, 1);
 }

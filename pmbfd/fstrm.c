@@ -74,7 +74,8 @@ Elf_Stream s;
 
 	s->f    = f;
 	s->read = (void*)fread;
-	s->seek = (void*)fseek;
+	s->seek = (void*)fseeko;
+	s->tell = (void*)ftello;
 	s->write= (void*)fwrite;
 	s->close= (void*)fclose;
 	return s;

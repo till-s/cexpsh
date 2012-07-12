@@ -1197,7 +1197,8 @@ int		    is_on_tftpfs;
 			break;
 		}
 	} else {
-		*pfname=fullname;
+		*pfname = fullname;
+		thename = 0;
 	}
 	}
 	free(thename);

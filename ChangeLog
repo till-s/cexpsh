@@ -1,5 +1,7 @@
 Changes since CEXP-2.1
  2012/07/11:
+ - cexp.c: BUGFIX - cexpSearchFile() must not free 'thename' if it is handed
+           out to the user (ugly API anyways).
  - cexpsyms.c, rshload.c, Makefile.am: moved rshLoad() into separate file.
  2012/06/28:
  - cexp.c, configure.ac: added '-i/-I' options and --enable-interactive-default

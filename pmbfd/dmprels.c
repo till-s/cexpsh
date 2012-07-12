@@ -49,7 +49,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <pmelfP.h>
+#include "pmelfP.h"
 
 #include <inttypes.h>
 #define T_REL32    1

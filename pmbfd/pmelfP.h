@@ -74,7 +74,7 @@ struct _Elf_Stream {
 	size_t  (*write)(const void *buf, size_t size, size_t nmemb, void* stream);
 	int     (*seek) (void* stream, off_t offset, int whence);
 	off_t   (*tell) (void *stream);
-	int     (*close)(void* s);
+	int     (*close)(void* s, int noclose);
 	uint16_t machine;
 	uint8_t  needswap;
 	uint8_t  clss;

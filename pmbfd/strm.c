@@ -73,8 +73,8 @@ void
 pmelf_delstrm(Elf_Stream s, int noclose)
 {
 	if ( s ) {
-		if ( !noclose && s->close )
-			s->close(s->f);
+		if ( s->close )
+			s->close(s->f, noclose);
 		free(s->name);
 		free(s);
 	}

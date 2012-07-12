@@ -46,6 +46,11 @@
  */ 
 #include "pmelfP.h"
 
+static int close(void *f, int noclose)
+{
+	return noclose ? 0 : fclose( f );
+}
+
 Elf_Stream
 pmelf_newstrm(const char *name, FILE *f)
 {
@@ -77,6 +82,6 @@ Elf_Stream s;
 	s->seek = (void*)fseeko;
 	s->tell = (void*)ftello;
 	s->write= (void*)fwrite;
-	s->close= (void*)fclose;
+	s->close= (void*)close;
 	return s;
 }

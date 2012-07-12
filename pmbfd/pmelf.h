@@ -753,6 +753,15 @@ pmelf_newstrm(const char *name, FILE *f);
 Elf_Stream
 pmelf_memstrm(void *buf, size_t len);
 
+
+/* Create a new stream 'mmap()'ing the underlying
+ * file 'filename'. Alternatively, an open FILE
+ * may be passed (see pmelf_newstrm).
+ *
+ */
+Elf_Stream
+pmelf_mapstrm(const char *name, FILE *f);
+
 /* Cleanup and delete a stream. Optionally,
  * (pass nonzero 'noclose' argument) the
  * underlying FILE is not closed but left alone.

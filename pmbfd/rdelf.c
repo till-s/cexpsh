@@ -85,7 +85,7 @@ static void
 my_perror(const char *msg)
 {
 	if ( errno )
-		perror("msg");
+		fprintf(stderr,"%s: failed: %s\n", msg, strerror(errno));
 	else
 		fprintf(stderr,"%s: failed.\n",msg);
 }
@@ -126,7 +126,17 @@ int          compat=0;
 		return 1;
 	}
 
-	if ( ! (s = pmelf_newstrm(argv[optind], 0)) ) {
+	/* Try mapstrm but fall back to a regular file stream in
+	 * case mmap is not supported
+	 */
+	if ( ! (s = pmelf_mapstrm(argv[optind], 0)) ) {
+		if ( ENOTSUP != errno ) {
+			my_perror("Creating ELF (mmap) stream");
+			return 1;
+		}
+	}
+
+	if ( !s && ! (s = pmelf_newstrm(argv[optind], 0)) ) {
 		my_perror("Creating ELF stream");
 		return 1;
 	}

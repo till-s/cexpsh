@@ -68,6 +68,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #include <cexp_regex.h>
 
@@ -81,6 +82,8 @@
 #ifdef __rtems__
 #include <sys/socket.h>
 #endif
+
+/*#define  USE_ELF_MEMORY*/
 
 /* filter the symbol table entries we're interested in */
 
@@ -229,8 +232,6 @@ int 		s=sp->st_size;
 	cesp->value.ptv  = (CexpVal)(uintptr_t)sp->st_value;
 }
 
-#define  USE_ELF_MEMORY
-
 /* read an ELF file, extract the relevant information and
  * build our internal version of the symbol table.
  * All libelf resources are released upon return from this
@@ -246,9 +247,12 @@ Pmelf_Shtab  shtab  = 0;
 Pmelf_Symtab symtab = 0;
 CexpSymTbl	rval=0,csymt=0;
 CexpSym		sane;
-#ifdef USE_ELF_MEMORY
+#if defined(USE_ELF_MEMORY) || defined(HAVE_RCMD)
 char		*buf=0,*ptr=0;
 long		size=0,avail=0,got;
+#endif
+
+#ifdef HAVE_RCMD
 #ifdef		__rtems__
 extern		struct in_addr rtems_bsdnet_bootp_server_address;
 char		HOST[30];
@@ -256,12 +260,13 @@ char		HOST[30];
 #define		HOST "localhost"
 #endif
 #endif
-int			fd=-1;
+
+FILE        *f = 0;
 unsigned    symsz;
+char        *fullname = filename;
 
 	pmelf_set_errstrm(stderr);
 
-#ifdef USE_ELF_MEMORY
 #ifdef HAVE_RCMD
 	if ('~'==filename[0]) {
 		char *cmd=malloc(strlen(filename)+40);
@@ -285,8 +290,20 @@ unsigned    symsz;
 	else
 #endif
 	{
-		if ((fd=open(filename,O_RDONLY,0))<0)
+		f = cexpSearchFile(getenv("PATH"), &fullname, 0, 0);
+		/* cexpSearchFile allocated fullname? */
+		if ( fullname && fullname != filename )
+			free( fullname );
+
+		if ( ! f ) {
 			goto cleanup;
+		}
+
+#ifdef USE_ELF_MEMORY
+		if ( setvbuf(f, 0, _IONBF, 0) ) {
+			fprintf(stderr,"cexpSlurpElf: unable to disable buffering: %s\n", strerror(errno));
+			goto cleanup;
+		}
 
 		do {
 			if (avail<LOAD_CHUNK) {
@@ -295,20 +312,29 @@ unsigned    symsz;
 					goto cleanup;
 				ptr=buf+(size-avail);
 			}
-			got=read(fd,ptr,avail);
-			if (got<0)
+			got=fread(ptr,1,avail,f);
+			if ( ferror( f ) )
 				goto cleanup;
 			avail-=got;
 			ptr+=got;
-		} while (got);
+		} while (!feof(f) && got > 0);
 			got = ptr-buf;
-	}
-	if (!(elf = pmelf_memstrm(buf,got)))
-		goto cleanup;
-#else
-	if ( ! (elf =  pmelf_newstrm(filename,0)) )
-		goto cleanup;
 #endif
+	}
+
+#if defined(USE_ELF_MEMORY) || defined(HAVE_RCMD)
+	if ( buf ) {
+		if (!(elf = pmelf_memstrm(buf,got)))
+			goto cleanup;
+	} else 
+	/* this deals with the case if HAVE_RCMD but not USE_ELF_MEMORY when we use a non-rsh file */
+#endif
+	{
+		if ( ! (elf =  pmelf_newstrm(filename,f)) )
+			goto cleanup;
+		/* FILE is now 'owned' by pmelf */
+		f = 0;
+	}
 
 	/* we need the section header string table */
 	if (      pmelf_getehdr(elf, &ehdr)
@@ -317,7 +343,6 @@ unsigned    symsz;
 		goto cleanup;
 	
 	/* convert the symbol table */
-	
 
 	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
 		csymt=cexpCreateSymTbl(
@@ -358,14 +383,14 @@ cleanup:
 	pmelf_delsymtab(symtab);
 	pmelf_delshtab(shtab);
 	pmelf_delstrm(elf,0);
-#ifdef USE_ELF_MEMORY
+#if defined(USE_ELF_MEMORY) || defined(HAVE_RCMD)
 	if (buf)
 		free(buf);
 #endif
 	if (csymt)
 		cexpFreeSymTbl(&csymt);
-	if (fd>=0)
-		close(fd);
+	if (f)
+		fclose(f);
 	return rval;
 }
 

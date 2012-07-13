@@ -1,4 +1,5 @@
  20120712 (T.S.):
+ - added dmpphdr.c, getphdr.c, scnt.c to CVS (had forgotten)
  - pmelfP.h, strm.c, mstrm.c, fstrm.c: moved handling of 'noclose' arg to
    pmelf_delstrm() to individual stream method.
  - pmelf.h, pmelfP.h, strm.c, mstrm.c: added pmelf_mapstrm() which uses mmap

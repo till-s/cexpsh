@@ -101,7 +101,7 @@ CexpModule cexpSystemModule=0;
 char *
 cexpMagicString = CEXPMOD_MAGIC;
 
-static CexpRWLockRec	_rwlock={0};
+static CexpRWLockRec	_rwlock;
 #define __RLOCK()	cexpReadLock(&_rwlock)
 #define __RUNLOCK()	cexpReadUnlock(&_rwlock)
 #define __WLOCK()	cexpWriteLock(&_rwlock)
@@ -110,11 +110,8 @@ static CexpRWLockRec	_rwlock={0};
 void
 cexpModuleInitOnce(void)
 {
-#ifndef NO_THREAD_PROTECTION
-	if (!_rwlock.mutex) {
-		cexpRWLockInit(&_rwlock);
-	}
-#endif
+	memset(&_rwlock, 0, sizeof(_rwlock));
+	cexpRWLockInit(&_rwlock);
 }
 
 /* Search predecessor of a module in the list.

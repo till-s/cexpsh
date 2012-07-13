@@ -120,6 +120,12 @@ AC_ARG_ENABLE(tests,
 		[build test code ])
 )
 
+AC_ARG_ENABLE(pthreads,
+	AC_HELP_STRING([--enable-pthreads],
+		[enable use of pthread mutexes and thread-specific keys etc. for
+         dealing with multithreaded applications])
+)
+
 AC_ARG_WITH(rtems-notepad,
 	AC_HELP_STRING([--with-rtems-notepad=<notepad_number>],
 		[use an RTEMS notepad (0..14) to store context info instead of a
@@ -366,6 +372,14 @@ fi
 AH_TEMPLATE([HAVE_RTEMS_H])
 AC_CHECK_HEADER([rtems.h],[AC_DEFINE([HAVE_RTEMS_H],1,[If we found RTEMS headers; otherwise ugly hacks will be used!])])
 
+if test "$enable_pthreads" = "yes" ; then
+AC_CHECK_HEADER([pthread.h],
+	[AC_DEFINE([HAVE_PTHREADS],1,[If the target supports pthreads]) 
+	 LIBPTHREAD=-lpthread
+    ])
+fi
+AC_SUBST(LIBPTHREAD)
+
 # based on the features requested, check which bfd library to use
 
 if test "$enable_elfsyms" = "yes" ; then
@@ -437,7 +451,7 @@ AC_HAVE_FUNCS(rcmd vsnprintf)
 
 AH_VERBATIM(NO_THREAD_PROTECTION,[
 /* Disable thread protection on OS other than RTEMS */
-#ifndef __rtems__
+#if !defined(__rtems__) && !defined(HAVE_PTHREADS)
 #define NO_THREAD_PROTECTION
 #endif
 ])

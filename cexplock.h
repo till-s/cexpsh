@@ -88,6 +88,37 @@ cexpEventCreate(CexpEvent *id)
 #define cexpEventWait(e)	epicsEventWait(e)
 #define cexpEventDestroy(e)	epicsEventDestroy(e)
 
+#define cexpLockingInitialize() 0
+
+#elif defined(HAVE_PTHREADS)
+#include <pthread.h>
+
+typedef pthread_mutex_t *CexpLock;
+
+#define cexpLock(l)   pthread_mutex_lock(l)
+#define cexpUnlock(l) pthread_mutex_unlock(l)
+
+extern pthread_mutexattr_t cexpMutexAttributes;
+
+int
+cexpLockCreate(CexpLock *l);
+
+int
+cexpLockDestroy(CexpLock l);
+
+int
+cexpLockingInitialize();
+
+typedef pthread_rwlock_t *CexpRWLock;
+typedef pthread_rwlock_t  CexpRWLockRec;
+
+
+#define cexpReadLock(l)		pthread_rwlock_rdlock(l)
+#define cexpReadUnlock(l)	pthread_rwlock_unlock(l)
+#define cexpWriteLock(l)	pthread_rwlock_wrlock(l)
+#define cexpWriteUnlock(l)	pthread_rwlock_unlock(l)
+#define cexpRWLockInit(pl)	pthread_rwlock_init(pl, 0)
+
 
 #elif defined(__rtems__)
 
@@ -148,6 +179,8 @@ cexpEventCreate(CexpEvent *pe)
 #define cexpLockDestroy(l) rtems_semaphore_delete((l))
 #define cexpEventDestroy(l) rtems_semaphore_delete((l))
 
+#define cexpLockingInitialize() 0
+
 #elif defined(NO_THREAD_PROTECTION)
 
 typedef void *CexpLock;
@@ -169,10 +202,13 @@ typedef void *CexpEvent;
 #define cexpWriteUnlock(l)	do {} while(0)
 #define cexpRWLockInit(l)	do {} while(0)
 
+#define cexpLockingInitialize() 0
+
 #else
 #error "thread protection not implemented for this target system"
 #endif
 
+#ifndef HAVE_PTHREADS
 typedef struct CexpRWLockRec_ {
 	CexpLock	mutex;
 	unsigned	readers;
@@ -235,6 +271,7 @@ cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);
 }
+#endif
 #endif
 
 #ifdef __cplusplus

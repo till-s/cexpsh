@@ -1,4 +1,10 @@
 Changes since CEXP-2.1
+ 2012/07/12:
+ - Makefile.am, configure.ac, cexp.c, cexplock.h, cexplock.c, cexpmod.c, 
+   context.h:
+   Implemented support for using pthread mutexes, rwlocks and thread-specific
+   keys to support multithreaded CEXP on pthread platforms. 
+   Must be enabled at configure-time by giving --enable-pthreads.
  2012/07/11:
  - cexp.c: BUGFIX - cexpSearchFile() must not free 'thename' if it is handed
            out to the user (ugly API anyways).

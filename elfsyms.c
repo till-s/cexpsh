@@ -330,8 +330,17 @@ char        *fullname = filename;
 	/* this deals with the case if HAVE_RCMD but not USE_ELF_MEMORY when we use a non-rsh file */
 #endif
 	{
-		if ( ! (elf =  pmelf_newstrm(filename,f)) )
-			goto cleanup;
+		elf = pmelf_mapstrm(filename,f);
+		if ( !elf ) {
+			if ( ENOTSUP != errno ) {
+				fprintf(stderr,"Error: unable to mmap symbol file: %s\n", strerror(errno));
+				goto cleanup;
+			}
+			if ( ! (elf =  pmelf_newstrm(filename,f)) ) {
+				fprintf(stderr,"Error: unable to open symbol file: %s\n", strerror(errno));
+				goto cleanup;
+			}
+		}
 		/* FILE is now 'owned' by pmelf */
 		f = 0;
 	}

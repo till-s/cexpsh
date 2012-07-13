@@ -28,6 +28,8 @@ TECLALIBS        = -ltecla_r
 TECLAINCS        = -I@srcdir@/@LIBTECLA@
 endif
 
+PTHREADLIBS      = @LIBPTHREAD@
+
 SYMF_SRCS        =
 SYMLIBP          =
 SYMLIBS          =
@@ -95,7 +97,7 @@ SEGS_SRCS        = $(SEGS_CPU_SRC) cexpsegs.c
 endif
 
 SRCS = cexplock.h ctyps.h  cexpsyms.h  cexpsymsP.h
-SRCS+= cexp.c ctyps.c cexpsyms.c vars.c rshload.c
+SRCS+= cexp.c ctyps.c cexpsyms.c vars.c rshload.c cexplock.c
 SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
 SRCS+= cexpsegsP.h cexp_regex.h teclastuff.h rtems-hackdefs.h
 SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
@@ -154,7 +156,7 @@ if DO_DEMO
 cexp_SOURCES  = cexp_main.c
 # '-static' might not be recognized by other compilers
 cexp_LDFLAGS_static_gcc_yes=-static
-cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT))
+cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT)) $(PTHREADLIBS)
 cexp_DEPENDENCIES=libcexp.a $(wildcard cpptest/mak.defs)  $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_LDFLAGS  = -L. -Wl,-u,printf -Wl,-u,fprintf -Wl,-u,scanf -Wl,-u,fscanf $(CEXP_TEST_UNDEFS) $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 CEXP_TEST_UNDEFS=-Wl,-u,__cxa_finalize

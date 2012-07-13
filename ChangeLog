@@ -1,5 +1,10 @@
 Changes since CEXP-2.1
  2012/07/12:
+ - cexpsyms.c, cexpsymsP.h:
+    o added cexpNewSymTbl(), cexpSortSymTbl(), cexpAddSymTbl().
+      These allow for constructing a single symbol table from
+      multiple external tables.
+    o Support re-using external strings w/o copying them.
  - elfsyms.c: try pmelf_mapstrm() first and fall back on pmelf_newstrm.
  - elfsyms.c:
      o undef USE_ELF_MEMORY (but copy to memory if loading via rsh)

@@ -57,11 +57,16 @@
 /* our implementation of the symbol table holds more information
  * that we make public
  */
+typedef struct CexpStrTblRec_ {
+	char                  *chars;
+	struct CexpStrTblRec_ *next;
+} CexpStrTblRec, *CexpStrTbl;
 
 typedef struct CexpSymTblRec_ {
 	unsigned long	nentries;
+	unsigned long   size;
 	CexpSym			syms; 		/* symbol table, sorted in ascending order (key=name) */
-	char			*strtbl;	/* string table */
+	CexpStrTbl      strtbl;
 	CexpSym			*aindex;	/* an index sorted to ascending addresses */
 	CexpSymTbl		next;		/* linked list of tables */
 } CexpSymTblRec;
@@ -82,7 +87,41 @@ typedef const char * (*CexpSymFilterProc)(void *ext_sym, void *closure);
 /* Assign the internal representation fields to 'intSym' */
 typedef void (CexpSymAssignProc)(void *ext_sym, CexpSym int_sym, void *closure);
 
-/* create a Cexp symbol table from external representation */
+/* Allocate a new symbol table capable of holding 'n_entries' slots 
+ * (n_entries may be zero if a pre-fabricated symbol array is installed
+ * into this table).
+ *
+ * RETURNS: symbol table or NULL on failure.
+ */
+CexpSymTbl
+cexpNewSymTbl(unsigned n_entries);
+
+/* Sort symbols and addresses */
+void
+cexpSortSymTbl(CexpSymTbl stbl);
+
+/* Convert 'nsyms' external symbols to internal representation and add to table;
+ * 
+ * NOTES: - 'stbl' may be NULL in which case a new table is allocated.
+ *        - routine does not sort entries (the idea is that multiple external
+ *          tables are added and eventually sorted).
+ *        - symbols should only be looked up *after* all necessary calls
+ *          of this routine are executed and the symbol table sorted.
+ *          It is NOT SAFE to change the structure of the table once
+ *          users hold references into the table.
+ *
+ *        - if the CEXP_SYMTBL_FLAG_NO_STRCPY is set in 'flags' then
+ *          no copy of the symbol name is made. It is assumed that the
+ *          external symbol table holds static strings which are safe
+ *          to be re-used.
+ */
+
+#define CEXP_SYMTBL_FLAG_NO_STRCPY  (1<<0)
+
+CexpSymTbl
+cexpAddSymTbl(CexpSymTbl stbl, void *syms, int symSize, int nsyms, CexpSymFilterProc filter, CexpSymAssignProc assign, void *closure, unsigned flags);
+
+/* create and sort a Cexp symbol table from external representation */
 CexpSymTbl
 cexpCreateSymTbl(
 	void *syms,						/* pointer to external symtab */

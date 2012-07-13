@@ -171,54 +171,134 @@ int			max=24;
 }
 
 CexpSymTbl
-cexpCreateSymTbl(void *syms, int symSize, int nsyms, CexpSymFilterProc filter, CexpSymAssignProc assign, void *closure)
+cexpNewSymTbl(unsigned n_entries)
+{
+CexpSymTbl rval;
+
+	if ( ! (rval = calloc(1, sizeof(*rval))) )
+		return 0;
+
+	if ( n_entries ) {
+		if ( ! (rval->syms = malloc(sizeof(rval->syms[0])*(n_entries + 1))) )
+			goto cleanup;
+
+		if ( ! (rval->aindex = malloc(sizeof(rval->aindex[0])*n_entries)) )
+			goto cleanup;
+	}
+
+	rval->size = n_entries;
+
+	return rval;
+	
+cleanup:
+	if ( rval ) {
+		free(rval->aindex);
+		free(rval->syms);
+	}
+	return 0;
+}
+
+void
+cexpSortSymTbl(CexpSymTbl stbl)
+{
+	qsort((void*)stbl->syms,
+		stbl->nentries,
+		sizeof(*stbl->syms),
+		_cexp_namecomp);
+	qsort((void*)stbl->aindex,
+		stbl->nentries,
+		sizeof(*stbl->aindex),
+		_cexp_addrcomp);
+}
+
+
+CexpSymTbl
+cexpAddSymTbl(CexpSymTbl stbl, void *syms, int symSize, int nsyms, CexpSymFilterProc filter, CexpSymAssignProc assign, void *closure, unsigned flags)
 {
 char		*sp,*dst;
 const char	*symname;
 CexpSymTbl	rval;
 CexpSym		cesp;
 int			n,nDstSyms,nDstChars;
+CexpStrTbl  strtbl = 0;
 
-	if (!(rval=(CexpSymTbl)malloc(sizeof(*rval))))
+	if ( stbl ) {
+		rval = stbl;
+	} else {
+		if (! (rval=(CexpSymTbl)calloc(1, sizeof(*rval))))
 			return 0;
+	}
 
-	memset(rval,0,sizeof(*rval));
-	
 	if ( filter && assign ) {
+
+		if ( rval->syms && 0 == rval->size ) {
+			/* cannot add to a table that we didn't create */
+			return 0;
+		}
+
 		/* count the number of valid symbols */
-		for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp+=symSize,n++) {
+		if ( (flags & CEXP_SYMTBL_FLAG_NO_STRCPY) ) {
+			for (sp=syms,n=0,nDstSyms=0; n<nsyms; sp+=symSize,n++) {
+				if ((symname=filter(sp,closure))) {
+					nDstSyms++;
+				}
+			}
+			nDstChars = 0;
+		} else {
+			for (sp=syms,n=0,nDstSyms=0,nDstChars=0; n<nsyms; sp+=symSize,n++) {
 				if ((symname=filter(sp,closure))) {
 					nDstChars+=strlen(symname)+1;
 					nDstSyms++;
 				}
+			}
 		}
-
 
 		/* create our copy of the symbol table - the object format contains
 		 * many things we're not interested in and also, it's not
 		 * sorted...
 		 */
-		
-		/* allocate all the table space */
-		if (!(rval->syms=(CexpSym)malloc(sizeof(CexpSymRec)*(nDstSyms+1))))
-			goto cleanup;
-	
-		if (!(rval->strtbl=(char*)malloc(nDstChars)) ||
-   	     !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))))
-			goto cleanup;
+
+		if ( nDstSyms > rval->size - rval->nentries ) {
+			/* allocate all the table space */
+			if ( ! (rval->syms=(CexpSym)realloc(rval->syms, sizeof(rval->syms[0])*(rval->nentries + nDstSyms + 1))) )
+				goto cleanup;
+
+
+			if ( ! (rval->aindex=(CexpSym*)realloc(rval->aindex, (rval->nentries + nDstSyms)*sizeof(*rval->aindex))))
+				goto cleanup;
+
+			rval->size = rval->nentries + nDstSyms;
+		}
+
+		if ( nDstChars ) {
+			if ( !(strtbl = malloc(sizeof(*strtbl))) )
+				goto cleanup;
+			if ( !(strtbl->chars = malloc(nDstChars)) ) {
+				free( strtbl );
+				strtbl = 0;
+				goto cleanup;
+			}
+			strtbl->next = rval->strtbl;
+			rval->strtbl = strtbl;
+		}
 	
 		/* now copy the relevant stuff */
-		for (sp=syms,n=0,cesp=rval->syms,dst=rval->strtbl; n<nsyms; sp+=symSize,n++) {
+		dst = strtbl ? strtbl->chars : 0;
+		for (sp=syms,n=0,cesp=rval->syms + rval->nentries; n<nsyms; sp+=symSize,n++) {
 			if ((symname=filter(sp,closure))) {
 					memset(cesp,0,sizeof(*cesp));
-					/* copy the name to the string table and put a pointer
-					 * into the symbol table.
-					 */
-					cesp->name=dst;
-					while ((*(dst++)=*(symname++)))
+					if ( (flags & CEXP_SYMTBL_FLAG_NO_STRCPY) ) {
+						cesp->name=symname;
+					} else {
+						/* copy the name to the string table and put a pointer
+						 * into the symbol table.
+						 */
+						cesp->name=dst;
+						while ((*(dst++)=*(symname++)))
 							/* do nothing else */;
+					}
 					cesp->flags = 0;
-					rval->aindex[cesp-rval->syms]=cesp;
+					rval->aindex[(cesp-rval->syms) + rval->nentries]=cesp;
 	
 					assign(sp,cesp,closure);
 	
@@ -229,8 +309,12 @@ int			n,nDstSyms,nDstChars;
 		/* mark the last table entry */
 		cesp->name=0;
 	} else { /* no filter or assign callback -- they pass us a list of symbols in already */
+		if ( rval->syms ) {
+			/* cannot add an existing list of symbols to another */
+			return 0;
+		}
 		nDstSyms   = nsyms;
-		if ( !(rval->aindex=(CexpSym*)malloc(nDstSyms*sizeof(*rval->aindex))) )
+		if ( !(rval->aindex=(CexpSym*)realloc(rval->aindex, (rval->nentries + nDstSyms)*sizeof(*rval->aindex))) )
 			goto cleanup;
 		rval->syms = syms;
 		for ( cesp = rval->syms; cesp->name; cesp++ ) {
@@ -238,31 +322,36 @@ int			n,nDstSyms,nDstChars;
 		}
 	}
 
-	rval->nentries=nDstSyms;
-
-	/* sort the tables */
-	qsort((void*)rval->syms,
-		rval->nentries,
-		sizeof(*rval->syms),
-		_cexp_namecomp);
-	qsort((void*)rval->aindex,
-		rval->nentries,
-		sizeof(*rval->aindex),
-		_cexp_addrcomp);
+	rval->nentries += nDstSyms;
 
 	return rval;
 
 cleanup:
-	cexpFreeSymTbl(&rval);
+	if ( stbl ) {
+		/* leave old table alone */
+	} else {
+		cexpFreeSymTbl(&rval);
+	}
 	return 0;
 }
 
+CexpSymTbl
+cexpCreateSymTbl(void *syms, int symSize, int nsyms, CexpSymFilterProc filter, CexpSymAssignProc assign, void *closure)
+{
+CexpSymTbl rval;
+
+	if ( (rval = cexpAddSymTbl( 0, syms, symSize, nsyms, filter, assign, closure, 0)) ) {
+		cexpSortSymTbl( rval );
+	}
+	return rval;
+}
 
 void
 cexpFreeSymTbl(CexpSymTbl *pt)
 {
 CexpSymTbl	st=*pt;
 CexpSym		s;
+CexpStrTbl  strs;
 int			i;
 	if (st) {
 		/* release help info */
@@ -272,7 +361,11 @@ int			i;
 			}
 		}
 		free(st->syms);
-		free(st->strtbl);
+		while ( (strs = st->strtbl) ) {
+			st->strtbl = strs->next;
+			free(strs->chars);
+			free(strs);
+		}
 		free(st->aindex);
 		free(st);
 	}

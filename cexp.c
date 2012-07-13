@@ -468,6 +468,11 @@ cexpInit(CexpSigHandlerInstallProc installer)
 {
 static int done=0;
 	if (!done) {
+		if ( cexpLockingInitialize() ) {
+			fprintf(stderr,"Unable to initialize locking - fatal Error\n");
+			fflush(stderr);
+			exit(1);
+		}
 #ifdef HAVE_SIGNALS
 		if (!installer)
 			installer=siginstall;
@@ -475,7 +480,11 @@ static int done=0;
 		cexpSigHandlerInstaller=installer;
 		cexpModuleInitOnce();
 		cexpVarInitOnce();
-		cexpContextInitOnce();
+		if ( cexpContextInitOnce() ) {
+			fprintf(stderr,"Unable to initialize context - fatal Error\n");
+			fflush(stderr);
+			exit(1);
+		}
 		cexpLockCreate(&cexpGblLock);
 		done=1;
 	}

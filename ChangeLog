@@ -1,5 +1,6 @@
 Changes since CEXP-2.1
  2012/07/12:
+ - elfsyms.c: try pmelf_mapstrm() first and fall back on pmelf_newstrm.
  - elfsyms.c:
      o undef USE_ELF_MEMORY (but copy to memory if loading via rsh)
      o use cexpSearchFile() to locate symbol file

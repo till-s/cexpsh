@@ -1,5 +1,8 @@
 Changes since CEXP-2.1
  2012/07/12:
+ - xsyms.c:
+    o added option to accept undefined symbols.
+    o check return value of pmelf_newstrm().
  - Makefile.am, configure.ac, cexp.c, cexplock.h, cexplock.c, cexpmod.c, 
    context.h:
    Implemented support for using pthread mutexes, rwlocks and thread-specific

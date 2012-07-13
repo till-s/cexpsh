@@ -1,5 +1,8 @@
 Changes since CEXP-2.1
  2012/07/12:
+ - elfsyms.c:
+     o undef USE_ELF_MEMORY (but copy to memory if loading via rsh)
+     o use cexpSearchFile() to locate symbol file
  - xsyms.c:
     o added option to accept undefined symbols.
     o check return value of pmelf_newstrm().

@@ -1,3 +1,9 @@
+ 20120716 (T.S.):
+ - pmbfd.h: tweaked some things so that opcodes from binutils-2.21 compiles
+    o added definition for STRING_COMMA_LEN
+    o added bfd_arch_l1om (and associated 'bfd_mach_l1om...' macros)
+    o MODIFIED bfd_mach_powerpc and bfd_mach_rs6000 to match binutils-2.21
+    o fixed typo in bfd_mach_rs6k... macros
  20120712 (T.S.):
  - added dmpphdr.c, getphdr.c, scnt.c to CVS (had forgotten)
  - pmelfP.h, strm.c, mstrm.c, fstrm.c: moved handling of 'noclose' arg to

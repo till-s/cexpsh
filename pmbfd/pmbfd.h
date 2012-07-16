@@ -95,6 +95,8 @@ typedef void *PTR;
 #error   "FALSE already defined to a value other than 0!"
 #endif
 
+#define STRING_COMMA_LEN(STR) (STR), (sizeof(STR) - 1)
+
 typedef long          file_ptr;
 
 typedef unsigned int flagword;
@@ -242,7 +244,10 @@ enum bfd_architecture {
 #define bfd_mach_i386_i386_intel_syntax         3
 #define bfd_mach_x86_64                        64
 #define bfd_mach_x86_64_intel_syntax           65
-	bfd_arch_powerpc      = 21,
+	bfd_arch_l1om         = 10,
+#define bfd_mach_l1om                          66
+#define bfd_mach_l1om_intel_syntax             67
+	bfd_arch_powerpc      = 23, /* 21 in binutils-2.18 */
 #define bfd_mach_ppc                           32
 #define bfd_mach_ppc64                         64
 #define bfd_mach_ppc_403                      403
@@ -262,11 +267,11 @@ enum bfd_architecture {
 #define bfd_mach_ppc_rs64iii                  643
 #define bfd_mach_ppc_7400                    7400
 #define bfd_mach_ppc_e500                     500
-	bfd_arch_rs6000        = 22
-#define bfd_mach_rs6lk                       6000
-#define bfd_mach_rs6lk_rs1                   6001
-#define bfd_mach_rs6lk_rsc                   6002
-#define bfd_mach_rs6lk_rs2                   6003
+	bfd_arch_rs6000        = 24 /* 22 in binutils-2.18 */
+#define bfd_mach_rs6k                        6000
+#define bfd_mach_rs6k_rs1                    6001
+#define bfd_mach_rs6k_rsc                    6002
+#define bfd_mach_rs6k_rs2                    6003
 };
 
 enum bfd_flavour {

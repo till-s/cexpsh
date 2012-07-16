@@ -1,4 +1,7 @@
 Changes since CEXP-2.1
+ 2012/07/16:
+ - cexpmod.c: BUGFIX - addrInModule dereferenced 'segs' which may be NULL if
+   loader is disabled. Added checks for USE_LOADER.
  2012/07/12:
  - cexpsyms.c, cexpsymsP.h:
     o added cexpNewSymTbl(), cexpSortSymTbl(), cexpAddSymTbl().

@@ -168,21 +168,25 @@ int			index;
 
 static int addrInModule(void *addr, CexpModule m)
 {
-CexpSegment s;
 CexpSymTbl  t;
+#ifdef USE_LOADER
+CexpSegment s;
 	for ( s = m->segs; s->name; s++ ) {
 		if ( ! s->chunk ) {
+#endif
 			if ( m == cexpSystemModule ) {
 				t = m->symtbl;
 				/* assume system module is a single chunk (not allocated though) */
 				return addr >= (void*)t->aindex[0]->value.ptv && addr <= (void*)t->aindex[t->nentries-1]->value.ptv;
 			}
+#ifdef USE_LOADER
 			continue;
 		}
 
 		if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
 			return 1;
 	}
+#endif
 	return 0;
 }
 

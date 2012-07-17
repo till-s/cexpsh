@@ -298,7 +298,7 @@ CexpStrTbl  strtbl = 0;
 							/* do nothing else */;
 					}
 					cesp->flags = 0;
-					rval->aindex[(cesp-rval->syms) + rval->nentries]=cesp;
+					rval->aindex[cesp - rval->syms]=cesp;
 	
 					assign(sp,cesp,closure);
 	

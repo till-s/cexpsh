@@ -107,7 +107,13 @@ _cexp_addrcomp(const void *a, const void *b)
 {
 	CexpSym *sa=(CexpSym*)a;
 	CexpSym *sb=(CexpSym*)b;
-	return (*sa)->value.ptv-(*sb)->value.ptv;
+	/* pointers may be larger than 'int' ! */
+	if ( (*sa)->value.ptv > (*sb)->value.ptv )
+		return 1;
+	else if ( (*sa)->value.ptv < (*sb)->value.ptv )
+		return -1;
+	else
+		return 0;
 }
 
 CexpSym

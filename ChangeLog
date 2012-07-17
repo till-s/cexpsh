@@ -1,5 +1,12 @@
 Changes since CEXP-2.1
  2012/07/16:
+ - Makefile.am, configure.ac, elfsyms.c, elfdlsyms.c elfdlsyms.h:
+   added support for adding dynamic symbols of all dependent shared
+   libraries (currently linked to executable). This needs GNU
+   extension dl_iterate_phdrs() from link.h
+ - cexpsyms.c: BUGFIX - must not add 'nentries' when computing aindex
+   array index.
+ 2012/07/16:
  - cexpmod.c: BUGFIX - addrInModule dereferenced 'segs' which may be NULL if
    loader is disabled. Added checks for USE_LOADER.
  2012/07/12:

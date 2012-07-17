@@ -380,6 +380,15 @@ AC_CHECK_HEADER([pthread.h],
 fi
 AC_SUBST(LIBPTHREAD)
 
+AC_CHECK_HEADER([link.h],
+	[AC_DEFINE([HAVE_LINK_H],1,[If we have <link.h>])
+	 AC_CHECK_DECL(
+		[dl_iterate_phdr],
+		AC_DEFINE([HAVE_DL_ITERATE_PHDR],1,[If we have dl_iterate_phdr in link.h]),
+		[],
+		[[#define _GNU_SOURCE
+		#include <link.h>]])])
+
 # based on the features requested, check which bfd library to use
 
 if test "$enable_elfsyms" = "yes" ; then

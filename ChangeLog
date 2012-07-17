@@ -1,5 +1,7 @@
 Changes since CEXP-2.1
  2012/07/17:
+ - ctyps.h, ctyps.c: introduced UInt type (not used yet). Use designated
+   array initializers when building type converter matrix.
  - cexpsyms.c: BUGFIX - _cexp_addrcomp() cannot just return 'int'
    difference between pointers. Result is wrong for e.g.,
    (void *) 1 - (void*)(-1) or if pointers are larger than 'int'.

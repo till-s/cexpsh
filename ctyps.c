@@ -148,13 +148,55 @@ static void d2d(CexpTypedVal v) { v->tv.d=(double)v->tv.d; }
 #define f2p (Converter)0
 #define d2p (Converter)0
 
-static Converter ctab[6][6] = {
-	{	p2p,	p2c,	p2s,	p2l,	p2f,	p2d	},
-	{	c2p,	c2c,	c2s,	c2l,	c2f,	c2d	},
-	{	s2p,	s2c,	s2s,	s2l,	s2f,	s2d	},
-	{	l2p,	l2c,	l2s,	l2l,	l2f,	l2d	},
-	{	f2p,	f2c,	f2s,	f2l,	f2f,	f2d	},
-	{	d2p,	d2c,	d2s,	d2l,	d2f,	d2d	},
+static Converter ctab[7][7] = {
+	[CEXP_TYPE_INDX(TVoid)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = p2p,
+		[CEXP_TYPE_INDX(TUChar)]  = p2c,
+		[CEXP_TYPE_INDX(TUShort)] = p2s,
+		[CEXP_TYPE_INDX(TULong)]  = p2l,
+		[CEXP_TYPE_INDX(TFloat)]  = p2f,
+		[CEXP_TYPE_INDX(TDouble)] = p2d
+	},
+	[CEXP_TYPE_INDX(TUChar)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = c2p,
+		[CEXP_TYPE_INDX(TUChar)]  = c2c,
+		[CEXP_TYPE_INDX(TUShort)] = c2s,
+		[CEXP_TYPE_INDX(TULong)]  = c2l,
+		[CEXP_TYPE_INDX(TFloat)]  = c2f,
+		[CEXP_TYPE_INDX(TDouble)] = c2d
+	},
+	[CEXP_TYPE_INDX(TUShort)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = s2p,
+		[CEXP_TYPE_INDX(TUChar)]  = s2c,
+		[CEXP_TYPE_INDX(TUShort)] = s2s,
+		[CEXP_TYPE_INDX(TULong)]  = s2l,
+		[CEXP_TYPE_INDX(TFloat)]  = s2f,
+		[CEXP_TYPE_INDX(TDouble)] = s2d
+	},
+	[CEXP_TYPE_INDX(TULong)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = l2p,
+		[CEXP_TYPE_INDX(TUChar)]  = l2c,
+		[CEXP_TYPE_INDX(TUShort)] = l2s,
+		[CEXP_TYPE_INDX(TULong)]  = l2l,
+		[CEXP_TYPE_INDX(TFloat)]  = l2f,
+		[CEXP_TYPE_INDX(TDouble)] = l2d
+	},
+	[CEXP_TYPE_INDX(TFloat)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = f2p,
+		[CEXP_TYPE_INDX(TUChar)]  = f2c,
+		[CEXP_TYPE_INDX(TUShort)] = f2s,
+		[CEXP_TYPE_INDX(TULong)]  = f2l,
+		[CEXP_TYPE_INDX(TFloat)]  = f2f,
+		[CEXP_TYPE_INDX(TDouble)] = f2d
+	},
+	[CEXP_TYPE_INDX(TDouble)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = d2p,
+		[CEXP_TYPE_INDX(TUChar)]  = d2c,
+		[CEXP_TYPE_INDX(TUShort)] = d2s,
+		[CEXP_TYPE_INDX(TULong)]  = d2l,
+		[CEXP_TYPE_INDX(TFloat)]  = d2f,
+		[CEXP_TYPE_INDX(TDouble)] = d2d
+	},
 };
 
 /* check whether v would fit into a variable of type t */

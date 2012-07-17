@@ -1,4 +1,9 @@
 Changes since CEXP-2.1
+ 2012/07/17:
+ - cexpsyms.c: BUGFIX - _cexp_addrcomp() cannot just return 'int'
+   difference between pointers. Result is wrong for e.g.,
+   (void *) 1 - (void*)(-1) or if pointers are larger than 'int'.
+   We now do explicit pointer comparison.
  2012/07/16:
  - Makefile.am, configure.ac, elfsyms.c, elfdlsyms.c elfdlsyms.h:
    added support for adding dynamic symbols of all dependent shared

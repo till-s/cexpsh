@@ -1,3 +1,5 @@
+ 20121101 (T.S.):
+ - getehdr.c: check SH and PH sizes only if respective numbers are > 0.
  20120716 (T.S.):
  - pmbfd.h: tweaked some things so that opcodes from binutils-2.21 compiles
     o added definition for STRING_COMMA_LEN

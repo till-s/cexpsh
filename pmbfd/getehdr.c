@@ -71,12 +71,12 @@ getehdr32_top(Elf_Stream s, Elf32_Ehdr *pehdr)
 	}
 #endif
 
-	if ( pehdr->e_shentsize != sizeof( Elf32_Shdr ) ) {
+	if ( pehdr->e_shnum > 0 && pehdr->e_shentsize != sizeof( Elf32_Shdr ) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
 		return -1;
 	}
 
-	if ( pehdr->e_phentsize != sizeof( Elf32_Phdr ) ) {
+	if ( pehdr->e_phnum > 0 && pehdr->e_phentsize != sizeof( Elf32_Phdr ) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: PH size mismatch %i"PRIu16"\n", pehdr->e_phentsize);
 		return -1;
 	}
@@ -116,12 +116,12 @@ getehdr64_top(Elf_Stream s, Elf64_Ehdr *pehdr)
 	}
 #endif
 
-	if ( pehdr->e_shentsize != sizeof( Elf64_Shdr ) ) {
+	if ( pehdr->e_shnum > 0 && pehdr->e_shentsize != sizeof( Elf64_Shdr ) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: SH size mismatch %i"PRIu16"\n", pehdr->e_shentsize);
 		return -1;
 	}
 
-	if ( pehdr->e_phentsize != sizeof( Elf64_Phdr ) ) {
+	if ( pehdr->e_phnum > 0 && pehdr->e_phentsize != sizeof( Elf64_Phdr ) ) {
 		PMELF_PRINTF(pmelf_err, PMELF_PRE"error: PH size mismatch %i"PRIu16"\n", pehdr->e_phentsize);
 		return -1;
 	}

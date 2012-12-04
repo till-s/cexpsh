@@ -17,7 +17,11 @@
 
 #include <link.h>
 
-#define DLMAP_DEBUG 2
+/* 1: basic info
+ * 2: dt_tag info
+ * 3: individual hash bucket info
+ */
+#define DLMAP_DEBUG 0
 
 typedef struct Elf_GnuHashHdr {
 	Elf32_Word nbuckets;

@@ -17,7 +17,7 @@
 
 #include <link.h>
 
-#define DLMAP_DEBUG 0
+#define DLMAP_DEBUG 2
 
 typedef struct Elf_GnuHashHdr {
 	Elf32_Word nbuckets;
@@ -193,14 +193,11 @@ unsigned       msk;
 	 *
 	 * It is, however, possible to extract the number of symbols from
 	 * the hash table info...
+	 * 
+	 * Note that both, GNU_HASH and HASH may be present. Check for
+	 * GNU_HASH first to make sure hhdr is valid when computing first_sym.
 	 */
-	if ( (MSK_HASH & msk) ) {
-		/* This is easy; the number of chains equals the number of symbols */
-		ndsyms = ((Elf32_Word*)hash)[1];
-#if DLMAP_DEBUG > 0
-		printf("%lu dynamic symbols from HASH\n", ndsyms);
-#endif
-	} else if ( (MSK_GNUHASH & msk) ) {
+	if ( (MSK_GNUHASH & msk) ) {
 		/* read the header */
 		hhdr = *(Elf_GnuHashHdr*)gnu_hash;
 
@@ -242,6 +239,12 @@ unsigned       msk;
 #if DLMAP_DEBUG > 0
 		printf("%lu dynamic symbols from GNU_HASH\n", ndsyms);
 #endif
+	} else if ( (MSK_HASH & msk) ) {
+		/* This is easy; the number of chains equals the number of symbols */
+		ndsyms = ((Elf32_Word*)hash)[1];
+#if DLMAP_DEBUG > 0
+		printf("%lu dynamic symbols from HASH\n", ndsyms);
+#endif
 	} else {
 		fprintf(stderr, "cexpLinkMapBuild() - internal error; should not get here (%s)\n", info->dlpi_name);
 		return -1;
@@ -257,6 +260,9 @@ unsigned       msk;
 	/* if there is a gnu hashtable then         */
     /* all undefined or local symbols are first */
 	map->firstsym = (MSK_GNUHASH & msk) ? hhdr.symndx : 0;
+#if DLMAP_DEBUG > 0
+	printf("Firstsym: %lu\n", map->firstsym);
+#endif
 
 	/* enqueue at tail */
 	**tailpp = map;

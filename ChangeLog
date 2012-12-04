@@ -1,4 +1,8 @@
 Changes since CEXP-2.1
+ 2012/12/03:
+ - elfdlsyms.c: BUGFIX: must handle the case where both, HASH and GNU_HASH 
+   are present. Code gave preference to HASH but later checked for GNU_HASH
+   and used incomplete information (hhdr).
  2012/07/17:
  - ctyps.h, ctyps.c: introduced UInt type (not used yet). Use designated
    array initializers when building type converter matrix.

@@ -251,7 +251,7 @@ extern int cexpdebug;
 #endif
 
 static void
-usage(char *nm)
+usage(const char *nm)
 {
 	fprintf(stderr, "usage: %s [-h] [-v]",nm);
 #ifdef YYDEBUG
@@ -284,7 +284,7 @@ usage(char *nm)
 }
 
 static void
-version(char *nm)
+version(const char *nm)
 {
 	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
 }
@@ -327,7 +327,7 @@ cexp_regex	*rc=arg;
 
 /* alternate entries for the lookup functions */
 int
-lkup(char *re)
+lkup(const char *re)
 {
 extern	CexpSym _cexpSymLookupRegex();
 cexp_regex		*rc=0;
@@ -718,7 +718,7 @@ source_op_deprec(const char *pop)
 }
 
 static int
-process_script(CexpParserCtx ctx, char *name, int quiet)
+process_script(CexpParserCtx ctx, const char *name, int quiet)
 {
 int  rval = 0;
 FILE *filestack[ST_DEPTH];
@@ -795,7 +795,7 @@ cexp_main1(int argc, char **argv, void (*callback)(int argc, char **argv, CexpCo
 CexpContextRec		context;	/* the public parts of this instance's context */
 CexpContext			myContext;
 char				*line=0, *prompt=0, *tmp;
-char				*symfile=0, *script=0, *arg_line = 0 ;
+const char			*symfile=0, *script=0, *arg_line = 0 ;
 int					rval=CEXP_MAIN_INVAL_ARG, quiet=0;
 MyGetOptCtxtRec		oc={0}; /* must be initialized */
 int					opt;
@@ -1136,23 +1136,25 @@ cleanup:
  *       tmpfname, if non-NULL must hold a template name (mkstemp)
  */
 FILE *
-cexpSearchFile(char *path, char **pfname, char *fullname, char *tmpfname)
+cexpSearchFile(const char *path, const char *fname, char **pfullname, char *tmpfname)
 {
 FILE        *f = 0;
-char        *col, *thename=0;
+const char  *col;
+char        *thename=0;
+char        *fullname;
 #ifdef __rtems__
 struct stat	dummybuf;
 int		    is_on_tftpfs;
 #endif
 
 	/* Search relative file in the PATH */
-	if ( !fullname ) {
+	if ( !pfullname || !(fullname = *pfullname) ) {
 		if ( !(thename = malloc(MAXPATHLEN)) )
 			return 0;
 		fullname = thename;
 	}
 
-	if ( strchr(*pfname,'/') || !path )
+	if ( strchr(fname,'/') || !path )
 		path = "";
 	else {
 		/* no '/' AND path set; handle special case
@@ -1182,7 +1184,7 @@ int		    is_on_tftpfs;
 	/* don't append a separator if the prefix is empty */
 	if ( *fullname )
 		strcat(fullname,"/");
-	strcat(fullname,*pfname);
+	strcat(fullname, fname);
 		
 #ifdef __rtems__
 	/* The RTEMS TFTPfs is strictly
@@ -1197,7 +1199,7 @@ int		    is_on_tftpfs;
 			/* file was found but couldn't make copy; this is an error */
 			break;
 		}
-		*pfname=tmpfname;
+		strcpy(fullname, tmpfname);
 	} else
 #endif
 	if (  ! (f=fopen(fullname,"r")) ) {
@@ -1206,8 +1208,10 @@ int		    is_on_tftpfs;
 			break;
 		}
 	} else {
-		*pfname = fullname;
-		thename = 0;
+		if ( pfullname && ! *pfullname ) {
+			*pfullname = thename;
+			thename    = 0;
+		}
 	}
 	}
 	free(thename);

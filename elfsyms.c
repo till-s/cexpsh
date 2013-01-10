@@ -262,7 +262,7 @@ unsigned long rval    = 0;
  * routine.
  */
 static CexpSymTbl
-cexpSlurpElf(char *filename)
+cexpSlurpElf(const char *filename)
 {
 Elf_Stream	  elf=0;
 Elf_Shdr	  *shdr=0;
@@ -290,7 +290,6 @@ char		HOST[30];
 
 FILE        *f = 0;
 unsigned    symsz;
-char        *fullname = filename;
 
 	pmelf_set_errstrm(stderr);
 
@@ -317,10 +316,7 @@ char        *fullname = filename;
 	else
 #endif
 	{
-		f = cexpSearchFile(getenv("PATH"), &fullname, 0, 0);
-		/* cexpSearchFile allocated fullname? */
-		if ( fullname && fullname != filename )
-			free( fullname );
+		f = cexpSearchFile(getenv("PATH"), filename, 0, 0);
 
 		if ( ! f ) {
 			goto cleanup;
@@ -494,7 +490,7 @@ cleanup:
 }
 
 int
-cexpLoadFile(char *filename, CexpModule new_module)
+cexpLoadFile(const char *filename, CexpModule new_module)
 {
 int			rval=-1;
 

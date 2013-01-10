@@ -1476,7 +1476,7 @@ char	*start, *end;
 
 /* the caller of this routine holds the module lock */ 
 int
-cexpLoadFile(char *filename, CexpModule mod)
+cexpLoadFile(const char *filename, CexpModule mod)
 {
 LinkDataRec						ldr;
 int								rval=1,i;
@@ -1490,6 +1490,7 @@ unsigned long                   eh_vma;
 char							tmpfname[30]={
 		'/','t','m','p','/','m','o','d','X','X','X','X','X','X',
 		0};
+int                             have_tmpf = 0;
 #else
 #define tmpfname 0
 #endif
@@ -1535,15 +1536,16 @@ CexpModule                      m;
 	if (!ctorDtorRegexp)
 		ctorDtorRegexp=cexp_regcomp(CTOR_DTOR_PATTERN);
 
-	thename = malloc(MAXPATHLEN);
-
-	f = cexpSearchFile(getenv("PATH"), &filename, thename, tmpfname);
+	f = cexpSearchFile(getenv("PATH"), filename, &thename, tmpfname);
 
 	if ( !f ) {
 		perror("opening object file (check PATH)");
 		goto cleanup;
 	}
 
+#ifdef __rtems__
+	have_tmpf = (0 == strcmp(thename, tmpfname));
+#endif
 
 	if ( ! (ldr.abfd=bfd_openstreamr(filename,0,f)) ) {
 		bfd_perror("Opening BFD on object file stream");
@@ -1854,7 +1856,7 @@ cleanup:
 		fclose(f);
 	}
 #ifdef __rtems__
-	if (filename==tmpfname)
+	if ( have_tmpf )
 		unlink(tmpfname);
 #endif
 

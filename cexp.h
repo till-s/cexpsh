@@ -103,14 +103,14 @@ extern  CexpModule	cexpSystemModule;
  */
 
 CexpModule
-cexpModuleLoad(char *file_name, char *module_name);
+cexpModuleLoad(const char *file_name, const char *module_name);
 
 /* unload a module */
 int
 cexpModuleUnload(CexpModule moduleHandle);
 
 /* return a module's name (string owned by module code) */
-char *
+const char *
 cexpModuleName(CexpModule mod);
 
 #define CEXP_FILE_QUIET ((FILE*) -1 )
@@ -121,7 +121,7 @@ cexpModuleName(CexpModule mod);
  * RETURNS: First module ID found, NULL on no match.
  */
 CexpModule
-cexpModuleFindByName(char *pattern, FILE *f);
+cexpModuleFindByName(const char *pattern, FILE *f);
 
 /* Dump info about a module to 'f' (stdout if NULL)
  * If NULL is passed for the module ID, info about
@@ -149,7 +149,7 @@ cexpModuleInfo(CexpModule mod, int level, FILE *feil);
  * RETURNS: mod->next or NULL.
  */
 CexpModule
-cexpModuleDumpGdbSectionInfo(CexpModule mod, char *prefix, FILE *feil);
+cexpModuleDumpGdbSectionInfo(CexpModule mod, const char *prefix, FILE *feil);
 
 /* search for a name in all module's symbol tables
  *
@@ -294,7 +294,7 @@ cexpParserCtxGetStatus(CexpParserCtx ctx);
  * Info about the symbol will be printed on stdout
  */
 int
-lkup(char *pattern);
+lkup(const char *pattern);
 
 /* search for an address in the system symbol table and
  * print a range of symbols close to the address of
@@ -382,23 +382,29 @@ extern CexpSigHandlerInstallProc cexpSigHandlerInstaller;
  *         ("::", leading or trailing ":") is also equivalent to '.'.
  *         However, if the path is not empty and does not explicitely
  *         mention the cwd it is NOT searched.
- * 'pfname': (IN/OUT) points to the file name string (IN). The
- *         name of the opened file is returned (OUT). This is changed
- *         to *pfname = tmpfname if the file was copied from TFTPfs
- *         to IMFS ('/tmp' subdir) [RTEMS ONLY, see below].
- * 'fullname': (OUT) buffer of at least MAXPATHLEN chars where the expanded
- *         filename is stored. May be NULL in which case a buffer is
- *         managed locally.
+ * 'fname': (IN) points to the file name string (IN). 
+ * 'fullname': (OUT) buffer pointer.
+ *         This may be:
+ *           -  NULL if the user is not interested in the
+ *              expanded name.
+ *           -  the address of a NULL pointer. The routine 
+ *              allocates a buffer and stores its address in
+ *              *fullname. The user 'takes ownership' and
+ *              should eventually free().
+ *           -  the address of a buffer pointer. The buffer must
+ *              be big enough to hold at least MAXPATHLEN chars.
+ *         The expanded filename is written to the buffer.
  * 'tmpfname': (IN/OUT) [used on RTEMS ONLY]. If non-null, this must
  *         hold an initialized buffer to be used and modified by
  *         mkstemp(). If non-null, the routine tries to determine
  *         if the file is located on RTEMS' TFTPFS and copies it to
- *         a temporary file. *pfname is set to the temp file name
- *         and fullname holds the expanded name of the original file.
+ *         a temporary file. 'tmpfname' is copied into 'fullname' if
+ *         the temporary file was created successfully.
+ *         
  * RETURNS: open stream (for reading).
  */
 FILE *
-cexpSearchFile(char *path, char **pfname, char *fullname, char *tmpfname);
+cexpSearchFile(const char *path, const char *fname, char **pfullname, char *tmpfname);
 
 
 /* Set the prompt string (a local copy is made)

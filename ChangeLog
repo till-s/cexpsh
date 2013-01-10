@@ -1,5 +1,9 @@
 Changes since CEXP-2.1
  2013/01/09:
+ - Makefile.am: No need to link the demo statically. With the new
+   shared library support the linux demo works actually better when
+   linked dynamically.
+ 2013/01/09:
  - bfdstuff.c, elfsyms.c, cexp.c, cexp.h:
    !!!! API CHANGE of cexpSearchFile() !!!!
    (but this routine is probably not used outside of cexp itself).

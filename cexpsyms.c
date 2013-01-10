@@ -456,7 +456,9 @@ int  verbose=0;
 			case TUCharP:
 				newhelp = v->tv.p;
 				break;
-			/* INTFIX */
+			case TUInt:
+				verbose = v->tv.i;
+				break;
 			case TULong:
 				verbose = v->tv.l;
 				break;

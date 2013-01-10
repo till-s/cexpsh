@@ -135,9 +135,10 @@ CexpSym rval;
 	if (CEXP_TYPE_PTRQ(type))
 		rval->value.ptv->p=0;
 	else switch(type) {
-		case TUChar:	rval->value.ptv->c=0;		break;
-		case TUShort:	rval->value.ptv->s=0;		break;
-		case TULong:	rval->value.ptv->l=0;		break;
+		case TUChar:	rval->value.ptv->c=0;	break;
+		case TUShort:	rval->value.ptv->s=0;	break;
+		case TUInt:		rval->value.ptv->i=0;	break;
+		case TULong:	rval->value.ptv->l=0;	break;
 		case TFloat:	rval->value.ptv->f=0.0;	break;
 		case TDouble:	rval->value.ptv->d=0.0;	break;
 		default:
@@ -185,6 +186,7 @@ cexpUnredir(CexpParserCtx ctx);
 %token <lstr>	IDENT		/* an undefined identifier */
 %token			KW_CHAR		/* keyword 'char' */
 %token			KW_SHORT	/* keyword 'short' */
+%token			KW_INT		/* keyword 'int' */
 %token			KW_LONG		/* keyword 'long' */
 %token			KW_FLOAT	/* keyword 'float' */
 %token			KW_DOUBLE	/* keyword 'double' */
@@ -360,7 +362,7 @@ line:	'\n'
 							} else {
 								CHECK(cexpTypeCast(&$1,TULong,0));
 								if (f)
-									fprintf(f,"0x%08lx (%ld)\n",$1.tv.l,$1.tv.l);
+									fprintf(f,"0x%0*lx (%ld)\n",(int)(2*sizeof($1.tv.l)), $1.tv.l, $1.tv.l);
 							}
 						}
 					}
@@ -507,6 +509,8 @@ typeid:	KW_CHAR
 					{ $$=TUChar; }
 	|	KW_SHORT
 					{ $$=TUShort; }
+	|	KW_INT
+					{ $$=TUInt; }
 	|	KW_LONG
 					{ $$=TULong; }
 	|	KW_FLOAT
@@ -534,6 +538,7 @@ fptype:	typeid
 							$$=TDFuncP;
 						break;
 
+						/* INTFIX */
 						case TULong:
 							$$=TFuncP;
 						break;
@@ -820,6 +825,8 @@ char          *chpt;
 			return KW_CHAR;
 		else if (!strcmp(pa->sbuf,"short"))
 			return KW_SHORT;
+		else if (!strcmp(pa->sbuf,"int"))
+			return KW_INT;
 		else if (!strcmp(pa->sbuf,"long"))
 			return KW_LONG;
 		else if (!strcmp(pa->sbuf,"float"))

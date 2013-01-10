@@ -89,6 +89,7 @@ typedef enum {
     TFloatP     =10 | (sizeof(float)<<8) | CEXP_PTR_BIT,
     TDouble     =12 | (sizeof(double)<<8),
     TDoubleP    =12 | (sizeof(double)<<8) | CEXP_PTR_BIT,
+/* INTFIX */
     TFuncP      =TULong  | CEXP_FUN_BIT | CEXP_PTR_BIT,
     TDFuncP     =TDouble | CEXP_FUN_BIT | CEXP_PTR_BIT
 } CexpType;
@@ -126,9 +127,7 @@ typedef union  CexpValU_ {
 		void           *p;
 		unsigned char  c;
 		unsigned short s;
-/*
 		unsigned int   i;
- */
 		unsigned long  l;
 		float          f;
 		double         d;

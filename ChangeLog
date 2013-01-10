@@ -1,7 +1,7 @@
 Changes since CEXP-2.1
  2013/01/09:
- - regexp/mygetopt_r.h, regexp/mygetopt_r.c: declare string arguments
-   'argv' and 'optstr' as 'const'.
+ - getopt/mygetopt_r.h, getopt/mygetopt_r.c: declare string argument
+   'optstr' as 'const'.
  2012/12/03:
  - elfdlsyms.c: BUGFIX: must handle the case where both, HASH and GNU_HASH 
    are present. Code gave preference to HASH but later checked for GNU_HASH

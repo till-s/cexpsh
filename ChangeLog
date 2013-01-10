@@ -1,5 +1,18 @@
 Changes since CEXP-2.1
  2013/01/09:
+ - bfdstuff.c, elfsyms.c, cexp.c, cexp.h:
+   !!!! API CHANGE of cexpSearchFile() !!!!
+   (but this routine is probably not used outside of cexp itself).
+   No longer use a char ** argument to pass a filename in and the
+   resolved pathname out. This is ugly and creates conflicts when
+   we qualify the filename arg 'const'. See cexp.h for the new
+   semantics.
+ - elfsyms.c, cexpmodP.h, cexpmod.c, cexp.c, cexp.h, bfdstuff.c:
+   added 'const' to string arguments to
+   cexpSlurpElf(), cexpLoadFile(), cexpModuleFindByName(),
+   cexpModuleDumpGdbSectionInfo(), lkup(), cexpModuleLoad(),
+   cexpModuleName().
+ 2013/01/09:
  - getopt/mygetopt_r.h, getopt/mygetopt_r.c: declare string argument
    'optstr' as 'const'.
  2012/12/03:

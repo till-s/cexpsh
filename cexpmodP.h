@@ -139,7 +139,7 @@ typedef struct CexpModuleRec_ {
  *      BITMAP_SET(this_module->needs,some_module->id);
  */
 int
-cexpLoadFile(char *filename, CexpModule new_module);
+cexpLoadFile(const char *filename, CexpModule new_module);
 
 /* Release all data structures associated with *pmod
  *

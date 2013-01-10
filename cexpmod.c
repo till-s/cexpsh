@@ -254,7 +254,7 @@ CexpModule m;
 }
 
 /* return a module's name (string owned by module code) */
-char *
+const char *
 cexpModuleName(CexpModule mod)
 {
 	return mod->name;
@@ -408,8 +408,8 @@ cexpModuleInfo(CexpModule mod, int level, FILE *f)
 static void
 modPrintGdbSects(CexpModule m, FILE *f, void *closure)
 {
-char	*prefix = (char*)closure;
-CexpSym	*psects;
+const char	*prefix = (const char*)closure;
+CexpSym	    *psects;
 
 	if ( m == cexpSystemModule )
 		return;
@@ -428,13 +428,13 @@ CexpSym	*psects;
 }
 
 CexpModule
-cexpModuleDumpGdbSectionInfo(CexpModule mod, char *prefix, FILE *feil)
+cexpModuleDumpGdbSectionInfo(CexpModule mod, const char *prefix, FILE *feil)
 {
 	return cexpModIterate(mod, feil, modPrintGdbSects, (void*)prefix);
 }
 
 CexpModule
-cexpModuleFindByName(char *needle, FILE *f)
+cexpModuleFindByName(const char *needle, FILE *f)
 {
 cexp_regex	*rc=0;
 CexpModule	m,found=0;
@@ -720,7 +720,7 @@ cleanup:
 
 
 CexpModule
-cexpModuleLoad(char *filename, char *modulename)
+cexpModuleLoad(const char *filename, const char *modulename)
 {
 CexpModule m,tail,nmod,rval=0;
 char       *slash = filename ? strrchr(filename,'/') : 0;

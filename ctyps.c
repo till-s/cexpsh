@@ -64,18 +64,20 @@ static char *fundesc[]={
 };
 
 static char *desc[]={
-		"void        ",		/* function pointer */
-		"void*       ",		/* void*            */
-		"uchar       ",		/* unsigned char    */
-		"uchar*      ",		/* unsigned char*   */
-		"ushort      ",		/* unsigned short   */
-		"ushort*     ",		/* unsigned short*  */
-		"ulong       ",		/* unsigned long    */
-		"ulong*      ",		/* unsigned long*   */
-		"float       ",		/* float            */
-		"float*      ",		/* float*           */
-		"double      ",		/* double           */
-		"double*     ",		/* double*          */
+	[CEXP_TYPE_MASK_SIZE(TVoid)]    = "void        ",		/* function pointer */
+	[CEXP_TYPE_MASK_SIZE(TVoidP)]   = "void*       ",		/* void*            */
+	[CEXP_TYPE_MASK_SIZE(TUChar)]   = "uchar       ",		/* unsigned char    */
+	[CEXP_TYPE_MASK_SIZE(TUCharP)]  = "uchar*      ",		/* unsigned char*   */
+	[CEXP_TYPE_MASK_SIZE(TUShort)]  = "ushort      ",		/* unsigned short   */
+	[CEXP_TYPE_MASK_SIZE(TUShortP)] = "ushort*     ",		/* unsigned short*  */
+	[CEXP_TYPE_MASK_SIZE(TUInt)]    = "uint        ",		/* unsigned int     */
+	[CEXP_TYPE_MASK_SIZE(TUIntP)]   = "uint*       ",		/* unsigned int*    */
+	[CEXP_TYPE_MASK_SIZE(TULong)]   = "ulong       ",		/* unsigned long    */
+	[CEXP_TYPE_MASK_SIZE(TULongP)]  = "ulong*      ",		/* unsigned long*   */
+	[CEXP_TYPE_MASK_SIZE(TFloat)]   = "float       ",		/* float            */
+	[CEXP_TYPE_MASK_SIZE(TFloatP)]  = "float*      ",		/* float*           */
+	[CEXP_TYPE_MASK_SIZE(TDouble)]  = "double      ",		/* double           */
+	[CEXP_TYPE_MASK_SIZE(TDoubleP)] = "double*     ",		/* double*          */
 };
 
 
@@ -95,7 +97,7 @@ int t=0; /* keep compiler happy */
 
 	t=CEXP_TYPE_MASK_SIZE(to);
 	assert(t>=0 && t<sizeof(desc)/sizeof(desc[0]));
-	return desc[t];
+	return desc[t] ? desc[t] : "<UNKNOWN>";
 }
 
 /* build a converter matrix */
@@ -104,6 +106,7 @@ typedef void (*Converter)(CexpTypedVal);
 /* all possible type conversions, even dangerous ones */
 static void c2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.c; }
 static void c2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.c; }
+static void c2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.c; }
 static void c2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.c; }
 static void c2p(CexpTypedVal v) { v->tv.p=(void*)(unsigned long)v->tv.c; }
 static void c2f(CexpTypedVal v) { v->tv.f=(float)v->tv.c; }
@@ -111,13 +114,23 @@ static void c2d(CexpTypedVal v) { v->tv.d=(double)v->tv.c; }
 
 static void s2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.s; }
 static void s2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.s; }
+static void s2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.s; }
 static void s2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.s; }
 static void s2p(CexpTypedVal v) { v->tv.p=(void*)(unsigned long)v->tv.s; }
 static void s2f(CexpTypedVal v) { v->tv.f=(float)v->tv.s; }
 static void s2d(CexpTypedVal v) { v->tv.d=(double)v->tv.s; }
 
+static void i2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.i; }
+static void i2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.i; }
+static void i2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.i; }
+static void i2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.i; }
+static void i2p(CexpTypedVal v) { v->tv.p=(void*)(unsigned long)v->tv.i; }
+static void i2f(CexpTypedVal v) { v->tv.f=(float)v->tv.i; }
+static void i2d(CexpTypedVal v) { v->tv.d=(double)v->tv.i; }
+
 static void l2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.l; }
 static void l2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.l; }
+static void l2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.l; }
 static void l2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.l; }
 static void l2p(CexpTypedVal v) { v->tv.p=(void*)v->tv.l; }
 static void l2f(CexpTypedVal v) { v->tv.f=(float)v->tv.l; }
@@ -125,6 +138,7 @@ static void l2d(CexpTypedVal v) { v->tv.d=(double)v->tv.l; }
 
 static void p2c(CexpTypedVal v) { v->tv.c=(unsigned char)(unsigned long)v->tv.p; }
 static void p2s(CexpTypedVal v) { v->tv.s=(unsigned short)(unsigned long)v->tv.p; }
+static void p2i(CexpTypedVal v) { v->tv.i=(unsigned int)(unsigned long)v->tv.p; }
 static void p2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.p; }
 static void p2p(CexpTypedVal v) { v->tv.p=(void*)v->tv.p; }
 static void p2f(CexpTypedVal v) { v->tv.f=(float)(unsigned long)v->tv.p; }
@@ -132,6 +146,7 @@ static void p2d(CexpTypedVal v) { v->tv.d=(double)(unsigned long)v->tv.p; }
 
 static void f2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.f; }
 static void f2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.f; }
+static void f2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.f; }
 static void f2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.f; }
 /* static void f2p(CexpTypedVal v) { v->tv.p=(void*)v->tv.f; } */
 static void f2f(CexpTypedVal v) { v->tv.f=(float)v->tv.f; }
@@ -139,6 +154,7 @@ static void f2d(CexpTypedVal v) { v->tv.d=(double)v->tv.f; }
 
 static void d2c(CexpTypedVal v) { v->tv.c=(unsigned char)v->tv.d; }
 static void d2s(CexpTypedVal v) { v->tv.s=(unsigned short)v->tv.d; }
+static void d2i(CexpTypedVal v) { v->tv.i=(unsigned int)v->tv.d; }
 static void d2l(CexpTypedVal v) { v->tv.l=(unsigned long)v->tv.d; }
 /* static void d2p(CexpTypedVal v) { v->tv.p=(void*)v->tv.d; } */
 static void d2f(CexpTypedVal v) { v->tv.f=(float)v->tv.d; }
@@ -153,6 +169,7 @@ static Converter ctab[7][7] = {
 	{	[CEXP_TYPE_INDX(TVoid)]   = p2p,
 		[CEXP_TYPE_INDX(TUChar)]  = p2c,
 		[CEXP_TYPE_INDX(TUShort)] = p2s,
+		[CEXP_TYPE_INDX(TUInt)]   = p2i,
 		[CEXP_TYPE_INDX(TULong)]  = p2l,
 		[CEXP_TYPE_INDX(TFloat)]  = p2f,
 		[CEXP_TYPE_INDX(TDouble)] = p2d
@@ -161,6 +178,7 @@ static Converter ctab[7][7] = {
 	{	[CEXP_TYPE_INDX(TVoid)]   = c2p,
 		[CEXP_TYPE_INDX(TUChar)]  = c2c,
 		[CEXP_TYPE_INDX(TUShort)] = c2s,
+		[CEXP_TYPE_INDX(TUInt)]   = c2i,
 		[CEXP_TYPE_INDX(TULong)]  = c2l,
 		[CEXP_TYPE_INDX(TFloat)]  = c2f,
 		[CEXP_TYPE_INDX(TDouble)] = c2d
@@ -169,14 +187,25 @@ static Converter ctab[7][7] = {
 	{	[CEXP_TYPE_INDX(TVoid)]   = s2p,
 		[CEXP_TYPE_INDX(TUChar)]  = s2c,
 		[CEXP_TYPE_INDX(TUShort)] = s2s,
+		[CEXP_TYPE_INDX(TUInt)]   = s2i,
 		[CEXP_TYPE_INDX(TULong)]  = s2l,
 		[CEXP_TYPE_INDX(TFloat)]  = s2f,
 		[CEXP_TYPE_INDX(TDouble)] = s2d
+	},
+	[CEXP_TYPE_INDX(TUInt)] =
+	{	[CEXP_TYPE_INDX(TVoid)]   = i2p,
+		[CEXP_TYPE_INDX(TUChar)]  = i2c,
+		[CEXP_TYPE_INDX(TUShort)] = i2s,
+		[CEXP_TYPE_INDX(TUInt)]   = i2i,
+		[CEXP_TYPE_INDX(TULong)]  = i2l,
+		[CEXP_TYPE_INDX(TFloat)]  = i2f,
+		[CEXP_TYPE_INDX(TDouble)] = i2d
 	},
 	[CEXP_TYPE_INDX(TULong)] =
 	{	[CEXP_TYPE_INDX(TVoid)]   = l2p,
 		[CEXP_TYPE_INDX(TUChar)]  = l2c,
 		[CEXP_TYPE_INDX(TUShort)] = l2s,
+		[CEXP_TYPE_INDX(TUInt)]   = l2i,
 		[CEXP_TYPE_INDX(TULong)]  = l2l,
 		[CEXP_TYPE_INDX(TFloat)]  = l2f,
 		[CEXP_TYPE_INDX(TDouble)] = l2d
@@ -185,6 +214,7 @@ static Converter ctab[7][7] = {
 	{	[CEXP_TYPE_INDX(TVoid)]   = f2p,
 		[CEXP_TYPE_INDX(TUChar)]  = f2c,
 		[CEXP_TYPE_INDX(TUShort)] = f2s,
+		[CEXP_TYPE_INDX(TUInt)]   = f2i,
 		[CEXP_TYPE_INDX(TULong)]  = f2l,
 		[CEXP_TYPE_INDX(TFloat)]  = f2f,
 		[CEXP_TYPE_INDX(TDouble)] = f2d
@@ -193,6 +223,7 @@ static Converter ctab[7][7] = {
 	{	[CEXP_TYPE_INDX(TVoid)]   = d2p,
 		[CEXP_TYPE_INDX(TUChar)]  = d2c,
 		[CEXP_TYPE_INDX(TUShort)] = d2s,
+		[CEXP_TYPE_INDX(TUInt)]   = d2i,
 		[CEXP_TYPE_INDX(TULong)]  = d2l,
 		[CEXP_TYPE_INDX(TFloat)]  = d2f,
 		[CEXP_TYPE_INDX(TDouble)] = d2d
@@ -200,6 +231,7 @@ static Converter ctab[7][7] = {
 };
 
 /* check whether v would fit into a variable of type t */
+
 static int
 fits(CexpTypedVal v, CexpType t)
 {
@@ -207,23 +239,37 @@ unsigned long n;
 
 	if (CEXP_TYPE_FPQ(t) && ! CEXP_TYPE_FPQ(v->type)) {
 		/* IEEE FP number has 24bit mantissa */
-		if (TFloat == t && TULong == v->type && v->tv.l >= (1<<24))
-			return 0;
+		if (TFloat == t) {
+			/* Only int and long could be too big to fit */
+			switch ( v->type ) {
+				case TULong: n = v->tv.l; break;
+				case TUInt:  n = v->tv.i; break;
+				default:     n = 0;       break;
+			}
+			return n < (1<<24);
+		}
+		/* anything fits into a double */
 	} else if (!CEXP_TYPE_FPQ(t) && CEXP_TYPE_FPQ(v->type)) {
 		return 0;
 	}
 	if (CEXP_TYPE_SIZE(t) < CEXP_TYPE_SIZE(v->type)) {
-		switch(v->type) {
-			case TUChar: 	n=v->tv.c; break;
-			case TUShort:	n=v->tv.s; break;
-			case TULong:	n=v->tv.l; break;
+		if ( CEXP_TYPE_PTRQ(v->type) ) { 
+			n = (unsigned long)v->tv.p;
+		} else {
+			switch(v->type) {
+				case TUChar: 	n=v->tv.c; break;
+				case TUShort:	n=v->tv.s; break;
+				case TUInt:		n=v->tv.i; break;
+				case TULong:	n=v->tv.l; break;
 
-			case TFloat:
-			case TDouble: 	return 0;
+				case TFloat:
+				case TDouble: 	return 0;
 
-			default:
-				assert(!"Invalid Type - you found a BUG");
-				n=0; /* keep compiler happy */
+				default:
+								assert(!"Invalid Type - you found a BUG");
+								n=0;
+				break;
+			}
 		}
 		return n < (1<<(8*CEXP_TYPE_SIZE(t)));
 	}
@@ -244,8 +290,8 @@ int			from,to;
 		if (!(flags&CNV_FORCE) && CEXP_BASE_TYPE_SIZE(t) > CEXP_BASE_TYPE_SIZE(v->type))
 			return "cannot cast, target pointer element type too small";
 
-			v->type=t;
-			return 0;
+		v->type=t;
+		return 0;
 	}
 
 	if (from)	{
@@ -265,7 +311,7 @@ int			from,to;
 	c=ctab[from][to];
 	if (c) {
 		if ( ! (flags&CNV_FORCE) && ! fits(v,t))
-				return "cannot perform implicite cast; would truncate source value - use explicit cast to override";
+				return "cannot perform implicit cast; would truncate source value - use explicit cast to override";
 		c(v);
 		v->type=t;
 	} else
@@ -286,6 +332,7 @@ cexpTVPtrDeref(CexpTypedVal to, CexpTypedVal from)
 
 				case TUCharP:	to->tv.c=*(unsigned char*)from->tv.p; break;
 				case TUShortP:	to->tv.s=*(unsigned short*)from->tv.p; break;
+				case TUIntP:	to->tv.i=*(unsigned int*)from->tv.p; break;
 				case TULongP:	to->tv.l=*(unsigned long*)from->tv.p; break;
 				case TFloatP:	to->tv.f=*(float*)from->tv.p; break;
 				case TDoubleP:	to->tv.d=*(double*)from->tv.p; break;
@@ -472,6 +519,7 @@ CexpTypedValRec	xx;
 	switch (y->type) {
 			case TUChar:	y->ptv->c = xx.tv.c; break;
 			case TUShort:	y->ptv->s = xx.tv.s; break;
+			case TUInt:		y->ptv->i = xx.tv.i; break;
 			case TULong:	y->ptv->l = xx.tv.l; break;
 			case TFloat:	y->ptv->f = xx.tv.f; break;
 			case TDouble:	y->ptv->d = xx.tv.d; break;
@@ -494,9 +542,10 @@ const char *errmsg;
 		switch (op) {
 				case ONeg:
 					switch (x->type) {
-							case TUChar:  y->tv.c=(unsigned char)-(char)x->tv.c; break;
-							case TUShort: y->tv.s=(unsigned short)-(short)x->tv.s; break;
-							case TULong:  y->tv.l=(unsigned long)-(long)x->tv.l; break;
+							case TUChar:  y->tv.c=(unsigned char)  - (char) x->tv.c; break;
+							case TUShort: y->tv.s=(unsigned short) - (short)x->tv.s; break;
+							case TUInt:   y->tv.i=(unsigned int)   - (int)  x->tv.i; break;
+							case TULong:  y->tv.l=(unsigned long)  - (long) x->tv.l; break;
 							case TFloat:  y->tv.f=-x->tv.f; break;
 							case TDouble: y->tv.d=-x->tv.d; break;
 							default: return "invalid type for NEG operator";
@@ -557,6 +606,7 @@ cexpTVTrueQ(CexpTypedVal v)
 				default: break;
 				case TUChar:	return v->tv.c;
 				case TUShort:	return v->tv.s;
+				case TUInt:		return v->tv.i;
 				case TULong:	return v->tv.l;
 				case TFloat:	return v->tv.f != (float)0.0;
 				case TDouble:	return v->tv.d != (double)0.0;
@@ -583,8 +633,10 @@ int i=0;
 				i+=fprintf(f,"0x%02x ('%c'==%i)",a->ptv->c,a->ptv->c,a->ptv->c); break;
 			case TUShort:
 				i+=fprintf(f,"0x%04x (==%i)",a->ptv->s,a->ptv->s); break;
+			case TUInt:
+				i+=fprintf(f,"0x%08x (==%i)",a->ptv->i,a->ptv->i); break;
 			case TULong:
-				i+=fprintf(f,"0x%08lx (==%li)",a->ptv->l,a->ptv->l); break;
+				i+=fprintf(f,"0x%0*lx (==%li)",(int)(2*sizeof(a->ptv->l)),a->ptv->l,a->ptv->l); break;
 			case TFloat:
 				i+=fprintf(f,"%g",a->ptv->f); break;
 			case TDouble:
@@ -611,6 +663,7 @@ cexpTA2TV(CexpTypedVal v, CexpTypedAddr a)
 			case TVoid:		return "cannot get 'void' value";
 			case TUChar:	v->tv.c=a->ptv->c; break;
 			case TUShort:	v->tv.s=a->ptv->s; break;
+			case TUInt:		v->tv.i=a->ptv->i; break;
 			case TULong:	v->tv.l=a->ptv->l; break;
 			case TFloat:	v->tv.f=a->ptv->f; break;
 			case TDouble:	v->tv.d=a->ptv->d; break;
@@ -629,19 +682,26 @@ CexpType
 cexpTypeGuessFromSize(int s)
 {
 CexpType t = TVoid;
+
+	/* If any floating-point size equals an integer size then the latter has preference */
+
 	if (CEXP_BASE_TYPE_SIZE(TUCharP) == s) {
 		t=TUChar;
 	} else if (CEXP_BASE_TYPE_SIZE(TUShortP) == s) {
 		t=TUShort;
-	} else if (CEXP_BASE_TYPE_SIZE(TULongP) == s) {
+	/* Check for 'long' first so that it will have preference in
+	 * case 'int' and 'long' are of the same size.
+	 */
+	} else if (CEXP_BASE_TYPE_SIZE(TULongP)  == s) {
 		t=TULong;
+	} else if (CEXP_BASE_TYPE_SIZE(TUIntP)   == s) {
+		t=TUInt;
 	} else if (CEXP_BASE_TYPE_SIZE(TDoubleP) == s) {
 		t=TDouble;
-	} else if (CEXP_BASE_TYPE_SIZE(TFloatP) == s) {
-		/* if sizeof(float) == sizeof(long), long has preference */
+	} else if (CEXP_BASE_TYPE_SIZE(TFloatP)  == s) {
 		t=TFloat;
 	} else {
-		/* if it's bigger than double, leave it (void*) */
+		/* if it's bigger leave it (void*) */
 	}
 	return t;
 }

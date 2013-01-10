@@ -1,5 +1,8 @@
 Changes since CEXP-2.1
  2013/01/09:
+ - cexp.y, cexpsyms.c, ctyps.c, ctyps.h: preliminary support for
+   'int' type. Missing pieces are marked with an /* INTFIX */ comment.
+ 2013/01/09:
  - Makefile.am: No need to link the demo statically. With the new
    shared library support the linux demo works actually better when
    linked dynamically.

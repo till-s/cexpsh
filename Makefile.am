@@ -156,11 +156,9 @@ libcexp_a_DEPENDENCIES=$(SYMDEPS) $(XTRAOBJS) builddate.o
 
 if DO_DEMO
 cexp_SOURCES  = cexp_main.c
-# '-static' might not be recognized by other compilers
-cexp_LDFLAGS_static_gcc_yes=-static
 cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT)) $(PTHREADLIBS)
 cexp_DEPENDENCIES=libcexp.a $(wildcard cpptest/mak.defs)  $(wildcard cexp-builtin-symtab.$(OBJEXT))
-cexp_LDFLAGS  = -L. -Wl,-u,printf -Wl,-u,fprintf -Wl,-u,scanf -Wl,-u,fscanf $(CEXP_TEST_UNDEFS) $(cexp_LDFLAGS_static_gcc_@GCC@) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
+cexp_LDFLAGS  = -L. -Wl,-u,printf -Wl,-u,fprintf -Wl,-u,scanf -Wl,-u,fscanf $(CEXP_TEST_UNDEFS) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 CEXP_TEST_UNDEFS=-Wl,-u,__cxa_finalize
 -include cpptest/mak.defs
 bin_PROGRAMS  = cexp

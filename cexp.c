@@ -672,7 +672,7 @@ int  warn = 0;
 			/* '.' must be separated by space or there must
 			 * be a string terminator.
 			 */
-			if ( !isspace(*p) && '\'' != *p && '"' != *p )
+			if ( !isspace((int)*p) && '\'' != *p && '"' != *p )
 				return 0;
 		break;
 
@@ -691,14 +691,14 @@ int  warn = 0;
 		/* no terminator found; treat normally */
 		p--;
 	}
-	for ( e=p; *e && !isspace(*e); e++ )
+	for ( e=p; *e && !isspace((int)*e); e++ )
 		;
 	t = e;
 
 check_trailing:
 	/* is there trailing stuff ? */
 	while ( *t ) {
-		if ( !isspace(*t) )
+		if ( !isspace((int)*t) )
 			return 0;
 		t++;
 	}
@@ -707,14 +707,6 @@ check_trailing:
 	if ( warn )
 		fprintf(stderr,"WARNING: '<' operator to 'source' scripts is deprecated -- use '.' (followed by blank) instead!\n");
 	return p;	
-}
-
-static void
-source_op_deprec(const char *pop)
-{
-	if ( '<' == *pop ) {
-		fprintf(stderr,"WARNING: '<' operator to 'source' scripts is deprecated -- use '.' (followed by blank) instead!\n");
-	}
 }
 
 static int

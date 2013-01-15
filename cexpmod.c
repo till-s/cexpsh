@@ -81,6 +81,9 @@ typedef          long myintptr_t;
 
 #ifdef USE_PMBFD
 #include <pmelf.h>
+#ifdef USE_LOADER
+#include <pmbfd.h>
+#endif
 #endif
 
 #ifdef HAVE_BFD_DISASSEMBLER

@@ -671,7 +671,7 @@ int				i;
 	return 0;
 }
 
-#define ch (*pa->chpt)
+#define ch ((int)(*pa->chpt))
 #define getch() do { (pa->chpt)++;} while(0)
 
 /* helper to save typing */
@@ -1025,7 +1025,6 @@ cexpParserCtxGetStatus(CexpParserCtx ctx)
 void
 yyerror(CexpParserCtx ctx, const char*msg)
 {
-va_list ap;
 	if ( ctx->errf ) {
 		fprintf(ctx->errf,"Cexp syntax error: %s\n", msg);
 	}

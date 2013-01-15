@@ -76,7 +76,9 @@ extern int	socket();
 extern int  select();
 #else
 #include <sys/socket.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 #endif
 
 #define RSH_PORT 514
@@ -176,8 +178,8 @@ rshLoad(char *host, char *user, char *cmd)
 {
 char	*chpt=host,*buf=0;
 int		fd,errfd;
-long	ntot;
-extern  int rcmd();
+unsigned long	ntot;
+extern int rcmd();
 
 	fd=rcmd(&chpt,RSH_PORT,user,user,cmd,&errfd);
 	if (fd<0) {

@@ -1,7 +1,9 @@
 Changes since CEXP-2.1
  2013/01/14:
- - libtecla/hash.c, libtecla/keytab.c: silenced compiler warnings
-   by casting chars to ints when using ctype.h (isspace & friends).
+ - libtecla/hash.c, libtecla/keytab.c, cexp.c, cexp.y, bfdstuff.c,
+   rshload.c, cexpmod.c:
+   silenced compiler warnings by casting chars to ints when using
+   ctype.h (isspace & friends), removing unused stuff etc.
  2013/01/09:
  - cexp.y, cexpsyms.c, ctyps.c, ctyps.h: preliminary support for
    'int' type. Missing pieces are marked with an /* INTFIX */ comment.

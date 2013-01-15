@@ -349,7 +349,7 @@ isCtorDtor(asymbol *asym, int quiet, int *pprio)
 		register const char *tail = ctorDtorRegexp->endp[0];
 		/* read the priority */
 		if (pprio) {
-			if (isdigit(*tail))
+			if (isdigit((int)*tail))
 				*pprio = atoi(tail);
 			else
 				*pprio = INIT_PRIO_NONE;
@@ -1500,7 +1500,9 @@ char							*thename = 0;
 
 #ifdef USE_PMBFD
 Pmelf_attribute_set             *obj_atts = 0;
+#ifdef PMELF_ATTRIBUTE_VENDOR
 CexpModule                      m;
+#endif
 #endif
 
 	/* clear out the private data area; the cleanup code

@@ -193,6 +193,82 @@ CexpSegment s;
 	return 0;
 }
 
+static void *
+gaddr(CexpSymAIdx ar)
+{
+	return ar->mod->symtbl->aindex[ar->idx]->value.ptv;
+}
+
+void
+cexpSymLkAddrRange(void *addr, CexpSymAIdx ar, int margin)
+{
+const int      n = 2*margin + 1;
+int            i,cli,j;
+void           *tstaddr, *limaddr;
+CexpSymAIdxRec thisone;
+CexpModule     m;
+CexpSymTbl     t;
+
+	for ( i=0; i<n; i++ )
+		ar[i].mod = 0;	
+
+	__RLOCK();
+
+	for ( m = cexpSystemModule; m; m=m->next ) {
+
+		if ( !addrInModule(addr, m) )
+			continue;
+
+		t = m->symtbl;
+		thisone.mod = m;
+		cli = cexpSymTblLkAddrIdx(addr, 0, 0, t);
+
+		/* Look for all addresses in this module which are lower
+		 * than the one we are looking for and which are closer
+		 * than what we already have.
+		 */
+		for ( i = cli; i>=0; i-- ) {
+			thisone.idx = i;
+			tstaddr = gaddr( &thisone );
+			limaddr = ar[0].mod ? gaddr(&ar[0]) : (void*)0;
+
+			/* if there is no entry [0] then there is space; we set 'limaddr' == 0 above
+			 * so the tstaddr < limaddr test can never succeed
+			 */
+			if ( tstaddr > addr || tstaddr < limaddr )
+				break; 
+
+			for ( j=1; j<=margin && ( ! ar[j].mod || tstaddr > gaddr(&ar[j]) ); j++ ) {
+				ar[j-1] = ar[j];
+			}
+			ar[j-1].idx = i;
+			ar[j-1].mod = m;
+		}
+
+
+		for ( i = cli+1; i < t->nentries; i++ ) {
+			thisone.idx = i;
+			tstaddr = gaddr( &thisone );
+			limaddr = ar[n-1].mod ? gaddr(&ar[n-1]) : (void*)UINTPTR_MAX;
+
+			/* if there is no entry [n-1] then there is space;
+			 * we set 'limaddr' == UINTPTR_MAX above
+			 * so the tstaddr > limaddr test can never succeed
+			 */
+			if ( tstaddr <= addr || tstaddr > limaddr )
+				break;
+
+			for ( j=n-2; j>margin && (! ar[j].mod || tstaddr < gaddr(&ar[j]) ); j-- ) {
+				ar[j+1] = ar[j];
+			}
+			ar[j+1].idx = i;
+			ar[j+1].mod = m;
+		}
+	}
+
+	__RUNLOCK();
+}
+
 /* search for (the closest) address in all modules giving its
  * aindex
  *
@@ -201,27 +277,31 @@ CexpSegment s;
 int
 cexpSymLkAddrIdx(void *addr, int margin, FILE *f, CexpModule *pmod)
 {
-CexpModule	m;
-int			rval=-1;
-CexpSymTbl	t;
+CexpSymAIdxRec ar[margin<0 ? 1 : 2*margin+1];
+int            i;
+CexpModule	   mfnd = 0, m;
 
-	__RLOCK();
+	if ( margin < 0 || !f )
+		margin = 0;
 
-	for (m=cexpSystemModule; m; m=m->next) {
-		t=m->symtbl;
-		if ( !addrInModule(addr, m) )
-			continue;
-		if (f)
-			fprintf(f,"=====  In module '%s' =====:\n",m->name);
-		if ((rval=cexpSymTblLkAddrIdx(addr,margin,f,t)) >= 0)
-			break;
+	cexpSymLkAddrRange(addr, ar, margin);
+
+	if ( f ) {
+		for ( i=0; i<2*margin+1; i++ ) {
+			if ( ! (m = ar[i].mod) )
+				continue;
+			if ( mfnd != m ) {
+				fprintf(f,"=====  In module '%s' =====:\n",m->name);
+				mfnd = m;
+			}
+			cexpSymPrintInfo( m->symtbl->aindex[ar[i].idx], f );
+		}
 	}
-	if (pmod)
-		*pmod=m;
 
-	__RUNLOCK();
+	if ( pmod ) 
+		*pmod = ar[margin].mod;
 
-	return rval;
+	return ar[margin].mod ? margin : -1;
 }
 
 /* search for an address in all modules */
@@ -646,9 +726,16 @@ CexpSym s;
 		return -1;
 	}
 
+	if ( cexpIndexSymTbl(nmod->symtbl) )
+		return -1;
+
 	nmod->text_vma = 0xdeadbeef;
 
 	nmod->section_syms = malloc( (nsect_syms + 1) * sizeof(CexpSym) );
+
+	if ( ! nmod->section_syms )
+		return -1;
+
 	for ( i = 0, s = cexpSystemSymbols, nsect_syms = 0; i<nsyms; i++, s++ ) {
 		if ( s->flags & CEXP_SYMFLG_SECT ) {
 			nmod->section_syms[nsect_syms++] = s;

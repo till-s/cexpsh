@@ -59,15 +59,6 @@
 extern "C" {
 #endif
 
-/* search for an address in all modules giving its aindex 
- * to the *pmod's aindex table
- *
- * RETURNS: aindex or -1 if the address is not within the
- *          boundaries of any module.
- */
-int
-cexpSymLkAddrIdx(void *addr, int margin, FILE *f, CexpModule *pmod);
-
 /* initialize vital stuff; must be called excactly ONCE at program startup */
 void
 cexpModuleInitOnce(void);

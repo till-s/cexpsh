@@ -87,7 +87,7 @@ cexpInit(CexpSigHandlerInstallProc sigHandlerInstaller);
 
 /* Managing modules (object code and symbols) */
 typedef struct CexpModuleRec_	*CexpModule;
-typedef struct CexpSymRec_	*CexpSym;
+typedef struct CexpSymRec_		*CexpSym;
 
 /* you may use this to check if the system module
  * (i.e. system symbol table) has been loaded

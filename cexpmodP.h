@@ -149,4 +149,33 @@ cexpLoadFile(const char *filename, CexpModule new_module);
 void
 cexpModuleFree(CexpModule *pmod);
 
+/* search for an address in all modules giving its aindex 
+ * to the *pmod's aindex table
+ *
+ * RETURNS: aindex or -1 if the address is not within the
+ *          boundaries of any module.
+ */
+int
+cexpSymLkAddrIdx(void *addr, int margin, FILE *f, CexpModule *pmod);
+
+/* Symbol and associated module */
+typedef struct CexpSymAIdxRec_ {
+	int          idx;
+	CexpModule   mod;
+} CexpSymAIdxRec, *CexpSymAIdx;
+
+/* Search for an address in all modules; returns the 2*margin+1
+ * symbols closest to 'addr' into the 'symmods' array (storage
+ * allocated by user, 2*margin+1 entries). 
+ * symmods[margin] contains the symbol closest to 'addr', the
+ * elements > or < margin contain the closest symbols upwards
+ * and downwards, respectively.
+ * NOTE: it is possible for individual entries to be 'invalid'
+ * (mod member == NULL) which means that not enough close symbols
+ * were found. 
+ */
+void
+cexpSymLkAddrRange(void *addr, CexpSymAIdxRec symmods[], int margin);
+
+
 #endif

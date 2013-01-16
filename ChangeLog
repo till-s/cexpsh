@@ -1,4 +1,25 @@
 Changes since CEXP-2.1
+ 2013/01/16:
+ - cexpmod.h, cexpmodP.h: moved cexpSymLkAddrIdx() from public to
+   private header; added new cexpSymLkAddrRange().
+ - bfdstuff.c, cexpmod.c, cexpsyms.c, cexpsymsP.h, elfsyms.c:
+   Added routine 'cexpIndexSymTbl()' for constructing the address
+   index table explicitly. This is now called after the symbol
+   table has been built. Memory for aindex is not allocated at
+   module creation but only when an index table is built.
+ - cexpmod.c: BUGFIX - let cexpSymLkAddrIdx() look in all modules
+   for a given address and don't break as soon as a close address
+   is found but keep searching and return the closest one.
+   If printing is required then info from all modules is dumped.
+ - cexpsyms.c: BUGFIX - sometimes the same symbol can be present
+   in an executable's symbol table AND dynamic symbol table
+   (ELF executable). This causes problems when help tables are
+   added because only one instance ends up with the help info.
+   Help is added searching for address whereas symbol lookup
+   is by name. The order in which results are found (for same
+   key) is undefined - hence the problem...
+   We mitigate this by eliminating redundant symbols after sorting
+   them.
  2013/01/14:
  - libtecla/hash.c, libtecla/keytab.c, cexp.c, cexp.y, bfdstuff.c,
    rshload.c, cexpmod.c:

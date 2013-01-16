@@ -100,6 +100,12 @@ cexpNewSymTbl(unsigned n_entries);
 void
 cexpSortSymTbl(CexpSymTbl stbl);
 
+/* Build sorted index of addresses
+ * RETURNS 0 on success, nonzero on error (no memory of index table)
+ */
+int
+cexpIndexSymTbl(CexpSymTbl stbl);
+
 /* Convert 'nsyms' external symbols to internal representation and add to table;
  * 
  * NOTES: - 'stbl' may be NULL in which case a new table is allocated.

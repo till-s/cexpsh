@@ -455,6 +455,9 @@ unsigned    symsz;
 
 	cexpSortSymTbl( csymt );
 
+	if ( cexpIndexSymTbl( csymt ) )
+		goto cleanup;
+
 #ifndef ELFSYMS_TEST_MAIN
 	/* do a couple of sanity checks */
 	if ((sane=cexpSymTblLookup("cexpSlurpElf",csymt))) {

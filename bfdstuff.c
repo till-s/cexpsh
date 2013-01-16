@@ -455,7 +455,7 @@ CexpType	t=TVoid;
 /* call this after relocation to assign the internal
  * symbol representation their values
  */
-void
+int
 cexpSymTabSetValues(CexpSymTbl cst)
 {
 CexpSym	cesp;
@@ -464,11 +464,8 @@ CexpSym	cesp;
 		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
 	}
 
-	/* resort the address index */
-	qsort((void*)cst->aindex,
-			cst->nentries,
-			sizeof(*cst->aindex),
-			_cexp_addrcomp);
+	/* build the address index */
+	return cexpIndexSymTbl( cst );
 }
 
 /* All 's_xxx()' routines defined here are for use with
@@ -1690,7 +1687,8 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 			ldr.text_vma=bfd_get_section_vma(ldr.abfd,ldr.text);
 	}
 
-	cexpSymTabSetValues(ldr.cst);
+	if ( cexpSymTabSetValues(ldr.cst) )
+		goto cleanup;
 
 	/* record the section names */
 	for ( psym = ldr.module->section_syms; *psym; psym++ ) {

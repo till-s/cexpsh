@@ -187,9 +187,6 @@ CexpSymTbl rval;
 	if ( n_entries ) {
 		if ( ! (rval->syms = malloc(sizeof(rval->syms[0])*(n_entries + 1))) )
 			goto cleanup;
-
-		if ( ! (rval->aindex = malloc(sizeof(rval->aindex[0])*n_entries)) )
-			goto cleanup;
 	}
 
 	rval->size = n_entries;
@@ -198,7 +195,6 @@ CexpSymTbl rval;
 	
 cleanup:
 	if ( rval ) {
-		free(rval->aindex);
 		free(rval->syms);
 	}
 	return 0;
@@ -207,14 +203,44 @@ cleanup:
 void
 cexpSortSymTbl(CexpSymTbl stbl)
 {
+int fr,to;
+const char *old;
+
+	if ( 0 == stbl->nentries )
+		return;
+
 	qsort((void*)stbl->syms,
 		stbl->nentries,
 		sizeof(*stbl->syms),
 		_cexp_namecomp);
-	qsort((void*)stbl->aindex,
-		stbl->nentries,
-		sizeof(*stbl->aindex),
-		_cexp_addrcomp);
+
+	/* Sometimes the same symbol is present in an executable's symbol table AND 
+	 * dynamic symbol table. Eliminate redundant entries simply by wasting memory...
+	 */
+
+	/* Add a marker to the end of the table (using the extra element there)
+	 * to make sure the while loop breaks.
+	 */
+	old = stbl->syms[stbl->nentries].name;
+	/* Use an invalid symbol as a marker */
+	stbl->syms[stbl->nentries].name = "+%2W";
+
+	for ( fr=1, to=0; fr<stbl->nentries; fr++ ) {
+		while ( 0 == _cexp_namecomp( &stbl->syms[to], &stbl->syms[fr] ) ) {
+			if ( _cexp_addrcomp( &stbl->syms[to], &stbl->syms[fr] ) ) {
+				fprintf(stderr,"WARNING: Eliminating redundant symbol '%s' but values differ (%p vs. %p [eliminated])\n",
+				               stbl->syms[to].name,
+				               stbl->syms[to].value.ptv,
+				               stbl->syms[fr].value.ptv);
+			}
+			fr++;
+		}
+		stbl->syms[++to] = stbl->syms[fr];
+	}
+
+	stbl->syms[stbl->nentries].name = old;
+
+	stbl->nentries = to + 1;
 }
 
 
@@ -269,10 +295,6 @@ CexpStrTbl  strtbl = 0;
 			if ( ! (rval->syms=(CexpSym)realloc(rval->syms, sizeof(rval->syms[0])*(rval->nentries + nDstSyms + 1))) )
 				goto cleanup;
 
-
-			if ( ! (rval->aindex=(CexpSym*)realloc(rval->aindex, (rval->nentries + nDstSyms)*sizeof(*rval->aindex))))
-				goto cleanup;
-
 			rval->size = rval->nentries + nDstSyms;
 		}
 
@@ -304,7 +326,6 @@ CexpStrTbl  strtbl = 0;
 							/* do nothing else */;
 					}
 					cesp->flags = 0;
-					rval->aindex[cesp - rval->syms]=cesp;
 	
 					assign(sp,cesp,closure);
 	
@@ -320,12 +341,7 @@ CexpStrTbl  strtbl = 0;
 			return 0;
 		}
 		nDstSyms   = nsyms;
-		if ( !(rval->aindex=(CexpSym*)realloc(rval->aindex, (rval->nentries + nDstSyms)*sizeof(*rval->aindex))) )
-			goto cleanup;
 		rval->syms = syms;
-		for ( cesp = rval->syms; cesp->name; cesp++ ) {
-			rval->aindex[cesp-rval->syms] = cesp;
-		}
 	}
 
 	rval->nentries += nDstSyms;
@@ -350,6 +366,28 @@ CexpSymTbl rval;
 		cexpSortSymTbl( rval );
 	}
 	return rval;
+}
+
+/* (Re-) Build sorted index of addresses */
+int
+cexpIndexSymTbl(CexpSymTbl t)
+{
+int i;
+
+	t->aindex = (CexpSym*)realloc(t->aindex, t->nentries * sizeof(*t->aindex));
+
+	if ( t->nentries && ! t->aindex )
+		return -1;
+
+	for ( i = 0; i < t->nentries; i++ ) {
+		t->aindex[i] = &t->syms[i];
+	}
+	qsort((void*)t->aindex,
+		t->nentries,
+		sizeof(*t->aindex),
+		_cexp_addrcomp);
+
+	return 0;
 }
 
 void

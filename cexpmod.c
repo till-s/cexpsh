@@ -174,22 +174,22 @@ static int addrInModule(void *addr, CexpModule m)
 CexpSymTbl  t;
 #ifdef USE_LOADER
 CexpSegment s;
-	for ( s = m->segs; s->name; s++ ) {
-		if ( ! s->chunk ) {
-#endif
-			if ( m == cexpSystemModule ) {
-				t = m->symtbl;
-				/* assume system module is a single chunk (not allocated though) */
-				return addr >= (void*)t->aindex[0]->value.ptv && addr <= (void*)t->aindex[t->nentries-1]->value.ptv;
+	if ( (s = m->segs) ) {
+		for ( ; s->name; s++ ) {
+			if ( ! s->chunk ) {
+				continue;
 			}
-#ifdef USE_LOADER
-			continue;
-		}
 
-		if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
-			return 1;
+			if ( (char*)addr >= (char*)s->chunk && (char*)addr < (char*)s->chunk + s->size )
+				return 1;
+		}
 	}
 #endif
+	if ( m == cexpSystemModule ) {
+		t = m->symtbl;
+		/* assume system module is a single chunk (not allocated though) */
+		return addr >= (void*)t->aindex[0]->value.ptv && addr <= (void*)t->aindex[t->nentries-1]->value.ptv;
+	}
 	return 0;
 }
 
@@ -614,29 +614,31 @@ CexpSegment s;
 
 	__WUNLOCK();
 
-	for ( s = mod->segs; s->name; s++ ) {
+	if ( mod->segs ) {
+		for ( s = mod->segs; s->name; s++ ) {
 
-		if ( ! s->chunk )
-			continue;
+			if ( ! s->chunk )
+				continue;
 
 #ifdef HAVE_SYS_MMAN_H
-		/* HACK: NEVER remove 'x' attribute. Since our memory segments are not
-		 *       page-aligned it could be that we revoke 'x' for parts of memory
-		 *       that are located outside of our segments which may still be
-		 *       live, executable modules.
-		 */
-		if ( 0 ) {
-			unsigned long nsiz, pgbeg, pgmsk;
-			pgmsk  = getpagesize()-1;
-			pgbeg  = (unsigned long)s->chunk;
-			pgbeg &= ~pgmsk;
-			nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
-			nsiz   = (nsiz + pgmsk) & ~pgmsk;
-			if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE) )
-				perror("ERROR -- mprotect(PROT_READ|PROT_WRITE)");
-		}
+			/* HACK: NEVER remove 'x' attribute. Since our memory segments are not
+			 *       page-aligned it could be that we revoke 'x' for parts of memory
+			 *       that are located outside of our segments which may still be
+			 *       live, executable modules.
+			 */
+			if ( 0 ) {
+				unsigned long nsiz, pgbeg, pgmsk;
+				pgmsk  = getpagesize()-1;
+				pgbeg  = (unsigned long)s->chunk;
+				pgbeg &= ~pgmsk;
+				nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
+				nsiz   = (nsiz + pgmsk) & ~pgmsk;
+				if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE) )
+					perror("ERROR -- mprotect(PROT_READ|PROT_WRITE)");
+			}
 #endif
-		memset(s->chunk, 0, s->size);
+			memset(s->chunk, 0, s->size);
+		}
 	}
 
 	/* could flush the caches here */
@@ -879,19 +881,19 @@ char       *slash = filename ? strrchr(filename,'/') : 0;
 	if ( nmod->segs ) {
 	CexpSegment s;
 
-	for ( s=nmod->segs; s->name; s++ ) {
-		/* make executable */
-		if ( s->chunk ) {
-			unsigned long nsiz, pgbeg, pgmsk;
-			pgmsk  = getpagesize()-1;
-			pgbeg  = (unsigned long)s->chunk;
-			pgbeg &= ~pgmsk;
-			nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
-			nsiz   = (nsiz + pgmsk) & ~pgmsk;
-			if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE | PROT_EXEC) )
-				perror("ERROR -- mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)");
+		for ( s=nmod->segs; s->name; s++ ) {
+			/* make executable */
+			if ( s->chunk ) {
+				unsigned long nsiz, pgbeg, pgmsk;
+				pgmsk  = getpagesize()-1;
+				pgbeg  = (unsigned long)s->chunk;
+				pgbeg &= ~pgmsk;
+				nsiz   = s->size + (unsigned long)s->chunk - pgbeg; 
+				nsiz   = (nsiz + pgmsk) & ~pgmsk;
+				if ( mprotect((void*)pgbeg, nsiz, PROT_READ | PROT_WRITE | PROT_EXEC) )
+					perror("ERROR -- mprotect(PROT_READ|PROT_WRITE|PROT_EXEC)");
+			}
 		}
-	}
 	}
 #endif
 

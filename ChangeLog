@@ -1,5 +1,8 @@
 Changes since CEXP-2.1
  2013/01/16:
+ - BUGFIX: cexpmod.c. segment pointer in module structure was
+   dereferenced unconditionally but it can be NULL. Added 
+   respective checks.
  - cexpmod.h, cexpmodP.h: moved cexpSymLkAddrIdx() from public to
    private header; added new cexpSymLkAddrRange().
  - bfdstuff.c, cexpmod.c, cexpsyms.c, cexpsymsP.h, elfsyms.c:

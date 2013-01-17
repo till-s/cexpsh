@@ -77,7 +77,7 @@ int
 _cexp_namecomp(const void *a, const void *b);
 
 char *
-rshLoad(char *host, char *user, char *cmd);
+rshLoad(char *host, char *user, char *cmd, long *size_p);
 
 /* Determine if we want to keep the external symbol 'ext_sym'.
  * Must return a pointer to the symbol name if YES and 0 if NO

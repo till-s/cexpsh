@@ -1,3 +1,6 @@
+ 20130117 (T.S.):
+ - pmbfd.h: added arch/mach definitions required to build with 
+   binutils-2.13's/opcodes.
  20121101 (T.S.):
  - getehdr.c: check SH and PH sizes only if respective numbers are > 0.
  20120716 (T.S.):

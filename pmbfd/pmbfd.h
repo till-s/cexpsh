@@ -239,6 +239,7 @@ enum bfd_architecture {
 #define bfd_mach_sparc_v8plusb                  9
 #define bfd_mach_sparc_v9b                     10
 	bfd_arch_i386         =  9,
+#define bfd_mach_i386_intel_syntax     (1 << 0)
 #define bfd_mach_i386_i386	                    1
 #define bfd_mach_i386_i8086                     2
 #define bfd_mach_i386_i386_intel_syntax         3
@@ -247,6 +248,9 @@ enum bfd_architecture {
 	bfd_arch_l1om         = 10,
 #define bfd_mach_l1om                          66
 #define bfd_mach_l1om_intel_syntax             67
+	bfd_arch_k1om         = 11,
+#define bfd_mach_k1om                  (1 << 6)
+#define bfd_mach_k1om_intel_syntax     (bfd_mach_k1om | bfd_mach_i386_intel_syntax)
 	bfd_arch_powerpc      = 23, /* 21 in binutils-2.18 */
 #define bfd_mach_ppc                           32
 #define bfd_mach_ppc64                         64

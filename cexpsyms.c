@@ -227,12 +227,14 @@ const char *old;
 
 	for ( fr=1, to=0; fr<stbl->nentries; fr++ ) {
 		while ( 0 == _cexp_namecomp( &stbl->syms[to], &stbl->syms[fr] ) ) {
+#ifdef DEBUG /* There seem to be redundant symbols (plt and executable); don't warn for now */
 			if ( _cexp_addrcomp( &stbl->syms[to], &stbl->syms[fr] ) ) {
 				fprintf(stderr,"WARNING: Eliminating redundant symbol '%s' but values differ (%p vs. %p [eliminated])\n",
 				               stbl->syms[to].name,
 				               stbl->syms[to].value.ptv,
 				               stbl->syms[fr].value.ptv);
 			}
+#endif
 			fr++;
 		}
 		stbl->syms[++to] = stbl->syms[fr];

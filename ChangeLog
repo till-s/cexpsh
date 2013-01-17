@@ -1,5 +1,7 @@
 Changes since CEXP-2.1
  2013/01/17:
+ - cexpsyms.c: don't print warning when removing redundant symbols
+   with different addresses; seems they can point to plt and executable...
  - cexpsegs-powerpc-rtems.c: silenced compiler warnings.
  - cexpmod.c: silenced compiler warnings. BUGFIX: cexpSymLkAddrIdx()
    returned 'margin' instead of symbol table index.

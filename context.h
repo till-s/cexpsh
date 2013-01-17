@@ -84,6 +84,7 @@
 #endif
 #ifdef HAVE_BFD_DISASSEMBLER
 #define boolean bbbboooolean /* se comment in bfdstuff.c why we do that */
+#include "ansidecl.h"
 #include "dis-asm.h"
 #undef  boolean
 #endif

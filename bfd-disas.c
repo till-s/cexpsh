@@ -326,7 +326,7 @@ int				found;
 		clip = decoded > bpl ? bpl : decoded;
 		for (i=0; i < decoded; i+=clip) {
 			/* print address */
-			orig_fprintf(f,"0x%08x: ",di->buffer + i);
+			orig_fprintf(f,"%p: ",di->buffer + i);
 			for (k=0; k < clip && k+i < decoded; k+=bpc) {
 				for (j=0; j<bpc; j++) {
 					if (BFD_ENDIAN_BIG == di->display_endian)

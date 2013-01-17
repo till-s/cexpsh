@@ -84,7 +84,7 @@ extern int  select();
 #define RSH_PORT 514
 
 static char *
-handleInput(int fd, int errfd, unsigned long *psize)
+handleInput(int fd, int errfd, long *psize)
 {
 long	n=0,size,avail;
 fd_set	r,w,e;
@@ -174,11 +174,11 @@ cleanup:
 }
 
 char *
-rshLoad(char *host, char *user, char *cmd)
+rshLoad(char *host, char *user, char *cmd, long *size_p)
 {
 char	*chpt=host,*buf=0;
 int		fd,errfd;
-unsigned long	ntot;
+long	ntot;
 extern int rcmd();
 
 	fd=rcmd(&chpt,RSH_PORT,user,user,cmd,&errfd);
@@ -196,6 +196,8 @@ extern int rcmd();
 	}
 
 	fprintf(stderr,"0x%lx (%li) bytes read\n",ntot,ntot);
+
+	*size_p = ntot;
 
 cleanup:
 	if (fd>=0)		close(fd);

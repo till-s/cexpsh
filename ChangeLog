@@ -1,5 +1,11 @@
 Changes since CEXP-2.1
  2013/01/17:
+ - elfsyms.c, cexpsymsP.h, rshload.c: added fourth argument to
+   rshLoad(): a 'long' pointer where the number of bytes read
+   is stored.
+ - elfdlmap.c, elfsyms.c, xsyms.c: silenced compiler warnings.
+ - context.h: silenced compiler warnings (include ansidecl.h when 
+   appropriate).
  - cexpsyms.c: don't print warning when removing redundant symbols
    with different addresses; seems they can point to plt and executable...
  - cexpsegs-powerpc-rtems.c: silenced compiler warnings.

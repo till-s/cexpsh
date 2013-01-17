@@ -14,7 +14,7 @@ NOTE: bison is only required if you
 
 Libraries:
 ----------
- - OPTIONAL: libbfd, libopcodes, libiberty (from binutils vers. 2.18)
+ - OPTIONAL: libbfd, libopcodes, libiberty (from binutils vers. 2.23)
 
  - Spencer's libregexp (distributed with Cexp). This is a modified,
    _reentrant_ version.
@@ -149,6 +149,10 @@ The configure script recognizes several other options:
 			for reading files is removed. You must create, compile
 			and link a 'built-in' symbol table in this case.
 
+            On systems with a dynamic linker (linux) this enables
+            support for reading dynamic symbols from the executable
+            and all dependent shared libraries (!).
+
     --disable-opcodes
 	        don't use the opcodes library. This removes the
 	        disassembler. This option is only relevant if you
@@ -236,17 +240,22 @@ use opcodes with pmbfd yielding a smaller executable).
 In order to use BFD, opcodes or both you need to
 perform the following steps:
 
-  a) download binutils-2.18 source
+  a) download binutils-2.23 source
   b) untar and install the source into the 'cexp' source directory
-  c) create a symlink binutils -> binutils-2.18
-  d) *patch* the binutils-2.18 sources running
+  c) create a symlink binutils -> binutils-2.23
+  d) *patch* the binutils-2.23 sources running
 
-       patch -b -p0 < binutils-2.18.diff
+       patch -b -p0 < binutils-2.23.diff
 
 	 from the cexp source directory (it is always a good idea
 	 to try '--dry-run' first).
 
-  e) configure and make cexp in the usual way. Note that
+  e) *remove* unnecessary source directories (later stages in
+     the build may fail if this step is omitted)
+
+       rm -rf binutils/ ld/ gprof/ gold/ gas/ elfcpp/ intl/
+
+  f) configure and make cexp in the usual way. Note that
      by default both the BFD and opcodes libraries are
 	 configured and used if 'configure' finds binutils
 	 sources in the cexp source dir.

@@ -7,7 +7,10 @@ Changes since CEXP-2.1
    returned 'margin' instead of symbol table index.
  - cexp.c: silenced compiler warning
  - bfd-disas.c: silenced compiler warning (printf format for pointer)
- - INSTALL, binutils-2.23.diff: Updated; can now use binutils-2.23
+ - INSTALL, binutils-2.23.diff, configure.ac: Updated; can now use
+   binutils-2.23
+ - configure.ac: added help info (--disable-loader enables support
+   for dynamic symbols).
  2013/01/16:
  - cexpmod.c, cexpsymsP.h, elfdlmap.c, elfsyms.c, rshload.c,
    xsyms.c, cexpsegs-powerpc-rtems.c:

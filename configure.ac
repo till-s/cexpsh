@@ -68,7 +68,11 @@ AC_ARG_ENABLE(loader,
 		[remove the dynamic loader; using pmelf you can still read
 		the symbol table from an ELF file (unless you also say
 		--disable-elfsyms; in this case you must create and link a
-		'built-in' symbol table)])
+		'built-in' symbol table)
+
+         On systems with a dynamic linker (linux) this enables
+         support for reading dynamic symbols from the executable
+         and all dependent shared libraries (!).])
 )
 
 AC_ARG_ENABLE(text-segment,
@@ -134,6 +138,13 @@ AC_ARG_WITH(rtems-notepad,
 		                   $withval,
 						   [use RTEMS notepad $withval for storing context info])
 )
+
+# binutils-2.13 tries to use zlib automatically.
+# Unfortunately there seems to be no way to pass
+# arguments to sub-configure selectively. Hence
+# we disable zlib globally here
+#
+AS_VAR_APPEND([ac_configure_args],[" --without-zlib"])
 
 # VALIDATE OPTIONS
 

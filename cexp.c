@@ -243,8 +243,10 @@ bail:
 
 extern const char *cexp_build_date;
 
+#ifndef NO_THREAD_PROTECTION
 /* A lock for various purposes */
 static CexpLock cexpGblLock;
+#endif
 
 #ifdef YYDEBUG
 extern int cexpdebug;

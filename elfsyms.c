@@ -245,7 +245,6 @@ CexpType	t;
 
 static unsigned long symcnt(void *symtab, size_t symsz, long nsyms, CexpSymFilterProc filt, void *closure)
 {
-char          *strtab = closure;
 unsigned long rval    = 0;
 
 	while ( nsyms-- ) {
@@ -265,7 +264,6 @@ static CexpSymTbl
 cexpSlurpElf(const char *filename)
 {
 Elf_Stream	  elf=0;
-Elf_Shdr	  *shdr=0;
 Elf_Ehdr      ehdr;
 Pmelf_Shtab   shtab  = 0;
 Pmelf_Symtab  symtab = 0;
@@ -273,7 +271,10 @@ CexpSymTbl	  rval=0,csymt=0;
 CexpSym		  sane;
 #if defined(USE_ELF_MEMORY) || defined(HAVE_RCMD)
 char		  *buf=0,*ptr=0;
-long		  size=0,avail=0,got;
+long		  got;
+#endif
+#if defined(USE_ELF_MEMORY)
+long		  size=0,avail=0;
 #endif
 unsigned long nsyms;
 CexpLinkMap   lmaps = 0, map;
@@ -289,7 +290,6 @@ char		HOST[30];
 #endif
 
 FILE        *f = 0;
-unsigned    symsz;
 
 	pmelf_set_errstrm(stderr);
 
@@ -310,7 +310,7 @@ unsigned    symsz;
 		inet_ntop(AF_INET, &rtems_bsdnet_bootp_server_address, HOST, sizeof(HOST));
 #endif
 		/* try to load via rsh */
-		if (!(buf=rshLoad(HOST,cmd+1,ptr)))
+		if (!(buf=rshLoad(HOST,cmd+1,ptr,&got)))
 			goto cleanup;
 	}
 	else

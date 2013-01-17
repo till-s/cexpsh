@@ -44,10 +44,10 @@ ElfW(Dyn)      *dyn, *dyns;
 ElfW(Addr)     off = info->dlpi_addr;
 ElfW(Addr)     uoff;
 
-ElfW(Sym)      *symtab;
-const char     *strtab;
-void           *hash;
-void           *gnu_hash;
+ElfW(Sym)      *symtab   = 0; /* silence compiler warning */
+const char     *strtab   = 0; /* silence compiler warning */
+void           *hash     = 0; /* silence compiler warning */
+void           *gnu_hash = 0; /* silence compiler warning */
 Elf_GnuHashHdr hhdr;
 unsigned long  ndsyms;
 int            i;
@@ -220,6 +220,8 @@ unsigned       msk;
 			printf("GNU Bucket %u: %u\n", i, ((Elf32_Word*)gnu_hash)[i]);
 		}
 #endif
+
+		ndsyms = 0;
 
 		/* find the last chain and follow it to the end */
 		for ( i = hhdr.nbuckets - 1; i >=0 && 0 == (ndsyms = ((Elf32_Word*)gnu_hash)[i]); i--)

@@ -69,6 +69,7 @@
 #include <pmbfd.h>
 #undef HAVE_ELF_BFD_H
 #else
+#include <libiberty.h>
 #include <bfd.h>
 #endif
 
@@ -119,7 +120,6 @@ Elf_Shdr   *symsh, *strsh;
 Pmelf_Shtab shtab = 0;
 Pmelf_Symtab symtab = 0;
 int        rval = -1, i;
-char       buf[BUFSIZ];
 int        elf64 = 0;
 
 	/* Do it the ELF way... */
@@ -378,7 +378,7 @@ const char *sname = ( BSF_SECTION_SYM & ps->flags ) ?
 
 	*pstripped = strdup(sname);
 #ifdef LINKER_VERSION_SEPARATOR
-	if ( chpt = strchr(*pstripped, LINKER_VERSION_SEPARATOR) ) {
+	if ( (chpt = strchr(*pstripped, LINKER_VERSION_SEPARATOR)) ) {
 		*chpt = 0;
 	}
 #endif
@@ -418,9 +418,12 @@ int           i;
 int
 main(int argc, char **argv)
 {
-bfd							*obfd=0,*ibfd=0;
+bfd							*ibfd=0;
 FILE						*ofeil=0;
+#ifndef _PMBFD_
+bfd							*obfd=0;
 const bfd_arch_info_type	*arch;
+#endif
 int							i,nsyms;
 asymbol						**isyms=0, **osyms=0;
 int							rval=1;

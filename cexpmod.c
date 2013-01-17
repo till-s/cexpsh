@@ -54,11 +54,13 @@
 #include "config.h"
 #endif
 
+#include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 #include <cexp_regex.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 /* FIXME: would like to use uintptr_t but some RTEMS versions
  *        make this long long (64-bit) even on a 32-bit machine :-(
  *        which makes the output look bad. Hopefully this can
@@ -117,6 +119,7 @@ cexpModuleInitOnce(void)
 	cexpRWLockInit(&_rwlock);
 }
 
+#ifdef USE_LOADER
 /* Search predecessor of a module in the list.
  * This should be called with the lock held!
  */
@@ -132,6 +135,7 @@ register CexpModule pred;
 			/* nothing else to do */;
 	return pred;
 }
+#endif
 
 /* verify the validity of a handle;
  * should be called with the lock held
@@ -301,7 +305,7 @@ CexpModule	   mfnd = 0, m;
 	if ( pmod ) 
 		*pmod = ar[margin].mod;
 
-	return ar[margin].mod ? margin : -1;
+	return ar[margin].mod ? ar[margin].idx : -1;
 }
 
 /* search for an address in all modules */
@@ -762,10 +766,10 @@ CexpSym s;
 	/* finding our BFD architecture turns out to be non-trivial! */
 	{
 	bfd *abfd = 0; /* keep compiler happy */
-	const bfd_arch_info_type *ai = 0;
 	char	      *tn = 0;
 	const char **tgts = 0;
 #ifndef USE_PMBFD
+	const bfd_arch_info_type *ai = 0;
 		/* must open a BFD for the default target */
 		if ( !(tn=malloc(L_tmpnam)) || !tmpnam(tn) || !(abfd=bfd_openw(tn,"default")) ) {
 			fprintf(stderr,"cexpLoadBuiltinSymtab(): unable to open a dummy BFD for determining disassembler arch\n");
@@ -793,8 +797,8 @@ CexpSym s;
 #endif
 		cexpDisassemblerInstall(abfd);
 
-cleanup:
 #ifndef USE_PMBFD
+cleanup:
 		if ( !ai )
 			fprintf(stderr,"Unable to determine target CPU architecture -- skipping disassembler installation\n");
 #endif

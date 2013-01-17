@@ -1,0 +1,105 @@
+ patch against binutils-2.23 in order to enable building the
+ libbfd, libiberty and libopcodes libraries for an RTEMS host:
+
+   o unneeded 'getopt' from libiberty -- it would actually
+     clash with what's already in newlib/rtems.
+   o don't recurse into the binutils, gas, gprof, intl and ld
+     subdirectories.
+   o do not install libiberty into a multilib subdirectory.
+     No other part of binutils can be built as multilibs
+	 and the 'strange' install location of libiberty will
+	 confuse application makefiles which expects it in the
+	 same place where libbfd etc. reside.
+
+  To apply this patch, chdir to the directory containing binutils-2.23
+  and issue (it is always a good idea to run with the --dry-run option first)
+
+     patch -p0 -b < <this file>
+
+  Till Straumann, 1/2013
+
+*** binutils-2.23/Makefile.in.orig	2013-01-17 12:22:30.004264022 -0800
+--- binutils-2.23/Makefile.in	2013-01-17 12:23:03.763301489 -0800
+***************
+*** 43073,43078 ****
+--- 43073,43083 ----
+  all-gdb: $(gdbnlmrequirements) $(GDB_TK)
+  install-gdb: $(INSTALL_GDB_TK)
+  
++ install-data:
++ .PHONY: install-data
++ install-exec: all install
++ .PHONY: install-exec
++ 
+  # Serialization dependencies.  Host configures don't work well in parallel to
+  # each other, due to contention over config.cache.  Target configures and 
+  # build configures are similar.
+*** binutils-2.23/libiberty/getopt.c.orig	2013-01-17 13:25:50.184066036 -0800
+--- binutils-2.23/libiberty/getopt.c	2013-01-17 13:26:16.807302850 -0800
+***************
+*** 61,66 ****
+--- 61,73 ----
+  # endif
+  #endif
+  
++ /* newlibc provides getopt but I have no easy way to check for newlib.
++  * However, we know that rtems uses newlib...
++  */
++ #ifdef __rtems__
++ #define ELIDE_CODE
++ #endif
++ 
+  #ifndef ELIDE_CODE
+  
+  
+*** binutils-2.23/libiberty/getopt1.c.orig	2013-01-17 13:26:49.174374774 -0800
+--- binutils-2.23/libiberty/getopt1.c	2013-01-17 13:27:13.857666850 -0800
+***************
+*** 52,57 ****
+--- 52,64 ----
+  #endif
+  #endif
+  
++ /* newlibc provides getopt but I have no easy way to check for newlib.
++  * However, we know that rtems uses newlib...
++  */
++ #ifdef __rtems__
++ #define ELIDE_CODE
++ #endif
++ 
+  #ifndef ELIDE_CODE
+  
+  
+*** binutils-2.23/libiberty/Makefile.in.orig	2013-01-17 12:23:12.851042129 -0800
+--- binutils-2.23/libiberty/Makefile.in	2013-01-17 12:49:36.629396030 -0800
+***************
+*** 352,358 ****
+  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
+  # default multilib, so we have to take CFLAGS into account as well,
+  # since it will be passed the multilib flags.
+! MULTIOSDIR = `$(CC) $(CFLAGS) -print-multi-os-directory`
+  install_to_libdir: all
+  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
+  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
+--- 352,358 ----
+  # multilib-specific flags, it's overridden by FLAGS_TO_PASS from the
+  # default multilib, so we have to take CFLAGS into account as well,
+  # since it will be passed the multilib flags.
+! MULTIOSDIR =
+  install_to_libdir: all
+  	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
+  	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
+***************
+*** 377,382 ****
+--- 377,387 ----
+  	mv -f $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)n $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)
+  	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
+  
++ install-data:
++ .PHONY: install-data
++ install-exec: all install
++ .PHONY: install-exec
++ 
+  # required-list was used when building a shared bfd/opcodes/libiberty
+  # library.  I don't know if it used by anything currently.
+  required-list: Makefile

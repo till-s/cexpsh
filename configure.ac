@@ -450,6 +450,7 @@ if test ! "$enable_opcodes" = "no"; then
           ;;
         esac
 		echo 999 > binutils/bfd/libtool-soversion
+		echo '#include <stdint.h>' > binutils/bfd/bfd_stdint.h
 	fi
 	AC_DEFINE(HAVE_BFD_DISASSEMBLER,1,[do we have the bfd internal dis-asm.h header])
 fi

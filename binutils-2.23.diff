@@ -3,13 +3,15 @@
 
    o unneeded 'getopt' from libiberty -- it would actually
      clash with what's already in newlib/rtems.
-   o don't recurse into the binutils, gas, gprof, intl and ld
-     subdirectories.
+   o add (empty) 'install-data', 'install-exec' rules to
+     top-level and libiberty Makefile.in.
    o do not install libiberty into a multilib subdirectory.
      No other part of binutils can be built as multilibs
 	 and the 'strange' install location of libiberty will
 	 confuse application makefiles which expects it in the
 	 same place where libbfd etc. reside.
+   o omit a few details from ppc disassembler when building
+     with pmbfd.
 
   To apply this patch, chdir to the directory containing binutils-2.23
   and issue (it is always a good idea to run with the --dry-run option first)
@@ -103,3 +105,31 @@
   # required-list was used when building a shared bfd/opcodes/libiberty
   # library.  I don't know if it used by anything currently.
   required-list: Makefile
+*** binutils-2.23/opcodes/ppc-dis.c.orig	2013-01-17 19:06:08.228257752 -0600
+--- binutils-2.23/opcodes/ppc-dis.c	2013-01-22 13:26:25.155626576 -0600
+***************
+*** 23,29 ****
+--- 23,31 ----
+  #include "sysdep.h"
+  #include <stdio.h>
+  #include "dis-asm.h"
++ #ifndef _PMBFD_
+  #include "elf-bfd.h"
++ #endif
+  #include "elf/ppc.h"
+  #include "opintl.h"
+  #include "opcode/ppc.h"
+***************
+*** 199,207 ****
+--- 201,211 ----
+  
+    /* Disassemble according to the section headers flags for VLE-mode.  */
+    if (dialect & PPC_OPCODE_VLE
++ #ifndef _PMBFD_
+        && info->section->owner != NULL
+        && bfd_get_flavour (info->section->owner) == bfd_target_elf_flavour
+        && elf_object_id (info->section->owner) == PPC32_ELF_DATA
++ #endif
+        && (elf_section_flags (info->section) & SHF_PPC_VLE) != 0)
+      return dialect;
+    else

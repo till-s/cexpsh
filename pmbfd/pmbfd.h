@@ -192,6 +192,9 @@ elf_get_size(bfd *abfd, asymbol *asym);
 unsigned
 elf_get_align(bfd *abfd, asymbol *asym);
 
+uint64_t
+elf_section_flags(asection *);
+
 #define align_power(addr, align)    \
   (((addr) + ((bfd_vma) 1 << (align)) - 1) & ((bfd_vma) -1 << (align)))
 
@@ -271,6 +274,7 @@ enum bfd_architecture {
 #define bfd_mach_ppc_rs64iii                  643
 #define bfd_mach_ppc_7400                    7400
 #define bfd_mach_ppc_e500                     500
+#define bfd_mach_ppc_vle                       84
 	bfd_arch_rs6000        = 24 /* 22 in binutils-2.18 */
 #define bfd_mach_rs6k                        6000
 #define bfd_mach_rs6k_rs1                    6001

@@ -2,6 +2,8 @@ Changes since CEXP-2.2
 Changes since CEXP-2.1
  2013/01/23:
  - INSTALL: document --enable-pthreads
+ - cexp.c: renamed argv[0] to "cexpsh" when called from cexpsh()
+   wrapper.
  - cexp.c: don't call 'hello' if there is a script or command
    string.
  - cexp.c: don't ever become interactive after script or command

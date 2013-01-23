@@ -14,7 +14,7 @@ NOTE: bison is only required if you
 
 Libraries:
 ----------
- - OPTIONAL: libbfd, libopcodes, libiberty (from binutils vers. 2.23)
+ - OPTIONAL: libbfd, libopcodes, libiberty (from binutils vers. 2.18 or 2.23)
 
  - Spencer's libregexp (distributed with Cexp). This is a modified,
    _reentrant_ version.
@@ -240,10 +240,10 @@ use opcodes with pmbfd yielding a smaller executable).
 In order to use BFD, opcodes or both you need to
 perform the following steps:
 
-  a) download binutils-2.23 source
+  a) download binutils-2.23 (or older 2.18) source
   b) untar and install the source into the 'cexp' source directory
-  c) create a symlink binutils -> binutils-2.23
-  d) *patch* the binutils-2.23 sources running
+  c) create a symlink binutils -> binutils-2.23 (or binutils-2.18)
+  d) *patch* the binutils-2.23 (or 2.18) sources running
 
        patch -b -p0 < binutils-2.23.diff
 

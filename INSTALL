@@ -222,6 +222,12 @@ The configure script recognizes several other options:
 			README ('PowerPC Branch Relocation Information') for
 			more information about this option.
 
+    --enable-pthreads
+            Configure for thread-safe cexpsh on platforms which
+            support pthreads. THIS IS NOT NEEDED UNDER RTEMS.
+            Under RTEMS cexp is always thread-safe but it uses
+            native RTEMS semaphores etc.
+
 Configuring Cexp using the GNU BFD library
 - - - - - - - - - - - - - - - - - - - - - -
 

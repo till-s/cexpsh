@@ -85,7 +85,9 @@ struct sec {
 	const char   *name;
 	bfd_size_type size;
 	bfd_vma       vma;
-	unsigned      align_power;
+	uint8_t       align_power;
+#define AUX_ELF64 1             /* So that we can discriminate the shdr */
+	uint8_t       aux_flags;    /* internal to pmbfd */
 	flagword      flags;
 	Elf_Shdr      *shdr;
 #define GRP_NULL	0

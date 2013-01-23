@@ -1,3 +1,5 @@
+ 20130123 (T.S.):
+ - pmelf.h: added SHF_PPC_VLE (for binutils/opcodes compat - no real support).
  20130117 (T.S.):
  - pmbfd.h: added arch/mach definitions required to build with 
    binutils-2.13's/opcodes.

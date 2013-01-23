@@ -219,6 +219,8 @@ typedef union {
 #define SHF_MSKSUP			 (~0x3f7)
 #define SHF_MASKPROC		0xf0000000
 
+#define SHF_PPC_VLE         0x10000000
+
 #define GRP_COMDAT			 1
 
 typedef struct {

@@ -925,13 +925,15 @@ if (!myContext) {
 #endif
 	/* register first instance running in this thread's context; */
 	cexpContextRegister();
-	if (!quiet)
+	if (!quiet && !script && !arg_line)
 		hello();
 } else {
 #ifdef HAVE_TECLA
 	/* re-use caller's line editor */
 	context.gl = myContext->gl;
 #endif
+	/* never become interactive if we're not the topmost instance */
+	become_interactive = 0;
 }
 /* push our frame to the top */
 context.next = myContext;

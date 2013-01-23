@@ -1,4 +1,11 @@
  20130123 (T.S.):
+ - pmbfd.h, bfd.c: added 'elf_section_flags()' (should go to bfd-elf.h
+   if we ever implement that).
+ - pmbfd.h: added 'bfd_mach_ppc_vle' (for binutils/opcodes compat - no
+   real support)
+ - pmbfdP.h, bfd.c: reduced internal representation of 'align_power' to
+   uint8_t. Added 'aux_flags' and AUX_ELF64 as a discrinator for the ELF
+   section header (indicating whether it is 64 or 32-bit).
  - pmelf.h: added SHF_PPC_VLE (for binutils/opcodes compat - no real support).
  20130117 (T.S.):
  - pmbfd.h: added arch/mach definitions required to build with 

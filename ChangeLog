@@ -1,5 +1,9 @@
 Changes since CEXP-2.1
  2013/01/23:
+ - cexp.c: don't call 'hello' if there is a script or command
+   string.
+ - cexp.c: don't ever become interactive after script or command
+   string from a nested call of cexpsh.
  - binutils-2.23.diff: added patch for ppc-dis.c which takes out
    stuff which relies on elf-bfd. pmbfd could add an 'owner' member
    to asection but it seems overkill just to support the PPC_VLE

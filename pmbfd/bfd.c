@@ -47,6 +47,7 @@
 
 #include "pmbfdP.h"
 #include <errno.h>
+#include <assert.h>
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -450,6 +451,15 @@ asection *
 elf_next_in_group(asection *sec)
 {
 	return shdr2sec(&thebfd, sec->grp_next, 0);
+}
+
+uint64_t
+elf_section_flags(asection *sec)
+{
+	if ( !sec->shdr )
+		return 0;
+
+	return (AUX_ELF64 & sec->aux_flags) ? sec->shdr->s64.sh_flags : sec->shdr->s32.sh_flags;
 }
 
 bfd*
@@ -1000,6 +1010,7 @@ Elf32_Shdr        *shdr;
 
 		shdr = &buf;
 	} else {
+		sec->aux_flags |= AUX_ELF64;
 		shdr = &eshdr->s64;
 	}
 #else
@@ -1449,7 +1460,8 @@ bfd_scan_arch(const char *str)
 bfd_boolean
 bfd_set_section_alignment(bfd *abfd, asection *sect, unsigned int val)
 {
-	sect->align_power = val;
+    assert(val < 256);
+	sect->align_power = (uint8_t)val;
 	return BFD_TRUE;
 }
 

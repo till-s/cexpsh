@@ -581,7 +581,7 @@ char    *p;
 
 	va_start(ap,arg0);
 
-	argv[argc++]="cexp_main";
+	argv[argc++]="cexpsh";
 	if (arg0) {
 		argv[argc++]=arg0;
 

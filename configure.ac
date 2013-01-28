@@ -421,7 +421,7 @@ fi
 
 AC_MSG_NOTICE([enable_bfd: $enable_bfd, enable_pmbfd: $enable_pmbfd])
 
-if test x"$enable_bfd" = x"yes" || ! x"$enable_opcodes" = x"no" ; then
+if test x"$enable_bfd" = x"yes" || test ! x"$enable_opcodes" = x"no" ; then
 	AC_CONFIG_SUBDIRS(binutils/libiberty)
 	if test x"$enable_bfd" = x"yes" ; then
 		AC_CONFIG_SUBDIRS(binutils/bfd)

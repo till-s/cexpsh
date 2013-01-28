@@ -1,6 +1,9 @@
 Changes since CEXP-2.2
 Changes since CEXP-2.1
  2013/01/28:
+ - configure.ac: FIXED ill written bash conditional which resulted
+   in binutils/libiberty always being configured (event when not present
+   -> error).
  - binutils-2.23.diff: added hunk which fixes bfd/coffcode.h (missing
    #include directive).
  - configure.ac: DONT configure 'binutils' but configure individual

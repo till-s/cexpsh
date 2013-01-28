@@ -1,5 +1,10 @@
 Changes since CEXP-2.2
 Changes since CEXP-2.1
+ 2013/01/28:
+ - binutils-2.23.diff: added hunk which fixes bfd/coffcode.h (missing
+   #include directive).
+ - configure.ac: DONT configure 'binutils' but configure individual
+   subdirectories: binutils/libiberty, binutils/bfd, binutils/opcodes.
  2013/01/23:
  - INSTALL: document --enable-pthreads
  - cexp.c: renamed argv[0] to "cexpsh" when called from cexpsh()

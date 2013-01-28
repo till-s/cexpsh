@@ -1,6 +1,11 @@
 Changes since CEXP-2.2
 Changes since CEXP-2.1
  2013/01/28:
+ - removed libtecla/Makefile (see next note) - conflicts with autotool-generated
+   version.
+ - renamed Makefile->makefile; Makefile in EXTRA_DIST results in
+   the auto-generated Makefile (in the build-directory) to be distributed;
+   even if we say EXTRA_DIST+=$(srcdir)/Makefile :-(
  - configure.ac: FIXED ill written bash conditional which resulted
    in binutils/libiberty always being configured (event when not present
    -> error).

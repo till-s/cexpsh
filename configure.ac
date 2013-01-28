@@ -236,7 +236,6 @@ case "$canon_cpu" in
 	;;
 esac
 
-
 AC_MSG_CHECKING([Check if we could use pmbfd])
 # do we have relocations for our CPU arch ?
 # Only relevant if we use the loader; the ELF symbol file reader should
@@ -422,8 +421,18 @@ fi
 
 AC_MSG_NOTICE([enable_bfd: $enable_bfd, enable_pmbfd: $enable_pmbfd])
 
+if test x"$enable_bfd" = x"yes" || ! x"$enable_opcodes" = x"no" ; then
+	AC_CONFIG_SUBDIRS(binutils/libiberty)
+	if test x"$enable_bfd" = x"yes" ; then
+		AC_CONFIG_SUBDIRS(binutils/bfd)
+	fi
+	if test ! x"$enable_opcodes" = x"no" ; then
+		AC_CONFIG_SUBDIRS(binutils/opcodes)
+	fi
+fi
+
+
 if test "$enable_bfd" = "yes"; then
-	AC_CONFIG_SUBDIRS(binutils)
 	AC_DEFINE(HAVE_ELF_BFD_H,1,[do we have the bfd internal elf-bfd.h header])
 else
 	# must configure pmbfd if host_os = build_os so that
@@ -437,8 +446,6 @@ fi
 
 if test ! "$enable_opcodes" = "no"; then
 	if test ! "$enable_bfd" = "yes"; then
-		AC_CONFIG_SUBDIRS(binutils/libiberty)
-		AC_CONFIG_SUBDIRS(binutils/opcodes)
 		# mock up a few things opcodes needs...
 		mkdir -p binutils/bfd
         case "${srcdir}" in

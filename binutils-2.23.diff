@@ -3,8 +3,6 @@
 
    o unneeded 'getopt' from libiberty -- it would actually
      clash with what's already in newlib/rtems.
-   o add (empty) 'install-data', 'install-exec' rules to
-     top-level and libiberty Makefile.in.
    o do not install libiberty into a multilib subdirectory.
      No other part of binutils can be built as multilibs
 	 and the 'strange' install location of libiberty will
@@ -12,6 +10,7 @@
 	 same place where libbfd etc. reside.
    o omit a few details from ppc disassembler when building
      with pmbfd.
+   o bugfix in coffcode.h: Need to include <bfd_stdint.h>
 
   To apply this patch, chdir to the directory containing binutils-2.23
   and issue (it is always a good idea to run with the --dry-run option first)
@@ -20,22 +19,6 @@
 
   Till Straumann, 1/2013
 
-*** binutils-2.23/Makefile.in.orig	2013-01-17 12:22:30.004264022 -0800
---- binutils-2.23/Makefile.in	2013-01-17 12:23:03.763301489 -0800
-***************
-*** 43073,43078 ****
---- 43073,43083 ----
-  all-gdb: $(gdbnlmrequirements) $(GDB_TK)
-  install-gdb: $(INSTALL_GDB_TK)
-  
-+ install-data:
-+ .PHONY: install-data
-+ install-exec: all install
-+ .PHONY: install-exec
-+ 
-  # Serialization dependencies.  Host configures don't work well in parallel to
-  # each other, due to contention over config.cache.  Target configures and 
-  # build configures are similar.
 *** binutils-2.23/libiberty/getopt.c.orig	2013-01-17 13:25:50.184066036 -0800
 --- binutils-2.23/libiberty/getopt.c	2013-01-17 13:26:16.807302850 -0800
 ***************
@@ -91,20 +74,6 @@
   install_to_libdir: all
   	${mkinstalldirs} $(DESTDIR)$(libdir)/$(MULTIOSDIR)
   	$(INSTALL_DATA) $(TARGETLIB) $(DESTDIR)$(libdir)/$(MULTIOSDIR)/$(TARGETLIB)n
-***************
-*** 377,382 ****
---- 377,387 ----
-  	mv -f $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)n $(DESTDIR)$(tooldir)/lib/$(MULTIOSDIR)/$(TARGETLIB)
-  	@$(MULTIDO) $(FLAGS_TO_PASS) multi-do DO=install
-  
-+ install-data:
-+ .PHONY: install-data
-+ install-exec: all install
-+ .PHONY: install-exec
-+ 
-  # required-list was used when building a shared bfd/opcodes/libiberty
-  # library.  I don't know if it used by anything currently.
-  required-list: Makefile
 *** binutils-2.23/opcodes/ppc-dis.c.orig	2013-01-17 19:06:08.228257752 -0600
 --- binutils-2.23/opcodes/ppc-dis.c	2013-01-22 13:26:25.155626576 -0600
 ***************
@@ -133,3 +102,15 @@
         && (elf_section_flags (info->section) & SHF_PPC_VLE) != 0)
       return dialect;
     else
+*** binutils-2.23/bfd/coffcode.h.orig	2013-01-28 11:00:21.489846961 -0800
+--- binutils-2.23/bfd/coffcode.h	2013-01-28 11:00:32.647429277 -0800
+***************
+*** 362,367 ****
+--- 362,368 ----
+  */
+  
+  #include "libiberty.h"
++ #include "bfd_stdint.h"
+  
+  #ifdef COFF_WITH_PE
+  #include "peicode.h"

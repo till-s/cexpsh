@@ -111,6 +111,7 @@ EXTRA_SRCS+= $(SYMF_SRCS)
 EXTRA_SRCS+= $(TECLA_SRCS)
 
 EXTRA_DIST = cexp.y jumptab.c gentab.c config-ml.in
+EXTRA_DIST+= $(wildcard $(srcdir)/m4/*.m4) $(srcdir)/m4/ChangeLog
 EXTRA_DIST+= binutils-2.18.diff 
 EXTRA_DIST+= binutils-2.23.diff 
 EXTRA_DIST+= README.ld.snippet makefile LICENSE Makefile.syms

@@ -1,4 +1,5 @@
  20140224 (T.S.):
+ - bfd-reloc-sparc.c: first stab at implementing relocations for sparc32.
  - pmelf.h: renamed R_SPARC_12 -> R_SPARC_13 which seems to be the correct
    name (sparc abi supplement vers. 9).
  20130123 (T.S.):

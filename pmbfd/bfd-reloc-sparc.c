@@ -47,139 +47,136 @@
 
 #include "pmbfdP.h"
 
-/* THIS IS A STUB ONLY --- NOT YET IMPLEMENTED */
+enum   sparc_rel_check {
+	sparc_rel_check_none = 0, /* truncate silently           */
+	sparc_rel_check_bits = 1, /* - 2^w     ... + 2^w     - 1 */
+	sparc_rel_check_sign = 2, /* - 2^(w-1) ... + 2^(w-1) - 1 */
+	sparc_rel_check_unsg = 3  /*         0 ... + 2^w     - 1 */
+};
+
+struct sparc_rel_desc {
+	unsigned char nbytes;
+	unsigned char width;
+	unsigned char shift;
+	unsigned char sparc_rel_check: 2;
+	unsigned char pc_relative:     1;
+	unsigned char unaligned:       1;
+};
+
+#define REL_DESC(t, n, w, s, c , r, u) \
+	[t] { nbytes: n, width: w, shift: s, sparc_rel_check: c, pc_relative: r, unaligned: u }
+
+static struct sparc_rel_desc sparc_rels[] = {
+	REL_DESC(R_SPARC_8,       1,  8,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_16,      2, 16,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_32,      4, 32,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_DISP8,   1,  8,  0, sparc_rel_check_sign, 1, 0),
+	REL_DESC(R_SPARC_DISP16,  2, 16,  0, sparc_rel_check_sign, 1, 0),
+	REL_DESC(R_SPARC_DISP32,  4, 32,  0, sparc_rel_check_sign, 1, 0),
+	REL_DESC(R_SPARC_WDISP30, 4, 30,  2, sparc_rel_check_sign, 1, 0),
+	REL_DESC(R_SPARC_WDISP22, 4, 22,  2, sparc_rel_check_sign, 1, 0),
+	REL_DESC(R_SPARC_HI22,    4, 22, 10, sparc_rel_check_none, 0, 0),
+	REL_DESC(R_SPARC_22,      4, 22,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_13,      4, 13,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_LO10,    4, 10,  0, sparc_rel_check_none, 0, 0),
+	REL_DESC(R_SPARC_PC10,    4, 10,  0, sparc_rel_check_none, 1, 0),
+	REL_DESC(R_SPARC_PC22,    4, 22, 10, sparc_rel_check_bits, 1, 0),
+	REL_DESC(R_SPARC_UA32,    4, 32,  0, sparc_rel_check_bits, 0, 1),
+	REL_DESC(R_SPARC_10,      4, 10,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_11,      4, 11,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_7,       4,  7,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_5,       4,  5,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_6,       4,  6,  0, sparc_rel_check_bits, 0, 0),
+	REL_DESC(R_SPARC_UA16,    2, 16,  0, sparc_rel_check_bits, 0, 1),
+};
 
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
 Elf32_Word     pc;
-unsigned       sz, algn;
-int32_t        val,oval;
+int64_t        val, msk;
+int32_t        oval,nval;
 int16_t        sval;
-int32_t        lim;
-uint32_t       msk,lomsk;
+int8_t         bval;
+int64_t        llim,ulim;
 Elf32_Rela     *rela = &r->rela32;
 uint8_t        type  = ELF32_R_TYPE(rela->r_info);
+struct sparc_rel_desc *dsc;
 
 	if ( R_SPARC_NONE == type ) {
 		/* No-op; BFD uses a zero dst_mask... */
 		return bfd_reloc_ok;
 	}
 
+	if ( type >= sizeof(sparc_rels)/sizeof(sparc_rels[0]) || 0 == sparc_rels[type].nbytes ) {
+		ERRPR("pmbfd_perform_relocation_sparc(): unsupported relocation type : %"PRIu8"\n", type);
+		return bfd_reloc_notsupported;
+	}
+
+	dsc = &sparc_rels[type];
+
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
 	pc  = bfd_get_section_vma(abfd, input_section) + rela->r_offset;
 
-	val = bfd_asymbol_value(psym) + rela->r_addend;
-
-#if 0
-	/* gcc seems to only use these...
-	 *
-	 * R_PPC_ADDR16_HA
-	 * R_PPC_ADDR16_HI
-	 * R_PPC_ADDR16_LO
-	 * R_PPC_ADDR24
-	 * R_PPC_ADDR32
-	 * R_PPC_REL24
-	 * R_PPC_REL32
-	 * R_PPC_NONE
-	 */
-
-	msk   = ~0;
-	lim   =  0;
-	lomsk =  0;
-
-	algn  =  1;
-	sz    =  4;
-
-	switch ( type ) {
-
-		default:
-		return bfd_reloc_notsupported;
-
-		case R_PPC_ADDR16_HA:
-		case R_PPC_ADDR16_HI:
-		case R_PPC_ADDR16_LO: sz = algn = 2;
-		break;
-	 
-	 	case R_PPC_ADDR24:
-	 	case R_PPC_REL24:
-							  lim = - (1<<(27-1));
-		                      if ( R_PPC_REL24 == type )
-							  	lim >>= 1;
-							  msk   =  0x03fffffc;
-							  lomsk =  0x00000003;
-	 	case R_PPC_REL32:     sz = algn = 4;
-		break;
-
-		/* This is used by gcc to put data at unaligned addresses, too */
-	 	case R_PPC_ADDR32:    sz = 4; algn = 1;
-		break;
-	}
-
-	if ( rela->r_offset + sz > bfd_get_section_size(input_section) )
-		return bfd_reloc_outofrange;
-
-	if ( pc & (algn-1)) {
-		ERRPR("pmbfd_perform_relocation_ppc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
+	if ( ! dsc->unaligned && (pc & (dsc->nbytes - 1)) ) {
+		ERRPR("pmbfd_perform_relocation_sparc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
 		return bfd_reloc_other;
 	}
 
+	val = (int64_t)bfd_asymbol_value(psym) + (int64_t)rela->r_addend;
 
-	switch ( ELF32_R_TYPE(rela->r_info) ) {
-		case R_PPC_REL24:
-		case R_PPC_REL32:
-			val -= pc;
-		break;
+	if ( dsc->pc_relative )
+		val -= (int64_t)pc;
+
+	val >>= dsc->shift;
+
+	/* works also if the left shift is 32 */
+	msk = (1LL << dsc->width);
+	msk--;
+
+	switch ( dsc->sparc_rel_check ) {
 		default:
-		break;
+		case sparc_rel_check_none: ulim = ~(1LL<<63);  llim = ~ulim; break;
+		case sparc_rel_check_unsg: ulim = msk;         llim = 0;     break;
+		case sparc_rel_check_bits: ulim = msk;         llim = ~ulim; break;
+		case sparc_rel_check_sign: ulim = msk>>1;      llim = ~ulim; break;
 	}
 
-	if ( lim && (val < lim || val > -lim - 1) )
-		return bfd_reloc_overflow;
-
-	if ( lomsk & val ) {
-		ERRPR("pmbfd_perform_relocation_ppc(): value (0x%08"PRIx32") not properly aligned\n", val);
-		return bfd_reloc_other;
-	}
-
-#if DEBUG & DEBUG_RELOC
-	fprintf(stderr,"Relocating val: 0x%08"PRIx32", lim: 0x%08"PRIx32", pc: 0x%08"PRIx32"\n",
-		val, lim, pc);
+#if (DEBUG & DEBUG_RELOC) || 1
+	fprintf(stderr,"Relocating val: 0x%08"PRIx64", ulim: 0x%08"PRIx64", pc: 0x%08"PRIx32", sym: 0x%08lx\n",
+		val, ulim, pc, bfd_asymbol_value(psym));
 #endif
 
-	if ( 2 == sz ) {
+	if ( val < llim || val > ulim ) {
+		return bfd_reloc_overflow;
+	}
+
+	if ( 1 == dsc->nbytes ) {
+		memcpy(&bval, (void*)pc, sizeof(bval));
+		oval = bval;
+	} else if ( 2 == dsc->nbytes ) {
 		memcpy(&sval, (void*)pc, sizeof(sval));
 		oval = sval;
 	} else {
 		memcpy(&oval, (void*)pc, sizeof(oval));
 	}
-	val = ( oval & ~msk ) | (val & msk);
 
-	switch ( ELF32_R_TYPE(rela->r_info) ) {
-		case R_PPC_ADDR16_HA:
-			if ( val & 0x8000 )
-				val+=0x10000;
-		case R_PPC_ADDR16_HI:
-			val >>= 16;
-		break;
-		default:
-		break;
-	}
+	nval = ( oval & ~msk ) | (val & msk);
 
 	/* patch back */
-	if ( 2 == sz ) {
-		sval = val;
+	if ( 1 == dsc->nbytes ) {
+		bval = nval;
+		memcpy((void*)pc, &bval, sizeof(bval));
+	} else if ( 2 == dsc->nbytes ) {
+		sval = nval;
 		memcpy((void*)pc, &sval, sizeof(sval));
 	} else {
-		memcpy((void*)pc, &val,  sizeof(val) );
+		memcpy((void*)pc, &nval, sizeof(nval));
 	}
 
 	return bfd_reloc_ok;
-#else
-	return bfd_reloc_notsupported;
-#endif
 }
 
 const char *

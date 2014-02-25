@@ -20,8 +20,9 @@ libraries ('poor-man's BFD) that comes with Cexp or libbfd.
 The latter is more powerful:
  - not limited to the ELF object format.
  - supports many more machine types (pmbfd currently 
-   only supports 32-bit powerpc, m68k and i386 and 64-bit
-   x86_64).
+   only supports 32-bit powerpc, m68k, i386, x86_64
+   and sparc [32-bit] -- in decreasing order of testing
+   that has been done).
  - using BFD / libopcodes, a disassembler comes for free.
 
 Otoh, using pmbfd/pmelf has the following advantages:

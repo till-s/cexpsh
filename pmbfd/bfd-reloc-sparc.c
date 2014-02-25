@@ -67,6 +67,8 @@ struct sparc_rel_desc {
 	[t] { nbytes: n, width: w, shift: s, sparc_rel_check: c, pc_relative: r, unaligned: u }
 
 static struct sparc_rel_desc sparc_rels[] = {
+	REL_DESC(R_SPARC_NONE,    0,  0,  0, sparc_rel_check_none, 0, 0),
+	REL_DESC(R_SPARC_LO10,    4, 10,  0, sparc_rel_check_none, 0, 0),
 	REL_DESC(R_SPARC_8,       1,  8,  0, sparc_rel_check_bits, 0, 0),
 	REL_DESC(R_SPARC_16,      2, 16,  0, sparc_rel_check_bits, 0, 0),
 	REL_DESC(R_SPARC_32,      4, 32,  0, sparc_rel_check_bits, 0, 0),
@@ -108,12 +110,13 @@ struct sparc_rel_desc *dsc;
 		return bfd_reloc_ok;
 	}
 
-	if ( type >= sizeof(sparc_rels)/sizeof(sparc_rels[0]) || 0 == sparc_rels[type].nbytes ) {
+	/* use R_SPARC_NONE as a dummy for 'unsupported' */
+	dsc = type >= sizeof(sparc_rels) ? &sparc_rels[R_SPARC_NONE] : &sparc_rels[type];
+
+	if ( 0 == dsc->nbytes ) {
 		ERRPR("pmbfd_perform_relocation_sparc(): unsupported relocation type : %"PRIu8"\n", type);
 		return bfd_reloc_notsupported;
 	}
-
-	dsc = &sparc_rels[type];
 
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
@@ -144,7 +147,7 @@ struct sparc_rel_desc *dsc;
 		case sparc_rel_check_sign: ulim = msk>>1;      llim = ~ulim; break;
 	}
 
-#if (DEBUG & DEBUG_RELOC) || 1
+#if (DEBUG & DEBUG_RELOC)
 	fprintf(stderr,"Relocating val: 0x%08"PRIx64", ulim: 0x%08"PRIx64", pc: 0x%08"PRIx32", sym: 0x%08lx\n",
 		val, ulim, pc, bfd_asymbol_value(psym));
 #endif

@@ -334,7 +334,7 @@ typedef union {
 #define R_SPARC_WDISP22           8
 #define R_SPARC_HI22              9
 #define R_SPARC_22               10
-#define R_SPARC_12               11
+#define R_SPARC_13               11
 #define R_SPARC_LO10             12
 #define R_SPARC_GOT10            13	/* unimpl */
 #define R_SPARC_GOT13            14	/* unimpl */
@@ -1278,7 +1278,7 @@ pmelf_sparc_rel_name(Elf32_Rela *r)
 		pmelf_namecase( R_SPARC_WDISP22          )
 		pmelf_namecase( R_SPARC_HI22             )
 		pmelf_namecase( R_SPARC_22               )
-		pmelf_namecase( R_SPARC_12               )
+		pmelf_namecase( R_SPARC_13               )
 		pmelf_namecase( R_SPARC_LO10             )
 		pmelf_namecase( R_SPARC_GOT10            )
 		pmelf_namecase( R_SPARC_GOT13            )

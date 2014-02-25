@@ -1,3 +1,6 @@
+ 20140224 (T.S.):
+ - pmelf.h: renamed R_SPARC_12 -> R_SPARC_13 which seems to be the correct
+   name (sparc abi supplement vers. 9).
  20130123 (T.S.):
  - pmbfd.h, bfd.c: added 'elf_section_flags()' (should go to bfd-elf.h
    if we ever implement that).

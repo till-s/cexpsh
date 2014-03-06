@@ -604,39 +604,39 @@ call:
 		'(' commaexp ')' %prec CALL{ $$=$2; }
 	|	funcp
 	|	symmethod '(' ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, 0))); }
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, (void*)0))); }
 	|	symmethod '(' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, 0))); }
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, (void*)0))); }
 	|	symmethod '(' exp ',' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, &$5, 0))); }
+		%prec CALL	{	EVAL(CHECK(cexpSymMember(&$$, $1.sym, $1.mname, &$3, &$5, (void*)0))); }
 	|	call '(' ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,(void*)0))); }
 	|	call '(' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,(void*)0))); }
 	| 	call '(' exp ',' exp ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,(void*)0))); }
 	|	call '(' exp ',' exp ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp  ',' exp ',' exp ',' exp ',' exp  ')'
-		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,&$27,0))); }
+		%prec CALL	{	EVAL(CHECK(cexpTVFnCall(&$$,&$1,&$3,&$5,&$7,&$9,&$11,&$13,&$15,&$17,&$19,&$21,&$23,&$25,&$27,(void*)0))); }
 ;
 
 	

@@ -1,9 +1,11 @@
 Changes since CEXP-2.2
+ 2014/08/18:
+ - bison now wants %pure-parser instead of %pure_parser.
  2014/03/06:
  - 64-bit issue: 0 is not always a NULL pointer! When passing to a varargs
    function then pass ((void*)0) and NOT simply 0.
  2014/02/24:
- - updated README to mention sparc support which is now available in pmbfd.
+ - updated README to mention *sparc support* which is now *available* in pmbfd.
 Changes since CEXP-2.1
  2013/01/28:
  - removed libtecla/Makefile (see next note) - conflicts with autotool-generated

@@ -158,7 +158,7 @@ cexpUnredir(CexpParserCtx ctx);
 #define yyparse __cexpparse
 
 %}
-%pure_parser
+%pure-parser
 
 %union {
 	CexpTypedValRec				val;

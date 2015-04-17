@@ -1,4 +1,8 @@
 Changes since CEXP-2.2
+ 2015/04/17:
+ - recent bison needs %lex-param instead of #define YYLEX_PARAM
+   Thanks to Anton Derbenev (BNL) for reporting the problem (lexer
+   was not passed parser-context argument which led to a crash).
  2014/08/18:
  - bison now wants %pure-parser instead of %pure_parser.
  2014/03/06:

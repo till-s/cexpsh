@@ -1,12 +1,12 @@
 [submodule "libtecla"]
 	path = libtecla
-	url = ../libtecla.git
+	url = ../rtems-libtecla.git
 [submodule "regexp"]
 	path = regexp
-	url = ../spencer_regexp.git
+	url = ../spencer-regexp_r.git
 [submodule "m4"]
 	path = m4
 	url = ../rtems-ac-macros.git
 [submodule "getopt"]
 	path = getopt
-	url = ../mygetopt_r
+	url = ../mygetopt_r.git

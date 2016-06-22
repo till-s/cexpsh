@@ -1,4 +1,6 @@
  20160621 (T.S.):
+ - bfd-reloc-arm.c: added skeleton for ARM
+ 20160621 (T.S.):
  - pmbfd.h, bfd-reloc-i386.c, bfd-reloc-m68k.c, bfd-reloc-powerpc.c,
    bfd-reloc-sparc.c, bfd-reloc-x86_64.c, bfd.c:
    added pmbfd_relent_t to discriminate between rel/rela; pass 

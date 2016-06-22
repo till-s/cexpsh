@@ -64,6 +64,7 @@ static const char *pmelf_ehdr_machine_s(Elf32_Half idx)
 		case EM_68K:    return "Motorola 68k";
 		case EM_PPC:    return "PowerPC";
 		case EM_X86_64: return "AMD x86-64";
+		case EM_ARM:    return "ARM";
 		default: break;
 	}
 	return "unknown";

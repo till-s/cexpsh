@@ -65,6 +65,7 @@ static const char *reltype(unsigned mach, Elf_Reloc *r)
 		case EM_68K:    return pmelf_m68k_rel_name( &r->ra32 );
 		case EM_PPC:    return pmelf_ppc_rel_name( &r->ra32 );
 		case EM_X86_64: return pmelf_x86_64_rel_name( &r->ra64 );
+		case EM_ARM:    return pmelf_arm_rel_name( &r->ra32 );
 		default:
 		break;
 	}

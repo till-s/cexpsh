@@ -203,6 +203,7 @@ int     rval;
 		case EM_68K:
 		case EM_PPC:
 		case EM_X86_64:
+		case EM_ARM:
 
 		/* SUCCESS */
 		return 0;

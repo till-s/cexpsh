@@ -1,4 +1,7 @@
 Changes since CEXP-2.2
+ 2016/06/21:
+ - bfdstuff.c: pass pmbfd_relent_t to pmbfd_perform_relocation
+   (preparation for ARM).
  2015/04/17:
  - recent bison needs %lex-param instead of #define YYLEX_PARAM
    Thanks to Anton Derbenev (BNL) for reporting the problem (lexer

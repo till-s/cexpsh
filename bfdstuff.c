@@ -747,6 +747,7 @@ unsigned long vma;
 #else
 		pmbfd_areltab *cr=0;
 		pmbfd_arelent *r;
+		pmbfd_relent_t rtype;
 #endif
 		long	sz;
 		sz=bfd_get_reloc_upper_bound(abfd,sect);
@@ -774,6 +775,17 @@ unsigned long vma;
 			ld->errors++;
 			return;
 		}
+
+#ifdef _PMBFD_
+		rtype=pmbfd_get_relent_type(abfd, cr);
+		if ( Relent_UNKNOWN == rtype ) {
+			fprintf(stderr,"ERROR: section with unknown relocation entry type\n");
+			free(cr);
+			ld->errors++;
+			return;
+		}
+#endif
+
 		for (i=0, r=0; i<sz; i++) {
 			asymbol **ppsym;
 #ifndef _PMBFD_
@@ -914,6 +926,7 @@ unsigned long vma;
 #else
 			err=pmbfd_perform_relocation(
 				abfd,
+				rtype,
 				r,
 				*ppsym,
 				sect

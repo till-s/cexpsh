@@ -148,6 +148,22 @@ static const bfd_arch_info_type myarch = {
 	arch:      bfd_arch_sparc,
     mach:      bfd_mach_sparc,
     elf_id:    EM_SPARC,
+#elif defined(__arm__)
+#ifndef __BYTE_ORDER__
+#error "__BYTE_ORDER__ undefined"
+#elif   __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	arch_name: "elf32-littlearm",
+	arch:      bfd_arch_arm,
+    mach:      bfd_mach_arm_4T,
+    elf_id:    EM_ARM,
+#elif   __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+	arch_name: "elf32-bigarm",
+	arch:      bfd_arch_arm,
+    mach:      bfd_mach_arm_4T,
+    elf_id:    EM_ARM,
+#else
+#error "__BYTE_ORDER__ has unexpected value"
+#endif
 #else
 #error "Undefined architecture"
 #endif
@@ -1687,4 +1703,29 @@ Pmelf_attribute_set *rval;
 #endif
 
 	return rval;
+}
+
+pmbfd_relent_t
+pmbfd_get_relent_type(bfd *abfd, pmbfd_areltab *tab)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+    if ( BFD_IS_ELF64(abfd) ) {
+		switch ( tab->shdr->s64.sh_type ) {
+			case SHT_REL : return Relent_REL64;
+			case SHT_RELA: return Relent_RELA64;
+			default:
+			break;
+		}
+    } else
+#endif
+	{
+		switch ( tab->shdr->s32.sh_type ) {
+			case SHT_REL : return Relent_REL64;
+			case SHT_RELA: return Relent_RELA64;
+			default:
+			break;
+		}
+
+	}
+	return Relent_UNKNOWN;
 }

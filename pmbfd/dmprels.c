@@ -65,7 +65,7 @@ static const char *reltype(unsigned mach, Elf_Reloc *r)
 		case EM_68K:    return pmelf_m68k_rel_name( &r->ra32 );
 		case EM_PPC:    return pmelf_ppc_rel_name( &r->ra32 );
 		case EM_X86_64: return pmelf_x86_64_rel_name( &r->ra64 );
-		case EM_ARM:    return pmelf_arm_rel_name( &r->ra32 );
+		case EM_ARM:    return pmelf_arm_rel_name( &r->r32 );
 		default:
 		break;
 	}
@@ -200,7 +200,7 @@ uint64_t    st_value;
 			}
 						
 
-			fprintf(f, "%08"PRIx64"  %08"PRIx64" %-18s",
+			fprintf(f, "%08"PRIx64"  %08"PRIx64" %-17.17s ",
 						r_offset,
 						r_info,
 						reltype(s->machine, rel));

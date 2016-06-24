@@ -1603,9 +1603,9 @@ pmelf_x86_64_rel_name(Elf64_Rela *r)
 }
 
 static __inline__ const char *
-pmelf_arm_rel_name(Elf32_Rela *r)
+pmelf_arm_rel_name(Elf32_Rel *r)
 {
-	switch ( ELF64_R_TYPE(r->r_info) ) {
+	switch ( ELF32_R_TYPE(r->r_info) ) {
 		pmelf_namecase( R_ARM_NONE                )
 		pmelf_namecase( R_ARM_PC24                )
 		pmelf_namecase( R_ARM_ABS32               )

@@ -49,146 +49,212 @@
 
 /* ARM relocs used by rtems-4.12 so far:
 	R_ARM_ABS32
-	R_ARM_NONE
 	R_ARM_PREL31
 	R_ARM_THM_CALL
 	R_ARM_THM_JUMP24
-	R_ARM_THM_MOVT_AB
-	R_ARM_THM_MOVW_AB
+	R_ARM_THM_MOVT_ABS
+	R_ARM_THM_MOVW_ABS_NC
 */
-
-
-enum   sparc_rel_check {
-	sparc_rel_check_none = 0, /* truncate silently           */
-	sparc_rel_check_bits = 1, /* - 2^w     ... + 2^w     - 1 */
-	sparc_rel_check_sign = 2, /* - 2^(w-1) ... + 2^(w-1) - 1 */
-	sparc_rel_check_unsg = 3  /*         0 ... + 2^w     - 1 */
-};
-
-struct sparc_rel_desc {
-	unsigned char nbytes;
-	unsigned char width;
-	unsigned char shift;
-	unsigned char sparc_rel_check: 2;
-	unsigned char pc_relative:     1;
-	unsigned char unaligned:       1;
-};
-
-#define REL_DESC(t, n, w, s, c , r, u) \
-	[t] { nbytes: n, width: w, shift: s, sparc_rel_check: c, pc_relative: r, unaligned: u }
-
-static struct sparc_rel_desc sparc_rels[] = {
-	REL_DESC(R_SPARC_NONE,    0,  0,  0, sparc_rel_check_none, 0, 0),
-	REL_DESC(R_SPARC_LO10,    4, 10,  0, sparc_rel_check_none, 0, 0),
-	REL_DESC(R_SPARC_8,       1,  8,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_16,      2, 16,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_32,      4, 32,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_DISP8,   1,  8,  0, sparc_rel_check_sign, 1, 0),
-	REL_DESC(R_SPARC_DISP16,  2, 16,  0, sparc_rel_check_sign, 1, 0),
-	REL_DESC(R_SPARC_DISP32,  4, 32,  0, sparc_rel_check_sign, 1, 0),
-	REL_DESC(R_SPARC_WDISP30, 4, 30,  2, sparc_rel_check_sign, 1, 0),
-	REL_DESC(R_SPARC_WDISP22, 4, 22,  2, sparc_rel_check_sign, 1, 0),
-	REL_DESC(R_SPARC_HI22,    4, 22, 10, sparc_rel_check_none, 0, 0),
-	REL_DESC(R_SPARC_22,      4, 22,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_13,      4, 13,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_LO10,    4, 10,  0, sparc_rel_check_none, 0, 0),
-	REL_DESC(R_SPARC_PC10,    4, 10,  0, sparc_rel_check_none, 1, 0),
-	REL_DESC(R_SPARC_PC22,    4, 22, 10, sparc_rel_check_bits, 1, 0),
-	REL_DESC(R_SPARC_UA32,    4, 32,  0, sparc_rel_check_bits, 0, 1),
-	REL_DESC(R_SPARC_10,      4, 10,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_11,      4, 11,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_7,       4,  7,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_5,       4,  5,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_6,       4,  6,  0, sparc_rel_check_bits, 0, 0),
-	REL_DESC(R_SPARC_UA16,    2, 16,  0, sparc_rel_check_bits, 0, 1),
-};
 
 bfd_reloc_status_type
 pmbfd_perform_relocation(bfd *abfd, pmbfd_relent_t rtype, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
 Elf32_Word     pc;
-int64_t        val, msk;
-int32_t        oval,nval;
-int16_t        sval;
-int8_t         bval;
-int64_t        llim,ulim;
-Elf32_Rela     *rela = &r->rela32;
-uint8_t        type  = ELF32_R_TYPE(rela->r_info);
-struct sparc_rel_desc *dsc;
+int32_t        val;
+uint32_t       oval,nval;
+uint8_t        type  = ELF32_R_TYPE(r->rel32.r_info);
+uint32_t       offset;
+uint32_t       addend = 0; /* keep compiler happy */
+uint32_t       s,i1,i2;
+uint32_t       t;
+int            t_from_func, pcrel;
+int32_t        max, min;
 
-	if ( R_SPARC_NONE == type ) {
-		/* No-op; BFD uses a zero dst_mask... */
+	if ( R_ARM_NONE == type ) {
+		/* No-op */
 		return bfd_reloc_ok;
-	}
-
-	/* use R_SPARC_NONE as a dummy for 'unsupported' */
-	dsc = type >= sizeof(sparc_rels) ? &sparc_rels[R_SPARC_NONE] : &sparc_rels[type];
-
-	if ( 0 == dsc->nbytes ) {
-		ERRPR("pmbfd_perform_relocation_sparc(): unsupported relocation type : %"PRIu8"\n", type);
-		return bfd_reloc_notsupported;
 	}
 
 	if ( bfd_is_und_section(bfd_get_section(psym)) )
 		return bfd_reloc_undefined;
 
-	pc  = bfd_get_section_vma(abfd, input_section) + rela->r_offset;
+	/* REL or RELA ? */
+	switch ( rtype ) {
 
-	if ( ! dsc->unaligned && (pc & (dsc->nbytes - 1)) ) {
-		ERRPR("pmbfd_perform_relocation_sparc(): location to relocate (0x%08"PRIx32") not properly aligned\n", pc);
+		default:
+			return bfd_reloc_other;
+
+		case Relent_RELA32:
+			type   = ELF32_R_TYPE( r->rela32.r_info );
+			offset = r->rela32.r_offset;
+			addend = r->rela32.r_addend;
+		break;
+
+		case Relent_REL32:
+			type   = ELF32_R_TYPE( r->rel32.r_info );
+			offset = r->rel32.r_offset;
+		break;
+	}
+
+	if ( offset >= bfd_get_section_size( input_section ) ) {
+		return bfd_reloc_outofrange;
+	}
+
+	pc  = bfd_get_section_vma(abfd, input_section) + offset;
+
+	if ( (pc & 1) ) {
+		fprintf(stderr,"PC should be half-word aligned!\n");
 		return bfd_reloc_other;
 	}
 
-	val = (int64_t)bfd_asymbol_value(psym) + (int64_t)rela->r_addend;
+	memcpy( &oval, (char*)pc, sizeof(addend) );
 
-	if ( dsc->pc_relative )
-		val -= (int64_t)pc;
+	/* fetch REL addend */
+	if ( Relent_REL32 == rtype ) {
+		addend = oval;
+		switch ( type ) {
+			default:
+				return bfd_reloc_notsupported;
 
-	val >>= dsc->shift;
+			case R_ARM_ABS32:
+				/* nothing to do */
+				break;
 
-	/* works also if the left shift is 32 */
-	msk = (1LL << dsc->width);
-	msk--;
+			case R_ARM_PREL31:
+				/* sign extend bit 30 */
+				if ( (1<<30) & addend )
+					addend |=  (1<<31);
+				else
+					addend &= ~(1<<31);
+				break;
 
-	switch ( dsc->sparc_rel_check ) {
-		default:
-		case sparc_rel_check_none: ulim = ~(1LL<<63);  llim = ~ulim; break;
-		case sparc_rel_check_unsg: ulim = msk;         llim = 0;     break;
-		case sparc_rel_check_bits: ulim = msk;         llim = ~ulim; break;
-		case sparc_rel_check_sign: ulim = msk>>1;      llim = ~ulim; break;
+			case R_ARM_THM_JUMP24:
+			case R_ARM_THM_CALL:
+				/* extract immediate operand */
+				s  =  (addend & (1<<10)) ? 0xff000000 : 0;
+				i1 = ~(addend ^ s); /* 's' mask includes j1 and j2 */
+				i2 = (i1 & (1<<(16+11))) >> (16+11 - 22);
+				i1 = (i1 & (1<<(16+13))) >> (16+13 - 23);
+				addend  = ((addend >> 15) & 0xffe) | ( (addend & 0x3ff) << 12 );
+				addend |= i1 | i2 | s;
+				break;
+
+			case R_ARM_THM_MOVW_ABS_NC:
+			case R_ARM_THM_MOVT_ABS:
+				addend =   ((addend & 0xf)        << (12 + 16)   ) 
+					| ((addend & (1<<10))    << (11-10 + 16))
+					| ((addend & 0x70000000) >> (12 - 8)    )
+					| ((addend & 0x00ff0000) >> ( 0 - 0)    );
+
+				if ( R_ARM_THM_MOVW_ABS_NC == type ) {
+					addend >>= 16;
+				}
+				break;
+
+
+		}
 	}
+
+	max   = 0;
+	min   = 0;
+	pcrel = 0;
+
+	switch ( type ) {
+		case R_ARM_PREL31:
+			pcrel = 1;
+			max   = (1<<30) - 1;
+		break;
+
+		case R_ARM_THM_CALL:
+		case R_ARM_THM_JUMP24:
+			pcrel = 1;
+			max   = (1<<24) - 1;
+		break;
+
+		default:
+		break;
+	}
+
+	if ( max && ! min )
+		min = ~max;
+
+	val = (int32_t)bfd_asymbol_value(psym);
+
+	/* strip thumb bit from symbol value */
+	if ( (t_from_func = (BSF_FUNCTION & psym->flags)) && (val & 1) ) {
+		val &= 0xfffffffe;
+		t    = 1;
+	} else {
+		t    = 0;
+	}
+
+
+	/* compute value */
+
+	/* if we have a 't' from the symbol then let it override one that might
+	 * be in the addend. Otherwise, preserve addend.
+	 */
+	if ( ! t_from_func )
+		t = (addend & 1);
+	addend &= 0xfffffffe;
+	val = (val + addend);
+
+	if ( pcrel )
+		val -= pc;
+
+	if ( max > min && ( (int32_t)val > max || (int32_t)val < min ) )
+		return bfd_reloc_overflow;
+
+	val |= t;
 
 #if (DEBUG & DEBUG_RELOC)
-	fprintf(stderr,"Relocating val: 0x%08"PRIx64", ulim: 0x%08"PRIx64", pc: 0x%08"PRIx32", sym: 0x%08lx\n",
-		val, ulim, pc, bfd_asymbol_value(psym));
+	fprintf(stderr,"Relocating val: 0x%04"PRIx32", max: 0x%04"PRIx32", pc: 0x%04"PRIx32", sym: 0x%08lx\n",
+		val, max, pc, bfd_asymbol_value(psym));
 #endif
 
-	if ( val < llim || val > ulim ) {
-		return bfd_reloc_overflow;
-	}
-
-	if ( 1 == dsc->nbytes ) {
-		memcpy(&bval, (void*)pc, sizeof(bval));
-		oval = bval;
-	} else if ( 2 == dsc->nbytes ) {
-		memcpy(&sval, (void*)pc, sizeof(sval));
-		oval = sval;
-	} else {
-		memcpy(&oval, (void*)pc, sizeof(oval));
-	}
-
-	nval = ( oval & ~msk ) | (val & msk);
-
 	/* patch back */
-	if ( 1 == dsc->nbytes ) {
-		bval = nval;
-		memcpy((void*)pc, &bval, sizeof(bval));
-	} else if ( 2 == dsc->nbytes ) {
-		sval = nval;
-		memcpy((void*)pc, &sval, sizeof(sval));
-	} else {
-		memcpy((void*)pc, &nval, sizeof(nval));
+	switch ( type ) {
+		default:
+			return bfd_reloc_notsupported;
+
+		case R_ARM_ABS32:
+			nval = val;
+			break;
+
+		case R_ARM_PREL31:
+			nval = (oval & (1<<31)) | (val & 0x7fffffff);
+			break;
+
+		case R_ARM_THM_JUMP24:
+		case R_ARM_THM_CALL:
+
+			nval  =  (val & 0x000ffe) << (16 - 1);
+			nval |=  (val & 0x3ff000) >> (12 - 0);
+			nval |=  (val & (1<<24))  >> (24 - 10); /* S */
+			i1    =  ((~val ^ (val >> 1)) & (1<<23)) << (13+26 - 23);
+			i2    =  ((~val ^ (val >> 2)) & (1<<22)) << (11+26 - 22);
+
+			nval |= (oval & 0xf800d000) | i1 | i2;
+
+			break;
+
+		case R_ARM_THM_MOVW_ABS_NC:
+		case R_ARM_THM_MOVT_ABS:
+
+			i2 = val;
+			if ( R_ARM_THM_MOVW_ABS_NC == type ) {
+				i2 <<= 16;
+			}
+			nval  = (i2 & 0x00ff0000);
+			nval |= (i2 & 0x07000000) << 4;
+			nval |= (i1 & 0x08000000) >> (11+16 - 10);
+			nval |= (i1 & 0xf0000000) >> (12+16 -  0);
+			nval |= (oval & 0x8f00fbf0);
+
+			break;
 	}
+
+	memcpy( (char*)pc, &nval, sizeof(nval) );
 
 	return bfd_reloc_ok;
 }
@@ -196,5 +262,5 @@ struct sparc_rel_desc *dsc;
 const char *
 pmbfd_reloc_get_name(bfd *abfd, pmbfd_arelent *r)
 {
-	return pmelf_arm_rel_name(&r->rela32);
+	return pmelf_arm_rel_name(&r->rel32);
 }

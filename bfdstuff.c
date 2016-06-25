@@ -64,6 +64,7 @@
 /*#include <libiberty.h>*/
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 #include <assert.h>
 #include <sys/stat.h>
@@ -119,8 +120,7 @@
 #define DEBUG_RELOC		(1<<2)
 #define DEBUG_SYM		(1<<3)
 #define DEBUG_CDPRI		(1<<4)
-
-#define DEBUG			(0)
+#define DEBUG_PROGRESS  (1<<5)
 
 #include "cexp_regex.h"
 
@@ -1185,7 +1185,6 @@ int			i,errs=0;
 			}
 		}
 
-
 		/* we only care about global symbols
 		 * (NOTE: undefined symbols are neither local
 		 *        nor global)
@@ -1653,6 +1652,9 @@ CexpModule                      m;
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
 	}
+#if (DEBUG & DEBUG_PROGRESS) != 0
+	fprintf(stderr,"Symbols read\n");
+#endif
 
 	/* the first thing to be loaded must be the system
 	 * symbol table. Reject to load anything in this case
@@ -1666,6 +1668,10 @@ CexpModule                      m;
 		bfd_map_over_sections(ldr.abfd, s_count, &ldr);
 		if (ldr.errors)
 			goto cleanup;
+
+#if (DEBUG & DEBUG_PROGRESS) != 0
+		fprintf(stderr,"Sections counted\n");
+#endif
 
 		/* allocate segment space */
 		if ( cexpSegsAlloc(ldr.segs) ) {
@@ -1681,16 +1687,28 @@ CexpModule                      m;
 if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		}
 
+#if (DEBUG & DEBUG_PROGRESS) != 0
+		fprintf(stderr,"Segments allocated\n");
+#endif
+
 		/* compute and set the base addresses for all sections to be allocated */
 		ldr.errors=0;
 		bfd_map_over_sections(ldr.abfd, s_setvma, &ldr);
 		if ( ldr.errors )
 			goto cleanup;
 
+#if (DEBUG & DEBUG_PROGRESS) != 0
+		fprintf(stderr,"Section VMAs set\n");
+#endif
+
 		ldr.errors=0;
 		bfd_map_over_sections(ldr.abfd, s_reloc, &ldr);
 		if (ldr.errors)
 			goto cleanup;
+
+#if (DEBUG & DEBUG_PROGRESS) != 0
+		fprintf(stderr,"Relocs processed\n");
+#endif
 
 	} else {
 		/* it's the system symtab - there should be no real COMMON symbols */
@@ -1729,15 +1747,9 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 
 	/* system symbol table sanity check */
 	if ((sane=cexpSymTblLookup("cexpLoadFile",ldr.cst))) {
-		/* this must be the system table */
-		extern char _edata[], _etext[];
 
-        /* it must be the main symbol table */
-        if ( sane->value.ptv==(CexpVal)cexpLoadFile     &&
-       	     (sane=cexpSymTblLookup("_etext",ldr.cst))  &&
-			 (char*)sane->value.ptv==_etext           &&
-             (sane=cexpSymTblLookup("_edata",ldr.cst))  &&
-			 (char*)sane->value.ptv==_edata ) {
+        /* this must be the main symbol table */
+        if ( sane->value.ptv==(CexpVal)cexpLoadFile ) {
 
         	/* OK, sanity test passed */
 

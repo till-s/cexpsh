@@ -1,5 +1,9 @@
 Changes since CEXP-2.2
  2016/06/24:
+ - bfdstuff.c: more debugging messages; removed sanity test with the
+   _etext, _edata symbols since they are not present in modern RTEMS
+   (arm).
+ 2016/06/24:
  - cexplock.h, cexplock.c, configure.ac: made --enable-pthreads the default.
    task variables (formerly used by context.h) are no longer supported by
    RTEMS.

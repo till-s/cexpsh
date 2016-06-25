@@ -1,4 +1,12 @@
 Changes since CEXP-2.2
+ 2016/06/24:
+ - cexplock.h, cexplock.c, configure.ac: made --enable-pthreads the default.
+   task variables (formerly used by context.h) are no longer supported by
+   RTEMS.
+
+   However, the migration to pthread also revealed a problem: posix rwlocks
+   cannot be used because they don't allow a writer thread to also obtain the
+   reader lock. Thus we now always use the cexp RW locks.
  2016/06/21:
  - bfdstuff.c: pass pmbfd_relent_t to pmbfd_perform_relocation
    (preparation for ARM).

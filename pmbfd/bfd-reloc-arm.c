@@ -47,6 +47,10 @@
 
 #include "pmbfdP.h"
 
+#define DEBUG DEBUG_RELOC
+
+#define TARGET2_REL
+
 /* ARM relocs used by rtems-4.12 so far:
 	R_ARM_ABS32
 	R_ARM_PREL31
@@ -69,6 +73,7 @@ uint32_t       s,i1,i2;
 uint32_t       t;
 int            t_from_func, pcrel;
 int32_t        max, min;
+int            use_t;
 
 	if ( R_ARM_NONE == type ) {
 		/* No-op */
@@ -82,6 +87,7 @@ int32_t        max, min;
 	switch ( rtype ) {
 
 		default:
+			fprintf(stderr,"relocation neither REL nor RELA?\n");
 			return bfd_reloc_other;
 
 		case Relent_RELA32:
@@ -96,7 +102,7 @@ int32_t        max, min;
 		break;
 	}
 
-	if ( offset >= bfd_get_section_size( input_section ) ) {
+	if ( offset > bfd_get_section_size( input_section ) - sizeof(uint32_t) ) {
 		return bfd_reloc_outofrange;
 	}
 
@@ -117,6 +123,9 @@ int32_t        max, min;
 				return bfd_reloc_notsupported;
 
 			case R_ARM_ABS32:
+			case R_ARM_REL32:
+			case R_ARM_TARGET1:
+			case R_ARM_TARGET2:
 				/* nothing to do */
 				break;
 
@@ -158,6 +167,7 @@ int32_t        max, min;
 	max   = 0;
 	min   = 0;
 	pcrel = 0;
+	use_t = 1;
 
 	switch ( type ) {
 		case R_ARM_PREL31:
@@ -171,6 +181,20 @@ int32_t        max, min;
 			max   = (1<<24) - 1;
 		break;
 
+		case R_ARM_REL32:
+#ifdef TARGET2_REL
+		case R_ARM_TARGET2:
+#endif
+#ifdef TARGET1_REL
+		case R_ARM_TARGET1:
+#endif
+			pcrel = 1;
+		break;
+
+		case R_ARM_THM_MOVT_ABS:
+			use_t = 0;
+		break;
+
 		default:
 		break;
 	}
@@ -178,25 +202,28 @@ int32_t        max, min;
 	if ( max && ! min )
 		min = ~max;
 
+	/* compute value */
+
 	val = (int32_t)bfd_asymbol_value(psym);
 
 	/* strip thumb bit from symbol value */
-	if ( (t_from_func = (BSF_FUNCTION & psym->flags)) && (val & 1) ) {
-		val &= 0xfffffffe;
-		t    = 1;
+	if ( use_t ) {
+		if ( (t_from_func = (BSF_FUNCTION & psym->flags)) && (val & 1) ) {
+			val        &= 0xfffffffe;
+			t           = 1;
+		} else {
+			t           = 0;
+		}
 	} else {
-		t    = 0;
+		t_from_func = 0;
+		t           = 0;
 	}
-
-
-	/* compute value */
 
 	/* if we have a 't' from the symbol then let it override one that might
 	 * be in the addend. Otherwise, preserve addend.
 	 */
-	if ( ! t_from_func )
-		t = (addend & 1);
-	addend &= 0xfffffffe;
+	if ( t_from_func )
+		addend &= 0xfffffffe;
 	val = (val + addend);
 
 	if ( pcrel )
@@ -208,8 +235,8 @@ int32_t        max, min;
 	val |= t;
 
 #if (DEBUG & DEBUG_RELOC)
-	fprintf(stderr,"Relocating val: 0x%04"PRIx32", max: 0x%04"PRIx32", pc: 0x%04"PRIx32", sym: 0x%08lx\n",
-		val, max, pc, bfd_asymbol_value(psym));
+	fprintf(stderr,"Relocating val: 0x%04"PRIx32", min: 0x%04"PRIx32", max: 0x%04"PRIx32", addend: 0x%04"PRIx32", pc: 0x%04"PRIx32", sym: 0x%08lx\n",
+		val, min, max, addend, pc, bfd_asymbol_value(psym));
 #endif
 
 	/* patch back */
@@ -218,6 +245,9 @@ int32_t        max, min;
 			return bfd_reloc_notsupported;
 
 		case R_ARM_ABS32:
+		case R_ARM_REL32:
+		case R_ARM_TARGET1:
+		case R_ARM_TARGET2:
 			nval = val;
 			break;
 
@@ -231,10 +261,10 @@ int32_t        max, min;
 			nval  =  (val & 0x000ffe) << (16 - 1);
 			nval |=  (val & 0x3ff000) >> (12 - 0);
 			nval |=  (val & (1<<24))  >> (24 - 10); /* S */
-			i1    =  ((~val ^ (val >> 1)) & (1<<23)) << (13+26 - 23);
-			i2    =  ((~val ^ (val >> 2)) & (1<<22)) << (11+26 - 22);
+			i1    =  ((~val ^ (val >> 1)) & (1<<23)) << (13+16 - 23);
+			i2    =  ((~val ^ (val >> 2)) & (1<<22)) << (11+16 - 22);
 
-			nval |= (oval & 0xf800d000) | i1 | i2;
+			nval |= (oval & 0xd000f800) | i1 | i2;
 
 			break;
 
@@ -247,8 +277,8 @@ int32_t        max, min;
 			}
 			nval  = (i2 & 0x00ff0000);
 			nval |= (i2 & 0x07000000) << 4;
-			nval |= (i1 & 0x08000000) >> (11+16 - 10);
-			nval |= (i1 & 0xf0000000) >> (12+16 -  0);
+			nval |= (i2 & 0x08000000) >> (11+16 - 10);
+			nval |= (i2 & 0xf0000000) >> (12+16 -  0);
 			nval |= (oval & 0x8f00fbf0);
 
 			break;

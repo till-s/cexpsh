@@ -114,6 +114,12 @@ static const bfd_arch_info_type arches[] = {
 	arch:      bfd_arch_sparc,
 	elf_id:    EM_SPARC,
 	mach:      bfd_mach_sparc,
+	},
+	{
+	arch_name: "elf32-arm",
+	arch:      bfd_arch_arm,
+    mach:      bfd_mach_arm_4T,
+    elf_id:    EM_ARM,
 	}
 };
 
@@ -149,21 +155,10 @@ static const bfd_arch_info_type myarch = {
     mach:      bfd_mach_sparc,
     elf_id:    EM_SPARC,
 #elif defined(__arm__)
-#ifndef __BYTE_ORDER__
-#error "__BYTE_ORDER__ undefined"
-#elif   __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	arch_name: "elf32-littlearm",
+	arch_name: "elf32-arm",
 	arch:      bfd_arch_arm,
     mach:      bfd_mach_arm_4T,
     elf_id:    EM_ARM,
-#elif   __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	arch_name: "elf32-bigarm",
-	arch:      bfd_arch_arm,
-    mach:      bfd_mach_arm_4T,
-    elf_id:    EM_ARM,
-#else
-#error "__BYTE_ORDER__ has unexpected value"
-#endif
 #else
 #error "Undefined architecture"
 #endif
@@ -1213,7 +1208,19 @@ Elf32_Shdr        *shdr;
 #endif
 						break;
 
+		case SHT_ARM_ATTRIBUTES:
+						if ( EM_ARM != abfd->arch->elf_id )
+							goto _default;
+						WRNPR("No support for ARM.attributes; ignoring\n");
+						break;
+
+		case SHT_ARM_EXIDX:
+						if ( EM_ARM != abfd->arch->elf_id )
+							goto _default;
+						break;
+
 		default:
+		_default:
 						ERRPR("Unknown section type 0x%"PRIx32" found\n", shdr->sh_type);
 						p->err = -1;
 						return;	
@@ -1720,8 +1727,8 @@ pmbfd_get_relent_type(bfd *abfd, pmbfd_areltab *tab)
 #endif
 	{
 		switch ( tab->shdr->s32.sh_type ) {
-			case SHT_REL : return Relent_REL64;
-			case SHT_RELA: return Relent_RELA64;
+			case SHT_REL : return Relent_REL32;
+			case SHT_RELA: return Relent_RELA32;
 			default:
 			break;
 		}

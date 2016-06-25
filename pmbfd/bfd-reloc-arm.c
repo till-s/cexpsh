@@ -47,8 +47,6 @@
 
 #include "pmbfdP.h"
 
-#define DEBUG DEBUG_RELOC
-
 #define TARGET2_REL
 
 /* ARM relocs used by rtems-4.12 so far:

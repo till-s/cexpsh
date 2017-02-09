@@ -125,9 +125,9 @@ AC_ARG_ENABLE(tests,
 )
 
 AC_ARG_ENABLE(pthreads,
-	AC_HELP_STRING([--enable-pthreads],
-		[enable use of pthread mutexes and thread-specific keys etc. for
-         dealing with multithreaded applications])
+	AC_HELP_STRING([--disable-pthreads],
+		[disable use of pthread mutexes and thread-specific keys etc. for
+         dealing with multithreaded applications (use native objects - DEPRECATED)])
 )
 
 AC_ARG_WITH(rtems-notepad,
@@ -382,7 +382,7 @@ fi
 AH_TEMPLATE([HAVE_RTEMS_H])
 AC_CHECK_HEADER([rtems.h],[AC_DEFINE([HAVE_RTEMS_H],1,[If we found RTEMS headers; otherwise ugly hacks will be used!])])
 
-if test "$enable_pthreads" = "yes" ; then
+if test ! "$enable_pthreads" = "no" ; then
 AC_CHECK_HEADER([pthread.h],
 	[AC_DEFINE([HAVE_PTHREADS],1,[If the target supports pthreads]) 
 	 LIBPTHREAD=-lpthread

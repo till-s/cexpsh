@@ -275,11 +275,24 @@ enum bfd_architecture {
 #define bfd_mach_ppc_7400                    7400
 #define bfd_mach_ppc_e500                     500
 #define bfd_mach_ppc_vle                       84
-	bfd_arch_rs6000        = 24 /* 22 in binutils-2.18 */
+	bfd_arch_rs6000        = 24,/* 22 in binutils-2.18 */
 #define bfd_mach_rs6k                        6000
 #define bfd_mach_rs6k_rs1                    6001
 #define bfd_mach_rs6k_rsc                    6002
 #define bfd_mach_rs6k_rs2                    6003
+	bfd_arch_arm           = 35
+#define bfd_mach_arm_unknown                    0
+#define bfd_mach_arm_2                          1
+#define bfd_mach_arm_2a                         2
+#define bfd_mach_arm_3                          3
+#define bfd_mach_arm_3M                         4
+#define bfd_mach_arm_4                          5
+#define bfd_mach_arm_4T                         6
+#define bfd_mach_arm_5                          7
+#define bfd_mach_arm_5T                         8
+#define bfd_mach_arm_5TE                        9
+#define bfd_mach_arm_XScale                    10
+#define bfd_mach_arm_ep9312                    11
 };
 
 enum bfd_flavour {
@@ -460,11 +473,16 @@ bfd_set_section(asymbol *sym, asection *sect);
 /* Table with relocations */
 typedef struct pmbfd_areltab pmbfd_areltab;
 
+typedef enum { Relent_UNKNOWN, Relent_REL32, Relent_RELA32, Relent_REL64, Relent_RELA64 } pmbfd_relent_t;
+
 typedef union  pmbfd_arelent pmbfd_arelent;
 
 /* generate reloc table */
 long
 pmbfd_canonicalize_reloc(bfd *abfd, asection *sec, pmbfd_areltab *tab, asymbol **syms);
+
+pmbfd_relent_t
+pmbfd_get_relent_type(bfd *abfd, pmbfd_areltab *tab);
 
 /* iterator over reloc table */
 pmbfd_arelent *
@@ -472,7 +490,7 @@ pmbfd_reloc_next(bfd *abfd, pmbfd_areltab *tab, pmbfd_arelent *prev);
 
 
 bfd_reloc_status_type
-pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *reloc, asymbol *sym, asection *input_section);
+pmbfd_perform_relocation(bfd *abfd, pmbfd_relent_t rtype, pmbfd_arelent *reloc, asymbol *sym, asection *input_section);
 
 int
 pmbfd_reloc_get_sym_idx(bfd *abfd, pmbfd_arelent *reloc);

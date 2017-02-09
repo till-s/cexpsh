@@ -94,6 +94,14 @@ cexpEventCreate(CexpEvent *id)
 #include <pthread.h>
 
 typedef pthread_mutex_t *CexpLock;
+typedef pthread_cond_t  *CexpCond;
+typedef pthread_cond_t   CexpCondRec;
+
+#define cexpCondInit(c_p)      pthread_cond_init(c_p, 0)
+
+#define cexpCondWait(c_p, l_p) pthread_cond_wait(c_p, l_p)
+
+#define cexpCondSignal(c_p)    pthread_cond_signal(c_p)
 
 #define cexpLock(l)   pthread_mutex_lock(l)
 #define cexpUnlock(l) pthread_mutex_unlock(l)
@@ -108,17 +116,6 @@ cexpLockDestroy(CexpLock l);
 
 int
 cexpLockingInitialize();
-
-typedef pthread_rwlock_t *CexpRWLock;
-typedef pthread_rwlock_t  CexpRWLockRec;
-
-
-#define cexpReadLock(l)		pthread_rwlock_rdlock(l)
-#define cexpReadUnlock(l)	pthread_rwlock_unlock(l)
-#define cexpWriteLock(l)	pthread_rwlock_wrlock(l)
-#define cexpWriteUnlock(l)	pthread_rwlock_unlock(l)
-#define cexpRWLockInit(pl)	pthread_rwlock_init(pl, 0)
-
 
 #elif defined(__rtems__)
 
@@ -208,11 +205,34 @@ typedef void *CexpEvent;
 #error "thread protection not implemented for this target system"
 #endif
 
-#ifndef HAVE_PTHREADS
+#if ! defined(HAVE_PTHREADS) && ! defined(NO_THREAD_PROTECTION)
+typedef CexpEvent CexpCondRec, *CexpCond;
+
+static __inline__ void
+cexpCondWait(CexpCond c, CexpLock l)
+{
+	cexpUnlock(l);
+	cexpEventWait(*c);
+	cexpLock(l);
+}
+
+static __inline__ void
+cexpCondSignal(CexpCond c)
+{
+	cexpEventSend(*c);
+}
+
+static __inline__ void
+cexpCondInit(CexpCond c)
+{
+	cexpEventCreate(c);
+}
+#endif
+
 typedef struct CexpRWLockRec_ {
 	CexpLock	mutex;
 	unsigned	readers;
-	CexpEvent	nap;
+	CexpCondRec nap;
 	unsigned	sleeping_writers;
 } CexpRWLockRec, *CexpRWLock;
 
@@ -221,7 +241,7 @@ static __inline__ void
 cexpRWLockInit(CexpRWLock pl)
 {
 	cexpLockCreate(&pl->mutex);
-	cexpEventCreate(&pl->nap);
+	cexpCondInit(&pl->nap);
 	pl->readers=0;
 	pl->sleeping_writers=0;
 }
@@ -249,7 +269,7 @@ cexpReadUnlock(CexpRWLock l)
 	cexpLock(l->mutex);
 	if (0 == --l->readers && l->sleeping_writers) {
 		l->sleeping_writers--;
-		cexpEventSend(l->nap);
+		cexpCondSignal(&l->nap);
 	}
 	cexpUnlock(l->mutex);
 }
@@ -260,9 +280,7 @@ cexpWriteLock(CexpRWLock l)
 	cexpLock(l->mutex);
 	while (l->readers) {
 		l->sleeping_writers++;
-		cexpUnlock(l->mutex);
-		cexpEventWait(l->nap);
-		cexpLock(l->mutex);
+		cexpCondWait( &l->nap, l->mutex );
 	}
 }
 
@@ -271,7 +289,6 @@ cexpWriteUnlock(CexpRWLock l)
 {
 	cexpUnlock(l->mutex);
 }
-#endif
 #endif
 
 #ifdef __cplusplus

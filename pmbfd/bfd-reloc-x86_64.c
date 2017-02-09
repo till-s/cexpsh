@@ -53,7 +53,7 @@
  *        are not svr4 abi compliant anyways.)
  */
 bfd_reloc_status_type
-pmbfd_perform_relocation(bfd *abfd, pmbfd_arelent *r, asymbol *psym, asection *input_section)
+pmbfd_perform_relocation(bfd *abfd, pmbfd_relent_t rtype, pmbfd_arelent *r, asymbol *psym, asection *input_section)
 {
 Elf64_Addr     pc   = bfd_get_section_vma(abfd, input_section);
 Elf64_Rela     *rel = &r->rela64;

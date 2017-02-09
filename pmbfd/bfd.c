@@ -114,6 +114,12 @@ static const bfd_arch_info_type arches[] = {
 	arch:      bfd_arch_sparc,
 	elf_id:    EM_SPARC,
 	mach:      bfd_mach_sparc,
+	},
+	{
+	arch_name: "elf32-arm",
+	arch:      bfd_arch_arm,
+    mach:      bfd_mach_arm_4T,
+    elf_id:    EM_ARM,
 	}
 };
 
@@ -148,6 +154,11 @@ static const bfd_arch_info_type myarch = {
 	arch:      bfd_arch_sparc,
     mach:      bfd_mach_sparc,
     elf_id:    EM_SPARC,
+#elif defined(__arm__)
+	arch_name: "elf32-arm",
+	arch:      bfd_arch_arm,
+    mach:      bfd_mach_arm_4T,
+    elf_id:    EM_ARM,
 #else
 #error "Undefined architecture"
 #endif
@@ -1197,7 +1208,19 @@ Elf32_Shdr        *shdr;
 #endif
 						break;
 
+		case SHT_ARM_ATTRIBUTES:
+						if ( EM_ARM != abfd->arch->elf_id )
+							goto _default;
+						WRNPR("No support for ARM.attributes; ignoring\n");
+						break;
+
+		case SHT_ARM_EXIDX:
+						if ( EM_ARM != abfd->arch->elf_id )
+							goto _default;
+						break;
+
 		default:
+		_default:
 						ERRPR("Unknown section type 0x%"PRIx32" found\n", shdr->sh_type);
 						p->err = -1;
 						return;	
@@ -1687,4 +1710,29 @@ Pmelf_attribute_set *rval;
 #endif
 
 	return rval;
+}
+
+pmbfd_relent_t
+pmbfd_get_relent_type(bfd *abfd, pmbfd_areltab *tab)
+{
+#ifdef PMELF_CONFIG_ELF64SUPPORT
+    if ( BFD_IS_ELF64(abfd) ) {
+		switch ( tab->shdr->s64.sh_type ) {
+			case SHT_REL : return Relent_REL64;
+			case SHT_RELA: return Relent_RELA64;
+			default:
+			break;
+		}
+    } else
+#endif
+	{
+		switch ( tab->shdr->s32.sh_type ) {
+			case SHT_REL : return Relent_REL32;
+			case SHT_RELA: return Relent_RELA32;
+			default:
+			break;
+		}
+
+	}
+	return Relent_UNKNOWN;
 }

@@ -1,3 +1,14 @@
+ 20160621 (T.S.):
+ - bfd-reloc-arm.c: added skeleton for ARM
+ 20160621 (T.S.):
+ - pmbfd.h, bfd-reloc-i386.c, bfd-reloc-m68k.c, bfd-reloc-powerpc.c,
+   bfd-reloc-sparc.c, bfd-reloc-x86_64.c, bfd.c:
+   added pmbfd_relent_t to discriminate between rel/rela; pass 
+   corresponding argument to pmbfd_perform_relocation() so that they
+   know what kind the relent is (ARM could be either).
+ 20160621 (T.S.):
+ - dmpehdr.c, dmprels.c, getehdr.c, pmelf.h: added ARM machine and
+   ARM relocation type names.
  20140224 (T.S.):
  - bfd-reloc-sparc.c: first stab at implementing relocations for sparc32.
  - pmelf.h: renamed R_SPARC_12 -> R_SPARC_13 which seems to be the correct

@@ -10,3 +10,6 @@
 [submodule "getopt"]
 	path = getopt
 	url = ../mygetopt_r.git
+[submodule "pmbfd"]
+	path = pmbfd
+	url = ../pmbfd.git

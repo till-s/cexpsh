@@ -389,6 +389,9 @@ fi
 AH_TEMPLATE([HAVE_RTEMS_H])
 AC_CHECK_HEADER([rtems.h],[AC_DEFINE([HAVE_RTEMS_H],1,[If we found RTEMS headers; otherwise ugly hacks will be used!])])
 
+AH_TEMPLATE([HAVE_RTEMS_CACHE_H])
+AC_CHECK_HEADER([rtems/rtems/cache.h],[AC_DEFINE([HAVE_RTEMS_CACHE_H],1,[If we found rtems/cache.h])])
+
 if test ! "$enable_pthreads" = "no" ; then
 AC_CHECK_HEADER([pthread.h],
 	[AC_DEFINE([HAVE_PTHREADS],1,[If the target supports pthreads]) 

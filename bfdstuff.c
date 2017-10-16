@@ -174,7 +174,9 @@ extern void	cexpDisassemblerInstall(bfd *abfd);
  * value than the actual cache line size is safe and performance
  * is not an issue here
  */
-#if defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
+#if defined(HAVE_RTEMS_CACHE_H)
+#include <rtems/rtems/cache.h>
+#elif defined(__PPC__) || defined(__PPC) || defined(_ARCH_PPC) || defined(PPC)
 #    define CACHE_LINE_SIZE 16
 #    define FLUSHINVAL_LINE(addr) \
 		__asm__ __volatile__( \
@@ -1484,7 +1486,15 @@ cleanup:
 static void
 flushCache(LinkData ld)
 {
-#if defined(CACHE_LINE_SIZE)
+#if defined(HAVE_RTEMS_CACHE_H)
+int i;
+	for (i=0; i<ld->nsegs; i++) {
+		if (ld->segs[i].size) {
+			rtems_cache_flush_multiple_data_lines( (void*)ld->segs[i].chunk, ld->segs[i].size );
+			rtems_cache_invalidate_multiple_instruction_lines( (void*)ld->segs[i].chunk, ld->segs[i].size );
+		}
+	}
+#elif defined(CACHE_LINE_SIZE)
 int	i;
 char	*start, *end;
 	for (i=0; i<ld->nsegs; i++) {

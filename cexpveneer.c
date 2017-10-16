@@ -52,6 +52,10 @@
 #include <config.h>
 #endif
 
+#ifdef HAVE_RTEMS_CACHE_H
+#include <rtems/rtems/cache.h>
+#endif
+
 #include <cexpveneerP.h>
 #include <inttypes.h>
 #include <string.h>
@@ -150,6 +154,11 @@ CexpSymXtraVeneerInfo xtra;
 			printf("veneer created for %s\n", cesp->name);
 		}
 	}
+
+#ifdef HAVE_RTEMS_CACHE_H
+	rtems_cache_flush_multiple_data_lines( (void*)veneerSeg->chunk, veneerSeg->size );
+	rtems_cache_invalidate_multiple_instruction_lines( (void*)veneerSeg->chunk, veneerSeg->size );
+#endif
 #endif
 	return 0;
 }

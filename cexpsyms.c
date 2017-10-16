@@ -390,6 +390,32 @@ int i;
 	return 0;
 }
 
+char *
+cexpSymGetHelp(CexpSym s)
+{
+	if ( ! s )
+		return 0;
+
+	return (s->flags & CEXP_SYMFLG_HAS_XTRA) ? s->xtra.info->help : s->xtra.help;
+}
+
+void
+cexpSymSetHelp(CexpSym s, char *h, int isMalloced)
+{
+	if ( (s->flags & CEXP_SYMFLG_MALLOC_HELP) ) {
+		free( cexpSymGetHelp( s ) );
+	}
+	if ( (s->flags & CEXP_SYMFLG_HAS_XTRA) ) {
+		s->xtra.info->help = h;
+	} else {
+		s->xtra.help = h;
+	}
+	if ( isMalloced )
+		s->flags |=  CEXP_SYMFLG_MALLOC_HELP;
+	else
+		s->flags &= ~CEXP_SYMFLG_MALLOC_HELP;
+}
+
 void
 cexpFreeSymTbl(CexpSymTbl *pt)
 {
@@ -401,7 +427,10 @@ int			i;
 		/* release help info */
 		for (s=st->syms, i=0;  i<st->nentries; i++,s++) {
 			if (s->flags & CEXP_SYMFLG_MALLOC_HELP) {
-				free(s->help);
+				free( cexpSymGetHelp( s ) );
+			}
+			if ( (s->flags & CEXP_SYMFLG_HAS_XTRA) ) {
+				free( s->xtra.info );
 			}
 		}
 		free(st->syms);
@@ -487,7 +516,7 @@ char *newhelp=0;
 int  verbose=0;
 
 	returnVal->type=TUCharP;
-	returnVal->tv.p=sym->help;
+	returnVal->tv.p=cexpSymGetHelp(sym);
 
 	if ((v=va_arg(ap,CexpTypedVal))) {
 		switch (v->type) {
@@ -508,16 +537,16 @@ int  verbose=0;
 	
 	if (newhelp) {
 		if (sym->flags & CEXP_SYMFLG_MALLOC_HELP)
-			free(sym->help);
+			free( cexpSymGetHelp(sym) );
 #if defined(CONFIG_STRINGS_LIVE_FOREVER) && 0 /* might come from another module; we better make a copy */
 		/* the help storage is probably an 'eternal' string */
-		sym->help=newhelp;
+		cexpSymSetHelp( sym, newhelp, 0 );
 #else
-		sym->help=strdup(newhelp);
-		sym->flags |= CEXP_SYMFLG_MALLOC_HELP;
+		cexpSymSetHelp( sym, strdup( newhelp ), CEXP_SYMFLG_MALLOC_HELP );
 #endif
 	} else {
-		if (verbose || !sym->help) {
+		char *help;
+		if (verbose || ! (help = cexpSymGetHelp(sym))) {
 			CexpSym		s;
 			CexpModule	m;
 			if ((s=cexpSymLkAddr(sym->value.ptv,0,0,&m)) &&
@@ -529,8 +558,8 @@ int  verbose=0;
 			}
 			cexpSymPrintInfo(sym,stdout);
 		}
-		if (sym->help)
-			fprintf(stdout,"%s\n",sym->help);
+		if (help)
+			fprintf(stdout,"%s\n",help);
 		else
 			fprintf(stdout,"No help available\n");
 	}

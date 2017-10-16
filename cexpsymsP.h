@@ -158,4 +158,8 @@ _cexpSymTblLookupRegex(cexp_regex *rc, int *pmax, CexpSym s, FILE *f, CexpSymTbl
 
 #define LOAD_CHUNK    2000
 
+typedef struct CexpSymXtraInfoRec_ {
+	char *help;
+} CexpSymXtraInfoRec;
+
 #endif

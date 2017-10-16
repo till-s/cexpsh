@@ -60,6 +60,8 @@
 extern "C" {
 #endif
 
+typedef struct CexpSymXtraInfoRec_ *CexpSymXtraInfo;
+
 typedef struct CexpSymRec_ {
 	const char			*name;
 	CexpTypedAddrRec	value;
@@ -68,15 +70,25 @@ typedef struct CexpSymRec_ {
  */
 	int					size;
 	unsigned			flags;
-	char				*help;
+	union {
+		char               *help;
+		CexpSymXtraInfo	    info;
+	}                   xtra;
 } CexpSymRec;
+
+char *
+cexpSymGetHelp(CexpSym);
+
+void
+cexpSymSetHelp(CexpSym, char *help, int isMalloced);
 
 /* flags associated with symbols */
 #define CEXP_SYMFLG_GLBL		(1<<0) /* a global symbol */
 #define CEXP_SYMFLG_WEAK		(1<<1) /* a weak symbol   */
 #define CEXP_SYMFLG_MALLOC_HELP	(1<<3) /* whether the help info is static or malloc()ed */
 #define CEXP_SYMFLG_SECT		(1<<4) /* a section (name) symbol */
-
+#define CEXP_SYMFLG_VENR        (1<<5) /* has veneer info in 'xtra' */
+#define CEXP_SYMFLG_HAS_XTRA    (CEXP_SYMFLG_VENR)
 
 typedef struct CexpSymTblRec_	*CexpSymTbl;
 

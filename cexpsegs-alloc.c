@@ -237,7 +237,7 @@ static rtems_id text_region = 0;
 
 #endif
 
-#define NSEGS (CEXP_SEG_END - 1)
+#define NSEGS (CEXP_SEG_END)
 
 #define LIMIT_32M 0x02000000
 

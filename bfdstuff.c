@@ -470,7 +470,7 @@ CexpSym	cesp;
 		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
 	}
 
-	cexpFixupSymTbl(cst, cexpSegsGet( ldr->segs, CEXP_SEG_VENR ) );
+	cexpSymTblFixup(cst, cexpSegsGet( ldr->segs, CEXP_SEG_VENR ) );
 
 	/* build the address index */
 	return cexpIndexSymTbl( cst );

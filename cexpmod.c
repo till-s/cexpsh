@@ -735,7 +735,7 @@ CexpSym s;
 
 	cexpSegsInit( &nmod->segs );
 
-	cexpFixupSymTbl(nmod->symtbl, cexpSegsGet( nmod->segs, CEXP_SEG_VENR ) );
+	cexpSymTblFixup(nmod->symtbl, cexpSegsGet( nmod->segs, CEXP_SEG_VENR ) );
 
 	if ( cexpIndexSymTbl(nmod->symtbl) )
 		return -1;

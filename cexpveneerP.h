@@ -54,6 +54,6 @@
 #include <cexpsegsP.h>
 
 int
-cexpFixupSymTbl(CexpSymTbl syms, CexpSegment veneerSeg);
+cexpSymTblFixup(CexpSymTbl syms, CexpSegment veneerSeg);
 
 #endif

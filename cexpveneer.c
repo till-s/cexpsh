@@ -57,7 +57,7 @@
 
 
 int
-cexpFixupSymTbl(CexpSymTbl symt, CexpSegment veneerSeg)
+cexpSymTblFixup(CexpSymTbl symt, CexpSegment veneerSeg)
 {
 #ifdef __arm__
 CexpSym  cesp;
@@ -85,7 +85,7 @@ uint32_t       b_arm = 0xea000000;
 	veneerSeg->size = nv*ARM_A2T_VEN_SZ + ARM_A2T_VEN_ALGN - 1; /* word alignment */
 
 	if ( cexpSegsAllocOne( veneerSeg ) ) {
-		fprintf(stderr,"cexpFixupSymTbl: Unable to allocate segment for veneers\n");
+		fprintf(stderr,"cexpSymTblFixup: Unable to allocate segment for veneers\n");
 		return -1;
 	}
 
@@ -102,7 +102,7 @@ uint32_t       b_arm = 0xea000000;
 
 			int32_t off = (int32_t)cesp->value.ptv - (int32_t)p + 4;
 			if ( off > (int32_t)0x01ffffff || off < (int32_t)0xfe000000 ) {
-				fprintf(stderr,"WARNING: cexpFixupSymTbl: unable to create veneer for (%s) -- out of reach (veneer %p, target %p) -- disabling symbol by making local\n", cesp->name, cesp->value.ptv, p);
+				fprintf(stderr,"WARNING: cexpSymTblFixup: unable to create veneer for (%s) -- out of reach (veneer %p, target %p) -- disabling symbol by making local\n", cesp->name, cesp->value.ptv, p);
 
 				cesp->flags &= ~CEXP_SYMFLG_GLBL;
 
@@ -110,7 +110,7 @@ uint32_t       b_arm = 0xea000000;
 			}
 
 			if ( off & 2 ) {
-				fprintf(stderr,"WARNING: cexpFixupSymTbl: target of veneer mis-aligned (%s), target %p -- disabling symbol by making local\n", cesp->name, cesp->value.ptv);
+				fprintf(stderr,"WARNING: cexpSymTblFixup: target of veneer mis-aligned (%s), target %p -- disabling symbol by making local\n", cesp->name, cesp->value.ptv);
 
 				cesp->flags &= ~CEXP_SYMFLG_GLBL;
 				continue;

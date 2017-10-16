@@ -455,7 +455,7 @@ FILE        *f = 0;
 	cexpSortSymTbl( csymt );
 
 	if ( mod )
-		cexpFixupSymTbl( csymt, cexpSegsGet( mod->segs, CEXP_SEG_VENR ) );
+		cexpSymTblFixup( csymt, cexpSegsGet( mod->segs, CEXP_SEG_VENR ) );
 
 	if ( cexpIndexSymTbl( csymt ) )
 		goto cleanup;

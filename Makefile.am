@@ -100,6 +100,7 @@ endif
 SRCS = cexplock.h ctyps.h  cexpsyms.h  cexpsymsP.h
 SRCS+= cexp.c ctyps.c cexpsyms.c vars.c rshload.c cexplock.c
 SRCS+= cexpmod.h cexpmodP.h cexpmod.c vars.h cexp.tab.c cexp.tab.h
+SRCS+= cexpveneer.c
 SRCS+= elfdlmap.h
 SRCS+= cexpsegsP.h cexp_regex.h teclastuff.h rtems-hackdefs.h
 SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h

@@ -74,6 +74,7 @@
 
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
+#include "cexpveneerP.h"
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
 
@@ -259,7 +260,7 @@ unsigned long rval    = 0;
  * routine.
  */
 static CexpSymTbl
-cexpSlurpElf(const char *filename)
+cexpSlurpElf(const char *filename, CexpModule mod)
 {
 Elf_Stream	  elf=0;
 Elf_Ehdr      ehdr;
@@ -453,6 +454,9 @@ FILE        *f = 0;
 
 	cexpSortSymTbl( csymt );
 
+	if ( mod )
+		cexpFixupSymTbl( csymt, cexpSegsGet( mod->segs, CEXP_SEG_VENR ) );
+
 	if ( cexpIndexSymTbl( csymt ) )
 		goto cleanup;
 
@@ -503,7 +507,7 @@ int			rval=-1;
 		return rval;
 	}
 
-	if ((new_module->symtbl=cexpSlurpElf(filename))) {
+	if ((new_module->symtbl=cexpSlurpElf(filename, cexpSystemModule))) {
 		rval=0;
 	}
 #ifdef HAVE_BFD_DISASSEMBLER
@@ -533,7 +537,7 @@ CexpSym		symp;
 		return 1;
 	}
 
-	t=cexpSlurpElf(argv[1]);
+	t=cexpSlurpElf(argv[1], 0);
 
 	if (!t) {
 		return 1;

@@ -81,6 +81,7 @@
 #include "cexpsymsP.h"
 #include "cexpsegsP.h"
 #include "cexpHelp.h"
+#include "cexpveneerP.h"
 
 /* Oh well; rtems/score/ppctypes.h defines boolean and bfd
  * defines boolean as well :-( Can't you people use names
@@ -459,13 +460,17 @@ CexpType	t=TVoid;
  * symbol representation their values
  */
 int
-cexpSymTabSetValues(CexpSymTbl cst)
+cexpSymTabSetValues(LinkDataRec *ldr)
 {
+CexpSymTbl cst = ldr->cst;
+
 CexpSym	cesp;
 	for (cesp=cst->syms; cesp->name; cesp++) {
 		asymbol *sp=*(asymbol**)cesp->value.ptv;
 		cesp->value.ptv=(CexpVal)bfd_asymbol_value(sp);
 	}
+
+	cexpFixupSymTbl(cst, cexpSegsGet( ldr->segs, CEXP_SEG_VENR ) );
 
 	/* build the address index */
 	return cexpIndexSymTbl( cst );
@@ -1740,7 +1745,7 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		}
 	}
 
-	if ( cexpSymTabSetValues(ldr.cst) )
+	if ( cexpSymTabSetValues(&ldr) )
 		goto cleanup;
 
 	/* record the section names */

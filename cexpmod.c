@@ -72,6 +72,9 @@ typedef          long myintptr_t;
 #include "cexpmodP.h"
 #include "cexpsymsP.h"
 #include "cexplock.h"
+#include "cexpsegsP.h"
+#include "cexpveneerP.h"
+
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
 
@@ -729,6 +732,10 @@ CexpSym s;
 		fprintf(stderr,"Reading builtin system symbol table failed\n");
 		return -1;
 	}
+
+	cexpSegsInit( &nmod->segs );
+
+	cexpFixupSymTbl(nmod->symtbl, cexpSegsGet( nmod->segs, CEXP_SEG_VENR ) );
 
 	if ( cexpIndexSymTbl(nmod->symtbl) )
 		return -1;

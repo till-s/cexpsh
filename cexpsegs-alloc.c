@@ -343,16 +343,6 @@ unsigned long     sz;
 	return NSEGS;
 }
 
-
-CexpSegment
-cexpSegsGet(CexpSegment segArray, CexpSegType type)
-{
-	if ( type >= CEXP_SEG_TEXT && type <= CEXP_SEG_DATA ) {
-		return &segArray[type];
-	}
-	return 0;
-}
-
 /*
  * Find segment index for a given section.
  */

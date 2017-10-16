@@ -102,3 +102,14 @@ cexpSegsDeleteOne(CexpSegment  s)
 	if ( s && s->release )
 		s->release(s);
 }
+
+CexpSegment
+cexpSegsGet(CexpSegment segArray, CexpSegType type)
+{
+	if ( type >= CEXP_SEG_TEXT && type < CEXP_SEG_END ) {
+		return &segArray[type];
+	}
+	return 0;
+}
+
+

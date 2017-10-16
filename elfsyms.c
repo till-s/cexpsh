@@ -74,7 +74,6 @@
 
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
-#include "cexpveneerP.h"
 #define _INSIDE_CEXP_
 #include "cexpHelp.h"
 
@@ -453,9 +452,6 @@ FILE        *f = 0;
 	}
 
 	cexpSortSymTbl( csymt );
-
-	if ( mod )
-		cexpSymTblFixup( csymt, cexpSegsGet( mod->segs, CEXP_SEG_VENR ) );
 
 	if ( cexpIndexSymTbl( csymt ) )
 		goto cleanup;

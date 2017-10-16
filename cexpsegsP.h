@@ -85,17 +85,28 @@ CexpSegment cexpSegsCreate(int n);
 
 
 /*
- * Allocate memory for the segments themselves
+ * Allocate memory for all the segments themselves
  * and attach to 'chunk' pointers.
  */
 
-int cexpSegsAlloc(CexpSegment ptr);
+int cexpSegsAllocAll(CexpSegment ptr);
 
 /*
- * Release CexpSegmentRecs and attached
+ * Release all CexpSegmentRecs and attached
  * memory.
  */
-void cexpSegsDelete(CexpSegment  ptr);
+void cexpSegsDeleteAll(CexpSegment  ptr);
+
+/*
+ * Allocate memory for 'this' segment and attach to 'chunk'
+ * (returns error if alreay populated; must release first)
+ */
+int cexpSegsAllocOne(CexpSegment ptr);
+
+/*
+ * Release memory for 'this' segment and set 'chunk' to 0
+ */
+void cexpSegsDeleteOne(CexpSegment  ptr);
 
 struct bfd;
 struct sec;
@@ -109,7 +120,9 @@ CexpSegment cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s);
 
 typedef enum {
 	CEXP_SEG_TEXT,
-	CEXP_SEG_DATA
+	CEXP_SEG_DATA,
+	CEXP_SEG_VENR,
+	CEXP_SEG_END
 } CexpSegType;
 
 CexpSegment cexpSegsGet(CexpSegment segArray, CexpSegType type);

@@ -949,7 +949,7 @@ CexpModule mod=*mp;
 		assert( ! mod->next);
 		free(mod->name);
 #ifdef USE_LOADER
-		cexpSegsDelete(mod->segs);
+		cexpSegsDeleteAll(mod->segs);
 #else
 		if ( mod->segs ) {
 			fprintf(stderr,"WARNING: we shouldn't get here -- memory leak at %s:%u\n",__FILE__,__LINE__);

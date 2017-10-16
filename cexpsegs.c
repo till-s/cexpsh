@@ -68,26 +68,39 @@ CexpSegment rval = calloc(n+1, sizeof(*rval));
  */
 
 int
-cexpSegsAlloc(CexpSegment s)
+cexpSegsAllocAll(CexpSegment s)
 {
 	while ( s->name ) {
-		if ( !s->allocat || s->allocat(s) )
+		if ( cexpSegsAllocOne(s) )
 			return -1;
 		s++;
 	}
 	return 0;
 }
 
+int
+cexpSegsAllocOne(CexpSegment s)
+{
+	if ( s->chunk || !s->allocat || s->allocat(s) )
+		return -1;
+}
+
 void
-cexpSegsDelete(CexpSegment  s)
+cexpSegsDeleteAll(CexpSegment  s)
 {
 CexpSegment p;
 	if ( !s )
 		return;
 
 	for ( p=s; p->name; p++ ) {
-		if ( p->release )
-			p->release(p);
+		cexpSegsDeleteOne(p);
 	}
 	free(s);
+}
+
+void
+cexpSegsDeleteOne(CexpSegment  s)
+{
+	if ( s && s->release )
+		s->release(s);
 }

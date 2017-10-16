@@ -103,15 +103,15 @@
  * SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #ifdef CEXP_TEXT_REGION_SIZE
 #include <rtems.h>
 #include <rtems/error.h>
 #endif
 #include <stdlib.h>
-
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#endif
 
 #include "cexpsegsP.h"
 
@@ -239,7 +239,7 @@ static rtems_id text_region = 0;
 
 #endif
 
-#define NSEGS (CEXP_SEG_DATA + 1)
+#define NSEGS (CEXP_SEG_END - 1)
 
 #define LIMIT_32M 0x02000000
 
@@ -313,23 +313,32 @@ unsigned long     sz;
 	/* DFLT can be equal to TEXT */
 	a[CEXP_SEG_TEXT].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
 	a[CEXP_SEG_TEXT].name       = ".text";
+	a[CEXP_SEG_VENR].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
+	a[CEXP_SEG_VENR].name       = ".veneers";
 
 #ifdef CEXP_TEXT_REGION_SIZE
 	if ( cexpTextRegionSize > 1000 ) {
 		a[CEXP_SEG_TEXT].allocat    = region_allocat;
 		a[CEXP_SEG_TEXT].release    = region_release;
 		a[CEXP_SEG_TEXT].pvt        = (void*)text_region;
+
+		a[CEXP_SEG_VENR].allocat    = region_allocat;
+		a[CEXP_SEG_VENR].release    = region_release;
+		a[CEXP_SEG_VENR].pvt        = (void*)text_region;
 	} else
 #endif
 	{
 		a[CEXP_SEG_TEXT].allocat    = malloc_allocat;
 		a[CEXP_SEG_TEXT].release    = malloc_release;
+		a[CEXP_SEG_VENR].allocat    = malloc_allocat;
+		a[CEXP_SEG_VENR].release    = malloc_release;
 	}
 
 	a[CEXP_SEG_DATA].attributes = 0;
 	a[CEXP_SEG_DATA].name       = ".data";
 	a[CEXP_SEG_DATA].allocat    = malloc_allocat;
 	a[CEXP_SEG_DATA].release    = malloc_release;
+
 
 	*ptr = a;
 

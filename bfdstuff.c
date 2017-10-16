@@ -1691,7 +1691,7 @@ CexpModule                      m;
 #endif
 
 		/* allocate segment space */
-		if ( cexpSegsAlloc(ldr.segs) ) {
+		if ( cexpSegsAllocAll(ldr.segs) ) {
 			fprintf(stderr,"Unable to allocate memory segments\n");
 			goto cleanup;
 		}
@@ -1915,7 +1915,7 @@ cleanup:
 	if (ldr.dummy_section_name)
 		free(ldr.dummy_section_name);
 
-	cexpSegsDelete(ldr.segs);
+	cexpSegsDeleteAll(ldr.segs);
 
 	return rval;
 }

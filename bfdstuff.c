@@ -834,7 +834,7 @@ unsigned long vma;
 				CexpSym		ts;
 
 				ts=cexpSymLookup(bfd_asymbol_name((sp=*ppsym)),&mod);
-				if (ts) {
+				if (ts && (ts->flags & CEXP_SYMFLG_GLBL) ) {
 					if (my__dso_handle == ts) {
 						/* they are looking for __dso_handle; give them
 						 * our module handle.
@@ -1072,8 +1072,8 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 	bfd_asymbol_name(sp) = csym->name;
 	bfd_asymbol_set_value(sp, (symvalue)csym->value.ptv);
 	bfd_set_section(sp, bfd_abs_section_ptr);
-	/* Probably should check... if ( (csym->flags & CEXP_SYMFLG_GLBL) ) */
-	sp->flags=BSF_GLOBAL;
+	if ( (csym->flags & CEXP_SYMFLG_GLBL) )
+		sp->flags=BSF_GLOBAL;
 	if ( (csym->flags & CEXP_SYMFLG_SECT) )
 		sp->flags |= BSF_SECTION_SYM;
 	if ( (csym->flags & CEXP_SYMFLG_WEAK) )

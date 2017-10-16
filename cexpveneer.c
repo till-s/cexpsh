@@ -48,33 +48,62 @@
  * SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <cexpveneerP.h>
 #include <inttypes.h>
 #include <string.h>
 
-#define  ARM_A2T_VEN_SZ   8
-#define  ARM_A2T_VEN_ALGN 4
+#ifdef USE_PMBFD
+#include <pmbfd.h>
+#endif
 
+#ifdef USE_PMBFD
+static uint16_t mkflgs(CexpSym csym)
+{
+uint16_t flags = 0;
+	if ( (csym->flags & CEXP_SYMFLG_GLBL) )
+		flags=BSF_GLOBAL;
+	if ( (csym->flags & CEXP_SYMFLG_SECT) )
+		flags |= BSF_SECTION_SYM;
+	if ( (csym->flags & CEXP_SYMFLG_WEAK) )
+		flags |= BSF_WEAK;
+	if ( (csym->value.type & CEXP_FUN_BIT) )
+		flags |= BSF_FUNCTION;
+	return flags;
+}
+#endif
 
 int
 cexpSymTblFixup(CexpSymTbl symt, CexpSegment veneerSeg)
 {
-#ifdef __arm__
-CexpSym  cesp;
-unsigned nv = 0;
-uint8_t  *p;
-uintptr_t pmsk;
-uintptr_t      pint;
-const uint16_t bx_pc = 0x4778; 
-const uint16_t nop   = 0x46c0;
-uint32_t       b_arm = 0xea000000;
-	/* Create veneers for all symbols that are not thumb symbols */
+#ifdef USE_PMBFD
+CexpSym               cesp;
+unsigned              align = 0;
+unsigned              nv    = 0;
+unsigned long         totsz = 0;
+unsigned              sz;
+
+uint8_t              *p;
+uintptr_t             pmsk;
+uintptr_t             pint;
+CexpSymXtraVeneerInfo xtra;
+
 
 	/* Count the number of veneers we have to create */
 	for ( cesp=symt->syms; cesp->name; cesp++ ) {
-		if (   !! ( cesp->value.type & CEXP_FUN_BIT )
-			&& !  ( ((uintptr_t)cesp->value.ptv) & 1 ) ) {
-			nv++;
+		if (   !! ( cesp->value.type & CEXP_FUN_BIT ) ) {
+			if ( (sz = pmbfd_make_veneer( (bfd_vma)cesp->value.ptv, mkflgs(cesp), 0 )) ) {
+				if ( (cesp->flags & CEXP_SYMFLG_HAS_XTRA) ) {
+					fprintf(stderr,"INTERNAL ERROR: Symbol %s already has xtra info -- unable to attach veneer\n", cesp->name );
+					return -1;
+				}
+				if ( sz > align )
+					align = sz;
+				nv++;
+			}
 		}
 	}
 
@@ -82,57 +111,46 @@ uint32_t       b_arm = 0xea000000;
 		return 0;
 
 	/* Allocate memory */
-	veneerSeg->size = nv*ARM_A2T_VEN_SZ + ARM_A2T_VEN_ALGN - 1; /* word alignment */
+	veneerSeg->size = nv*align + align - 1; /* word alignment */
 
 	if ( cexpSegsAllocOne( veneerSeg ) ) {
-		fprintf(stderr,"cexpSymTblFixup: Unable to allocate segment for veneers\n");
+		fprintf(stderr, "cexpSymTblFixup: Unable to allocate segment for veneers\n");
 		return -1;
 	}
 
 	/* Ensure word alignment */
 	pint = (uintptr_t) veneerSeg->chunk;
-	pmsk = ARM_A2T_VEN_ALGN - 1;
-	pint = (pint + ARM_A2T_VEN_ALGN - 1) & ~pmsk;
+	pmsk = align - 1;
+	pint = (pint + pmsk) & ~pmsk;
 	p    = (uint8_t*)pint;
 
 	/* Doit */
 	for ( cesp=symt->syms; cesp->name; cesp++ ) {
-		if (   !! ( cesp->value.type & CEXP_FUN_BIT )
-			&& !  ( ((uintptr_t)cesp->value.ptv) & 1 ) ) {
+		if (   !! ( cesp->value.type & CEXP_FUN_BIT ) ) {
 
-			int32_t off = (int32_t)cesp->value.ptv - (int32_t)p + 4;
-			if ( off > (int32_t)0x01ffffff || off < (int32_t)0xfe000000 ) {
-				fprintf(stderr,"WARNING: cexpSymTblFixup: unable to create veneer for (%s) -- out of reach (veneer %p, target %p) -- disabling symbol by making local\n", cesp->name, cesp->value.ptv, p);
+			sz = pmbfd_make_veneer( (bfd_vma)cesp->value.ptv, mkflgs(cesp), &p );
 
-				cesp->flags &= ~CEXP_SYMFLG_GLBL;
-
+			if ( 0 == sz )
 				continue;
+
+			if ( ! (xtra = malloc( sizeof(*xtra) ) ) ) {
+				fprintf(stderr, "ERROR: cexpSymTblFixup: no memory for extra info\n");
+				return -1;
 			}
 
-			if ( off & 2 ) {
-				fprintf(stderr,"WARNING: cexpSymTblFixup: target of veneer mis-aligned (%s), target %p -- disabling symbol by making local\n", cesp->name, cesp->value.ptv);
-
-				cesp->flags &= ~CEXP_SYMFLG_GLBL;
-				continue;
-			}
-
-			memcpy(p + 0, &bx_pc, sizeof(bx_pc));
-			memcpy(p + 2, &nop,   sizeof(nop  ));
-
-			b_arm = 0xea000000 | ( (off>>2) & 0x00ffffff);
-
-			memcpy(p + 4, &b_arm, sizeof(b_arm));
+			xtra->base.help = cesp->xtra.help;
+			xtra->veneer    = (void*)p;
 
 			/* fixup symbol to point at the new veneer */
-			cesp->value.ptv = (CexpVal)( (uintptr_t)p | 1 /* Thumb bit */ );
+			cesp->xtra.info = &xtra->base;
+			cesp->flags    |= CEXP_SYMFLG_VENR;
 
-			p += sizeof(bx_pc) + sizeof(nop) + sizeof(b_arm);
+			p += sz;
+
 			printf("veneer created for %s\n", cesp->name);
 		}
 	}
-	
-#else
-	return 0;
 #endif
+	return 0;
 }
 

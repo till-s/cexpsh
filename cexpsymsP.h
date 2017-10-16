@@ -162,4 +162,9 @@ typedef struct CexpSymXtraInfoRec_ {
 	char *help;
 } CexpSymXtraInfoRec;
 
+typedef struct CexpSymXtraVeneerInfoRec_ {
+	CexpSymXtraInfoRec base;
+	void              *veneer;
+} CexpSymXtraVeneerInfoRec, *CexpSymXtraVeneerInfo;
+
 #endif

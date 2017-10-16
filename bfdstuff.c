@@ -801,6 +801,7 @@ unsigned long vma;
 
 		for (i=0, r=0; i<sz; i++) {
 			asymbol **ppsym;
+			CexpSym   ts = 0;
 #ifndef _PMBFD_
 			r=cr[i];
 			ppsym = r->sym_ptr_ptr;
@@ -831,7 +832,6 @@ unsigned long vma;
 				/* reloc references an undefined symbol which we have to look-up */
 				CexpModule	mod;
 				asymbol		*sp;
-				CexpSym		ts;
 
 				ts=cexpSymLookup(bfd_asymbol_name((sp=*ppsym)),&mod);
 				if (ts && (ts->flags & CEXP_SYMFLG_GLBL) ) {
@@ -912,9 +912,8 @@ unsigned long vma;
 					                (unsigned long)ppsym
 					       );
 				}
-			continue;
+				continue;
 			}
-
 #if DEBUG & DEBUG_RELOC
 			printf("relocating [0x%08lx = %s@%s]\n",
 			        (unsigned long)bfd_asymbol_value(*ppsym),
@@ -942,7 +941,9 @@ unsigned long vma;
 				rtype,
 				r,
 				*ppsym,
-				sect
+				sect,
+				/* Can't resolve veneers in the to-be-loaded module ATM */
+				ts && (ts->flags & CEXP_SYMFLG_VENR) ? &((CexpSymXtraVeneerInfo)ts->xtra.info)->veneer : 0
 				);
 #endif
 			if ( err ) {
@@ -1073,7 +1074,7 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 	bfd_asymbol_set_value(sp, (symvalue)csym->value.ptv);
 	bfd_set_section(sp, bfd_abs_section_ptr);
 	if ( (csym->flags & CEXP_SYMFLG_GLBL) )
-		sp->flags=BSF_GLOBAL;
+		sp->flags |= BSF_GLOBAL;
 	if ( (csym->flags & CEXP_SYMFLG_SECT) )
 		sp->flags |= BSF_SECTION_SYM;
 	if ( (csym->flags & CEXP_SYMFLG_WEAK) )

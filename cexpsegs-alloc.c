@@ -103,8 +103,10 @@
  * SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03
  */ 
 
+#ifdef CEXP_TEXT_REGION_SIZE
 #include <rtems.h>
 #include <rtems/error.h>
+#endif
 #include <stdlib.h>
 
 #ifdef HAVE_CONFIG_H
@@ -139,6 +141,7 @@ static void malloc_release(CexpSegment s)
 
 static int region_allocat(CexpSegment s)
 {
+#ifdef CEXP_TEXT_REGION_SIZE
 rtems_status_code sc;
 
 	if ( 0 == s->size ) {
@@ -158,10 +161,14 @@ rtems_status_code sc;
 	}
 
 	return 0;
+#else
+	return malloc_allocat(s);
+#endif
 }
 
 static void region_release(CexpSegment s)
 {
+#ifdef CEXP_TEXT_REGION_SIZE
 rtems_status_code sc;
 
 	if ( s->chunk ) {
@@ -175,6 +182,9 @@ rtems_status_code sc;
 	} else {
 		s->size = 0; /* just to be sure */
 	}
+#else
+	malloc_release(s);
+#endif
 }
 
 #ifdef CEXP_TEXT_REGION_SIZE
@@ -226,10 +236,6 @@ static unsigned long _cexpTextRegionSize_fallback = 0;
 #endif
 
 static rtems_id text_region = 0;
-
-#else
-
-unsigned long cexpTextRegionSize = 0;
 
 #endif
 
@@ -308,11 +314,14 @@ unsigned long     sz;
 	a[CEXP_SEG_TEXT].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
 	a[CEXP_SEG_TEXT].name       = ".text";
 
+#ifdef CEXP_TEXT_REGION_SIZE
 	if ( cexpTextRegionSize > 1000 ) {
 		a[CEXP_SEG_TEXT].allocat    = region_allocat;
 		a[CEXP_SEG_TEXT].release    = region_release;
 		a[CEXP_SEG_TEXT].pvt        = (void*)text_region;
-	} else {
+	} else
+#endif
+	{
 		a[CEXP_SEG_TEXT].allocat    = malloc_allocat;
 		a[CEXP_SEG_TEXT].release    = malloc_release;
 	}

@@ -94,7 +94,7 @@ xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 endif #USEBFD
 
 if USELOADER
-SEGS_SRCS        = $(SEGS_CPU_SRC) cexpsegs.c
+SEGS_SRCS        = cexpsegs.c cexpsegs-alloc.c
 endif
 
 SRCS = cexplock.h ctyps.h  cexpsyms.h  cexpsymsP.h
@@ -106,7 +106,7 @@ SRCS+= @srcdir@/getopt/mygetopt_r.c @srcdir@/getopt/mygetopt_r.h context.h
 SRCS+= help.c
 
 EXTRA_SRCS=
-EXTRA_SRCS+= cexpsegs.c cexpsegs-powerpc-rtems.c cexpsegs-dflt.c
+EXTRA_SRCS+= cexpsegs.c cexpsegs-alloc.c
 EXTRA_SRCS+= $(SYMF_SRCS)
 EXTRA_SRCS+= $(TECLA_SRCS)
 

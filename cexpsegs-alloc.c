@@ -177,34 +177,10 @@ rtems_status_code sc;
 	}
 }
 
-#define SEG_TEXT	0
-#define SEG_DFLT    1
-
 #ifdef CEXP_TEXT_REGION_SIZE
 
 #if CEXP_TEXT_REGION_SIZE > 0
-#if 0
-#if 0
-static char theregion[CEXP_TEXT_REGION_SIZE];
-extern char          cexpTextRegion[] __attribute__((alias("theregion")));
-#else
-extern char          cexpTextRegion[];
-/* Put this in assembly so that gdb never believes
- * some text is inside a data variable...
- */
-/* Hopefully put into .bss ... */
-asm (
-	"	.section .bss               \n"
-	"	.global cexpTextRegion		\n"
-	"cexpTextRegion:                \n"
-	"   .org . + %0                 \n"
-	"	.section .text              \n"
-	::"i"(CEXP_TEXT_REGION_SIZE)
-);
-#endif
-#else
 char                 cexpTextRegion[CEXP_TEXT_REGION_SIZE] = {0};
-#endif
 unsigned long        cexpTextRegionSize = CEXP_TEXT_REGION_SIZE;
 #else
 /* Application provides the region */
@@ -251,9 +227,13 @@ static unsigned long _cexpTextRegionSize_fallback = 0;
 
 static rtems_id text_region = 0;
 
+#else
+
+unsigned long cexpTextRegionSize = 0;
+
 #endif
 
-#define NSEGS 2
+#define NSEGS (CEXP_SEG_DATA + 1)
 
 #define LIMIT_32M 0x02000000
 
@@ -263,13 +243,12 @@ cexpSegsInit(CexpSegment *ptr)
 CexpSegment a;
 
 #ifdef CEXP_TEXT_REGION_SIZE
+
 rtems_status_code sc;
 unsigned long     start, start_unaligned = LIMIT_32M;
 unsigned long     sz;
-#endif
 
 	/* lazy init of region(s) */
-#ifdef  CEXP_TEXT_REGION_SIZE
 
 	/* Figure out where we do get the memory... */
 	if ( cexpTextRegionSize ) {
@@ -325,26 +304,37 @@ unsigned long     sz;
 		return 0;
 	}
 
-	a[SEG_TEXT].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
-	a[SEG_TEXT].name       = ".text";
+	/* DFLT can be equal to TEXT */
+	a[CEXP_SEG_TEXT].attributes = SEG_ATTR_EXEC | SEG_ATTR_RO;
+	a[CEXP_SEG_TEXT].name       = ".text";
 
 	if ( cexpTextRegionSize > 1000 ) {
-		a[SEG_TEXT].allocat    = region_allocat;
-		a[SEG_TEXT].release    = region_release;
-		a[SEG_TEXT].pvt        = (void*)text_region;
+		a[CEXP_SEG_TEXT].allocat    = region_allocat;
+		a[CEXP_SEG_TEXT].release    = region_release;
+		a[CEXP_SEG_TEXT].pvt        = (void*)text_region;
 	} else {
-		a[SEG_TEXT].allocat    = malloc_allocat;
-		a[SEG_TEXT].release    = malloc_release;
+		a[CEXP_SEG_TEXT].allocat    = malloc_allocat;
+		a[CEXP_SEG_TEXT].release    = malloc_release;
 	}
 
-	a[SEG_DFLT].attributes = 0;
-	a[SEG_DFLT].name       = ".data";
-	a[SEG_DFLT].allocat    = malloc_allocat;
-	a[SEG_DFLT].release    = malloc_release;
+	a[CEXP_SEG_DATA].attributes = 0;
+	a[CEXP_SEG_DATA].name       = ".data";
+	a[CEXP_SEG_DATA].allocat    = malloc_allocat;
+	a[CEXP_SEG_DATA].release    = malloc_release;
 
 	*ptr = a;
 
 	return NSEGS;
+}
+
+
+CexpSegment
+cexpSegsGet(CexpSegment segArray, CexpSegType type)
+{
+	if ( type >= CEXP_SEG_TEXT && type <= CEXP_SEG_DATA ) {
+		return &segArray[type];
+	}
+	return 0;
 }
 
 /*
@@ -353,16 +343,8 @@ unsigned long     sz;
 CexpSegment
 cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s)
 {
-#if 0
-const char *nam = bfd_get_section_name(abfd, (asection*)s);
-
-	if (    0 == strncmp(nam,".text",5)
-	     || 0 == strncmp(nam,".gnu.linkonce.t.",16) )
-#else
 	if ( SEC_CODE & bfd_get_section_flags(abfd, (asection*)s) )
-#endif
-		return &segArray[SEG_TEXT];
+		return &segArray[CEXP_SEG_TEXT];
 	
-	
-	return &segArray[SEG_DFLT];
+	return &segArray[CEXP_SEG_DATA];
 }

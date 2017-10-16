@@ -107,6 +107,13 @@ struct sec;
 CexpSegment cexpSegsMatch(CexpSegment segArray, struct bfd *abfd, void *s);
 
 
+typedef enum {
+	CEXP_SEG_TEXT,
+	CEXP_SEG_DATA
+} CexpSegType;
+
+CexpSegment cexpSegsGet(CexpSegment segArray, CexpSegType type);
+
 /* A segment of output memory */
 typedef struct CexpSegmentRec_ {
 	void             *chunk;      /* pointer to actual memory    */

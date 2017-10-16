@@ -198,7 +198,13 @@ AC_MSG_RESULT([$have_bfd])
 
 AC_MSG_CHECKING([Check if text-segment was given])
 if test ! "${enable_text_segment+set}" = "set"; then
-	enable_text_segment=0
+	case "$target_cpu" in
+		powerpc|arm)
+			enable_text_segment=0
+		;;
+		*)
+		;;
+	esac
 fi
 case "${enable_text_segment}" in
 	yes|YES)
@@ -513,12 +519,6 @@ else
 	AC_SUBST(THESUBDIRS,["$subdirs $test_subdirs"])
 fi
 
-# Our particular snippet
-AC_SUBST(SEGS_CPU_SRC)
-SEGS_CPU_SRC=cexpsegs-"$canon_cpu"-"$canon_os".c
-if test ! -f $srcdir/"$SEGS_CPU_SRC" ; then
-	SEGS_CPU_SRC=cexpsegs-dflt.c
-fi
 
 AM_CONDITIONAL(DO_CEXPLIB, [test ! "$enable_cexp"    = "no"])
 # if host=target AND host=build, then to the demo

@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* This file contains the implementation of support for elementary
  * C types (unsigned long, double etc.).
  */

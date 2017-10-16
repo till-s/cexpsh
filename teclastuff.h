@@ -1,6 +1,5 @@
 #ifndef CEXP_TECLASTUFF_H
 #define CEXP_TECLASTUFF_H
-/* $Id$ */
 
 /* Support for tecla features (such as word completion etc.) */
 

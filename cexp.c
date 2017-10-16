@@ -1,5 +1,3 @@
-/* cexp.c,v 1.42 2004/12/02 21:16:37 till Exp */
-
 /* 'main' program for CEXP which reads lines of input
  * and calls the parser (cexpparse()) on each of them...
  */

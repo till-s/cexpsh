@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* Interface to the BFD disassembler */
 
 /* IMPORTANT LICENSING INFORMATION:

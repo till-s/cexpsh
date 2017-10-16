@@ -1,8 +1,6 @@
 #ifndef CEXP_PUBLIC_HDR_H
 #define CEXP_PUBLIC_HDR_H
 
-/* cexp.h,v 1.26 2004/10/25 19:47:41 till Exp */
-
 /* public interface to the 'cexp' C Expression Parser and symbol table utility */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

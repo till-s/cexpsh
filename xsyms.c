@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* 'xsyms' utility implementation using BFD or pmbfd/pmelf
  *
  * 'xsyms' can be used to extract the symbol table from a

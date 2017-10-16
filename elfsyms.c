@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* routines to extract information from an ELF symbol table */
 
 /* The ELF symbol table is reduced and copied to a local format.

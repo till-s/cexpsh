@@ -1,5 +1,3 @@
-/* bfdstuff.c,v 1.51 2004/12/02 21:16:37 till Exp */
-
 /* Cexp interface to object/symbol file using BFD; runtime loader support */
 
 /* NOTE: read the comment near the end of this file about C++ exception handling */

@@ -1,8 +1,6 @@
 #ifndef CEXP_TYPES_H
 #define CEXP_TYPES_H
 
-/* $Id$ */
-
 /* Interface to the Cexp C-type 'engine' */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

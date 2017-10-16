@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* memory segments for powerpc/RTEMS */
 
 /* 

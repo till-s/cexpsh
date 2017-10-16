@@ -1,4 +1,3 @@
-/* $Id$ */
 #ifndef CEXP_LOCK_H
 #define CEXP_LOCK_H
 

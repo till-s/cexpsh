@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* private interface to cexp memory segment */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

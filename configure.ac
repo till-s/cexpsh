@@ -203,6 +203,7 @@ if test ! "${enable_text_segment+set}" = "set"; then
 			enable_text_segment=0
 		;;
 		*)
+			enable_text_segment=no
 		;;
 	esac
 fi

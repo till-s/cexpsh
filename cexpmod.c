@@ -733,9 +733,11 @@ CexpSym s;
 		return -1;
 	}
 
+#ifdef USE_LOADER
 	cexpSegsInit( &nmod->segs );
 
 	cexpSymTblFixup(nmod->symtbl, cexpSegsGet( nmod->segs, CEXP_SEG_VENR ) );
+#endif
 
 	if ( cexpIndexSymTbl(nmod->symtbl) )
 		return -1;

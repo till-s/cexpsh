@@ -79,8 +79,9 @@ cexpSegsAllocAll(CexpSegment s)
 int
 cexpSegsAllocOne(CexpSegment s)
 {
-	if ( s->chunk || !s->allocat || s->allocat(s) )
+	if ( s->chunk || !s->allocat )
 		return -1;
+	return s->allocat(s);
 }
 
 void

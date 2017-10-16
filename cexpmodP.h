@@ -125,6 +125,8 @@ typedef struct CexpModuleRec_ {
 	                                /* compatibility attributes as described by '.gnu.attributes'
 									 * section. Currently, only pmbfd supports this.
 									 */
+	void                *exidx;
+	unsigned long        nExidx;
 } CexpModuleRec;
 
 /* This routine must be provided by the underlying

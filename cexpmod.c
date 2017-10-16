@@ -509,7 +509,7 @@ CexpSym	    *psects;
 	fprintf(f,"%s%s 0x%08lx", prefix ? prefix : "", m->name, m->text_vma);
 	if ( ( psects = m->section_syms ) ) {
 		for ( ; *psects; psects++ )
-			fprintf(f," -s%s 0x%08"MYPRIxPTR, (*psects)->name, (myuintptr_t)(*psects)->value.ptv);
+			fprintf(f," -s %s 0x%08"MYPRIxPTR, (*psects)->name, (myuintptr_t)(*psects)->value.ptv);
 	}
 	fputc('\n',f);
 }
@@ -968,3 +968,79 @@ CexpModule mod=*mp;
 	}
 	*mp=mod;
 }
+
+#ifdef __arm__
+void *
+__gnu_Unwind_Find_exidx(void *pc, int *pNumEntries)
+{
+CexpModule	m;
+void       *rval;
+int         nEntries;
+static void       *textStart = 0, *textEnd = 0;
+static int         haveAddrs = 0;
+CexpSym     sb,se,eb,ee;
+
+#ifdef DEBUG_EXIDX
+	printf("Unwind_Find_exidx for %p\n", pc);
+#endif
+
+	__RLOCK();
+
+	m = cexpSystemModule;
+
+	/* No need to write-lock; there is no harm in executing this simultaneously in multiple threads
+	 */
+	if ( ! haveAddrs ) {
+		if ( (sb = cexpSymTblLookup( "bsp_section_text_load_begin", m->symtbl )) )
+			textStart = (void*)sb->value.ptv;
+		if ( (se = cexpSymTblLookup( "bsp_section_text_load_end", m->symtbl )) )
+			textEnd = (void*)se->value.ptv;
+		if ( ! sb || ! se ) {
+			fprintf(stderr,"__gnu_Unwind_Find_exidx: ERROR -- unable to locate text start / end addresses\n");
+		}
+		if ( (eb = cexpSymTblLookup( "__exidx_start", m->symtbl)) ) {
+			m->exidx = (void*)eb->value.ptv;
+			if ( (ee = cexpSymTblLookup( "__exidx_end", m->symtbl)) ) {
+				m->nExidx = ((char*)ee->value.ptv - (char*)m->exidx)/8;
+			}
+		}
+		haveAddrs = 1;
+	}
+
+#ifdef DEBUG_EXIDX
+	printf("Checking module %s\n", m->name);
+	printf("Text chunk start %p, end %p\n", textStart, textEnd);
+#endif
+
+	if ( pc < textStart || pc >= textEnd ) {
+		for (m=m->next; m; m=m->next) {
+#ifdef DEBUG_EXIDX
+			printf("Checking module %s\n", m->name);
+#endif
+			CexpSegment s = cexpSegsGet(m->segs, CEXP_SEG_TEXT );
+			if ( s ) {
+#ifdef DEBUG_EXIDX
+				printf("Text chunk start %p, end %p\n", s->chunk, s->chunk + s->size);
+#endif
+				if ( (char*)pc >= (char*)s->chunk && (char*)pc < (char*)s->chunk + s->size ) {
+					break;
+				}
+			}
+		}
+	}
+	__RUNLOCK();
+	if ( m ) {
+		if ( pNumEntries )
+			*pNumEntries = m->nExidx;
+		rval = m->exidx;
+	} else {
+		rval = 0;
+	}
+
+#ifdef DEBUG_EXIDX
+	printf("Returning %p\n", rval);
+#endif
+
+	return rval;
+}
+#endif

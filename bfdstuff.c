@@ -125,7 +125,7 @@
 #include "cexp_regex.h"
 
 /* magic symbol names for C++ support; probably gcc specific */
-#define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
+#define CTOR_DTOR_PATTERN		"^_+GLOBAL_([_.$]|_sub_)[ID][_.$]"
 /* static/global CTOR/DTOR has no init_priority (highest priority is 1) */
 #define INIT_PRIO_NONE			1000000
 #ifdef OBSOLETE_EH_STUFF	/* old suselinux-ppc modified gcc needed that */
@@ -134,7 +134,10 @@
 #endif
 #define EH_SECTION_NAME			".eh_frame"
 #define TEXT_SECTION_NAME		".text"
+#define EXIDX_SECTION_NAME      ".ARM.exidx"
 #define DSO_HANDLE_NAME			"__dso_handle"
+#define EXIDX_START_NAME        "__exidx_start"
+#define EXIDX_END_NAME          "__exidx_end"
 
 /* this probably only makes sense on ELF */
 #if defined(HAVE_ELF_BFD_H) || defined(_PMBFD_)
@@ -227,6 +230,8 @@ typedef struct LinkDataRec_ {
 	asection		*eh;
 	void			*iniCallback;
 	void			*finiCallback;
+	void            *exidx;
+	unsigned long   nExidx;
 	CexpModule		module;
 } LinkDataRec, *LinkData;
 
@@ -586,6 +591,11 @@ LinkData	ld=(LinkData)arg;
 		if (ld->text && sect == ld->text) {
 			if ( check_get_section_vma(abfd,sect, &ld->text_vma) )
 				ld->text_vma = 0;
+		}
+
+		if ( 0 == strcmp(EXIDX_SECTION_NAME, bfd_get_section_name(abfd,sect)) ) {
+			ld->exidx  = (void*)bfd_get_section_vma(abfd, sect);
+			ld->nExidx = bfd_get_section_size(sect)/8;
 		}
 	}
 }
@@ -1059,7 +1069,14 @@ asymbol *sp = bfd_make_empty_symbol(abfd);
 	bfd_asymbol_name(sp) = csym->name;
 	bfd_asymbol_set_value(sp, (symvalue)csym->value.ptv);
 	bfd_set_section(sp, bfd_abs_section_ptr);
+	/* Probably should check... if ( (csym->flags & CEXP_SYMFLG_GLBL) ) */
 	sp->flags=BSF_GLOBAL;
+	if ( (csym->flags & CEXP_SYMFLG_SECT) )
+		sp->flags |= BSF_SECTION_SYM;
+	if ( (csym->flags & CEXP_SYMFLG_WEAK) )
+		sp->flags |= BSF_WEAK;
+	if ( (csym->value.type & CEXP_FUN_BIT) )
+		sp->flags |= BSF_FUNCTION;
 	/* mark the referenced module in the bitmap */
 	assert(mod->id < MAX_NUM_MODULES);
 	BITMAP_SET(depend,mod->id);
@@ -1711,11 +1728,18 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 #endif
 
 	} else {
+		CexpSym exidxStart, exidxEnd;
 		/* it's the system symtab - there should be no real COMMON symbols */
 		for ( i=0; i<ldr.num_new_commons; i++ )
 			assert( BSF_WEAK & (*ldr.new_commons[i])->flags );
 		if ( ldr.text )
 			ldr.text_vma=bfd_get_section_vma(ldr.abfd,ldr.text);
+		exidxStart = cexpSymTblLookup(EXIDX_START_NAME, ldr.cst);
+		exidxEnd   = cexpSymTblLookup(EXIDX_END_NAME, ldr.cst);
+		if ( exidxStart && exidxEnd ) {
+			ldr.exidx = (void*)exidxStart->value.ptv;
+			ldr.nExidx = ((char*)exidxEnd->value.ptv - (char*)exidxStart->value.ptv)/8;
+		}
 	}
 
 	if ( cexpSymTabSetValues(ldr.cst) )
@@ -1850,6 +1874,9 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 	mod->fileAttributes = obj_atts;
 	obj_atts      = 0;
 #endif
+
+	mod->exidx    = ldr.exidx;
+	mod->nExidx   = ldr.nExidx;
 
 	rval          = 0;
 

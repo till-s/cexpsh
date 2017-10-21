@@ -803,7 +803,9 @@ unsigned long vma;
 
 		for (i=0, r=0; i<sz; i++) {
 			asymbol **ppsym;
-			CexpSym   ts = 0;
+			CexpSym      ts = 0;
+			CexpModule	mod = 0;
+			asymbol		*sp = 0;
 #ifndef _PMBFD_
 			r=cr[i];
 			ppsym = r->sym_ptr_ptr;
@@ -830,12 +832,12 @@ unsigned long vma;
 #endif
 			symsect=bfd_get_section(*ppsym);
 
+			/* must look up even if not undefined in order to locate veneer info */
+			ts=cexpSymLookup(bfd_asymbol_name((sp=*ppsym)),&mod);
+
 			if ( bfd_is_und_section(symsect) ) {
 				/* reloc references an undefined symbol which we have to look-up */
-				CexpModule	mod;
-				asymbol		*sp;
 
-				ts=cexpSymLookup(bfd_asymbol_name((sp=*ppsym)),&mod);
 				if (ts && (ts->flags & CEXP_SYMFLG_GLBL) ) {
 					if (my__dso_handle == ts) {
 						/* they are looking for __dso_handle; give them

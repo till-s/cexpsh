@@ -24,6 +24,14 @@ AM_CONFIG_HEADER(config.h)
 
 TILLAC_RTEMS_SETUP(domultilib)
 
+AH_TEMPLATE([HAVE_TERMIOS_H])
+AC_CHECK_HEADER([termios.h],     AC_DEFINE(HAVE_TERMIOS_H,1))
+AH_TEMPLATE([HAVE_SYS_TERMIOS_H])
+AC_CHECK_HEADER([sys/termios.h], AC_DEFINE(HAVE_SYS_TERMIOS_H,1))
+
+AH_TEMPLATE([HAVE_SYS_FEATURES_H])
+AC_CHECK_HEADER([sys/features.h], AC_DEFINE(HAVE_SYS_FEATURES_H,1))
+
 # sys/termios.h and others can only be found outside of
 # the BSP installation area if cpukit was multilibbed :-(
 if test "${enable_multilib}" = "yes" && TILLAC_RTEMS_HOSTOS_IS_RTEMS ; then

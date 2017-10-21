@@ -5,7 +5,11 @@
 #include <config.h>
 #endif
 
+#ifdef HAVE_SYS_FEATURES_H
+#include <sys/features.h>
+#else
 #include <features.h>
+#endif
 
 #include <stdlib.h>
 

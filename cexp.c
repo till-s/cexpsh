@@ -64,16 +64,19 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/param.h>
+#if defined(HAVE_TERMIOS_H)
+#include <termios.h>
+#elif defined(HAVE_SYS_TERMIOS_H)
+#include <sys/termios.h>
+#endif
 #if defined(__rtems__)
 #if defined(HAVE_RTEMS_H)
 #include <rtems.h>
-#include <sys/termios.h>
 #include <sys/ioctl.h>
 #else
 #include "rtems-hackdefs.h"
 #endif
 #else  /* __rtems__ */
-#include <termios.h>
 #include <sys/ioctl.h>
 #endif /*__rtems__*/
 
@@ -128,6 +131,9 @@ char	*l;
 int		len;
 	if ((l=gl_get_line(gl,prompt,NULL,0)) && (len=strlen(l)) > 0) {
 		rval=strdup(l);
+	} else {
+		fprintf(stderr, "gl_get_line failed: %s\n", gl_error_message(gl, 0, 0));
+		sleep(1);
 	}
 	return rval;
 }

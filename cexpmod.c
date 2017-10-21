@@ -977,8 +977,13 @@ CexpModule mod=*mp;
 }
 
 #ifdef __arm__
+
 void *
 __gnu_Unwind_Find_exidx(void *pc, int *pNumEntries)
+__attribute__((weak,alias("__cexp_Unwind_Find_exidx")));
+
+void *
+__cexp_Unwind_Find_exidx(void *pc, int *pNumEntries)
 {
 CexpModule	m;
 void       *rval;

@@ -95,6 +95,8 @@ xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 endif #USEBFD
 
+xsyms_CPPFLAGS  += $(GITREV)
+
 if USELOADER
 SEGS_SRCS        = cexpsegs.c cexpsegs-alloc.c
 endif

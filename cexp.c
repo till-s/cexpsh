@@ -292,7 +292,7 @@ usage(const char *nm)
 static void
 version(const char *nm)
 {
-	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
+	fprintf(stderr,"This is CEXP release "GITREV", build date %s\n",cexp_build_date);
 }
 
 static void

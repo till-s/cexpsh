@@ -14,6 +14,8 @@ export host_alias
 export host_cpu
 export host_os
 
+GITREV:=-DGITREV="\"$(shell git describe --always)\""
+
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@
 HOSTCFLAGS=-O2 -g
@@ -153,7 +155,7 @@ libcexp_a_SOURCES=$(SRCS)
 EXTRA_libcexp_a_SOURCES=$(EXTRA_SRCS)
 
 AM_CPPFLAGS   = -I@srcdir@/regexp
-AM_CPPFLAGS  += $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
+AM_CPPFLAGS  += $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS) $(GITREV)
 
 libcexp_a_LIBADD      = $(XTRAOBJS)
 libcexp_a_DEPENDENCIES=$(SYMDEPS) $(XTRAOBJS) builddate.o

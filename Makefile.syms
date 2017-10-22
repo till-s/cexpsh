@@ -1,4 +1,3 @@
-# $Id$
 # Utility makefile to generate a helper object 'syms.o'
 # who may be linked with CEXP to force the linker adding
 # more stuff from the system libraries than needed

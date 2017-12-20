@@ -72,6 +72,8 @@
 
 #include <pmelf.h>
 
+#include <dlfcn.h>
+
 #include "cexpsymsP.h"
 #include "cexpmodP.h"
 #define _INSIDE_CEXP_
@@ -259,7 +261,7 @@ unsigned long rval    = 0;
  * routine.
  */
 static CexpSymTbl
-cexpSlurpElf(const char *filename, CexpModule mod)
+cexpSlurpElf(const char *filename, CexpModule mod, void *dlhdl)
 {
 Elf_Stream	  elf=0;
 Elf_Ehdr      ehdr;
@@ -277,6 +279,7 @@ long		  size=0,avail=0;
 unsigned long nsyms;
 CexpLinkMap   lmaps = 0, map;
 FilterArgsRec args;
+uintptr_t     ldoff = 0;
 
 #ifdef HAVE_RCMD
 #ifdef		__rtems__
@@ -371,12 +374,22 @@ FILE        *f = 0;
 	     || ! (shtab  = pmelf_getshtab(elf, &ehdr))
 	     || ! (symtab = pmelf_getsymtab(elf, shtab)) )
 		goto cleanup;
+
+	ldoff = 0;
 	
 	/* convert the symbol table */
-	lmaps = cexpLinkMapBuild( 0, 0 );
+	if ( ! dlhdl ) {
+		lmaps = cexpLinkMapBuild( 0, 0 );
+	} else {
+		/* FIXME should read and use the lmaps to discover new dependent modules ! */
+		if ( cexpLinkOff( dlhdl, &ldoff ) ) {
+			fprintf(stderr,"Error: unable to obtain link address\n");
+			goto cleanup;
+		}
+	}
 
 	args.strtab = symtab->strtab;
-	args.offset = 0;
+	args.offset = ldoff;
 
 	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
 		nsyms = symcnt(
@@ -404,7 +417,7 @@ FILE        *f = 0;
 	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
 
 		args.strtab = symtab->strtab;
-		args.offset = 0;
+		args.offset = ldoff;
 
 		csymt = cexpAddSymTbl(
 				csymt,
@@ -494,16 +507,16 @@ int
 cexpLoadFile(const char *filename, CexpModule new_module)
 {
 int			rval=-1;
+void       *h   = 0;
 
 	if (cexpSystemModule) {
-		fprintf(stderr,
-				"The ELF symbol file loader doesn't support loading object files, sorry\n");
-		fprintf(stderr,
-				"(only initial symbol table can be loaded) - recompile with --enable-loader\n");
-		return rval;
-	}
+		if ( ! (h = dlopen( filename, RTLD_GLOBAL | RTLD_NOW )) ) {
+			fprintf(stderr,"dlopen failed\n");
+			return rval;
+		}
+    }
 
-	if ((new_module->symtbl=cexpSlurpElf(filename, cexpSystemModule))) {
+	if ((new_module->symtbl=cexpSlurpElf(filename, cexpSystemModule, h))) {
 		rval=0;
 	}
 #ifdef HAVE_BFD_DISASSEMBLER
@@ -533,7 +546,7 @@ CexpSym		symp;
 		return 1;
 	}
 
-	t=cexpSlurpElf(argv[1], 0);
+	t=cexpSlurpElf(argv[1], 0, 0);
 
 	if (!t) {
 		return 1;

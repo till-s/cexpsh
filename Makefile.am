@@ -37,6 +37,8 @@ SYMLIBP          =
 SYMLIBS          =
 SYMINCS          =
 
+DLLIB            =
+
 if USELOADER
 SYMF_SRCS       += bfdstuff.c
 else
@@ -44,6 +46,7 @@ if USEELFSYMS
 # ELF symbol file reader only
 SYMF_SRCS       += elfsyms.c
 SYMF_SRCS       += elfdlmap.c
+DLLIB           += -ldl
 else
 # no symbol file reader at all,
 # builtin symtab only
@@ -164,7 +167,7 @@ libcexp_a_DEPENDENCIES=$(SYMDEPS) $(XTRAOBJS) builddate.o
 
 if DO_DEMO
 cexp_SOURCES  = cexp_main.c
-cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT)) $(PTHREADLIBS)
+cexp_LDADD    = -lcexp $(SYMLIBS) $(TECLALIBS) -lspencer_regexp $(wildcard cexp-builtin-symtab.$(OBJEXT)) $(PTHREADLIBS) $(DLLIB)
 cexp_DEPENDENCIES=libcexp.a $(wildcard cpptest/mak.defs)  $(wildcard cexp-builtin-symtab.$(OBJEXT))
 cexp_LDFLAGS  = -L. -Wl,-u,printf -Wl,-u,fprintf -Wl,-u,scanf -Wl,-u,fscanf $(CEXP_TEST_UNDEFS) $(SYMLIBP) $(TECLALIBP) -Lregexp $(MDBGLDFLAGS)
 CEXP_TEST_UNDEFS=-Wl,-u,__cxa_finalize

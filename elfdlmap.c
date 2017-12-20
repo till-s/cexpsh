@@ -297,6 +297,24 @@ CexpLinkMap *tailp = &rval;
 	return rval;
 }
 
+int
+cexpLinkOff(void *handle, uintptr_t *poff)
+{
+int rval = -1;
+
+#if defined(HAVE_LINK_H) && defined(HAVE_DLINFO)
+struct link_map *m;
+
+	rval = dlinfo( handle, RTLD_DI_LINKMAP, &m );
+
+	if ( 0 == rval ) {
+		*poff = (uintptr_t) m->l_addr;
+	}
+
+#endif
+	return rval;
+}
+
 void
 cexpLinkMapFree(CexpLinkMap m)
 {

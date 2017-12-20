@@ -35,4 +35,7 @@ cexpLinkMapBuild(const char *name, void *parm);
 void
 cexpLinkMapFree(CexpLinkMap m);
 
+int
+cexpLinkOff(void *handle, uintptr_t *poff);
+
 #endif

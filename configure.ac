@@ -415,7 +415,14 @@ AC_CHECK_HEADER([link.h],
 		AC_DEFINE([HAVE_DL_ITERATE_PHDR],1,[If we have dl_iterate_phdr in link.h]),
 		[],
 		[[#define _GNU_SOURCE
-		#include <link.h>]])])
+		#include <link.h>]])
+	 AC_CHECK_DECL(
+		[dlinfo],
+		AC_DEFINE([HAVE_DLINFO],1,[If we have dlinfo in link.h]),
+		[],
+		[[#define _GNU_SOURCE
+		#include <link.h>]])
+    ])
 
 # based on the features requested, check which bfd library to use
 

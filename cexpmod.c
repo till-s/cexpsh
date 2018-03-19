@@ -976,7 +976,7 @@ CexpModule mod=*mp;
 	*mp=mod;
 }
 
-#ifdef __arm__
+#if defined(__arm__) && defined(USE_LOADER)
 
 void *
 __gnu_Unwind_Find_exidx(void *pc, int *pNumEntries)

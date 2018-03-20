@@ -1,3 +1,5 @@
+#define _XOPEN_SOURCE 500
+
 #include "cexplock.h"
 
 #ifdef USE_EPICS_OSI

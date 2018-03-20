@@ -1,4 +1,7 @@
-Changes since CEXP-2.3
+Changes since CEXP-2.3.0
+  20180320:
+ - cexplock.c: rhel6 needs #define _XOPEN_SOURCE 500
+ - Makefile.am: improve out-of-sourcetree builds
 Changes since CEXP-2.2
   20180319:
  -  Compile __gnu_Unwind_Find_exidx() only if USE_LOADER (and arm)

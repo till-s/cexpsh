@@ -14,8 +14,6 @@ export host_alias
 export host_cpu
 export host_os
 
-GITREV:=-DGITREV="\"$(shell git describe --always)\""
-
 HOSTCC  = @HOSTCC@
 SUBDIRS = @THESUBDIRS@
 HOSTCFLAGS=-O2 -g
@@ -227,3 +225,6 @@ dist-hook:
 		echo "Need tagged version to cut a dist!";   \
 		exit 1;                                      \
 	fi
+
+GITREV:=-DGITREV="\"$(shell cd $(srcdir); git describe --always)\""
+

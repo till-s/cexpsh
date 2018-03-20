@@ -1,3 +1,4 @@
+Changes since CEXP-2.3.1
 Changes since CEXP-2.3.0
   20180320:
  - cexplock.c: rhel6 needs #define _XOPEN_SOURCE 500

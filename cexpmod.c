@@ -967,13 +967,13 @@ CexpModule mod=*mp;
 		free(mod->section_syms);
 		free(mod->fileName);
 		cexpFreeSymTbl(&mod->symtbl);
-		free(mod);
 #ifdef USE_PMBFD
 		if (mod->fileAttributes)
 			pmelf_destroy_attribute_set(mod->fileAttributes);
 #endif
+		free(mod);
 	}
-	*mp=mod;
+	*mp=0;
 }
 
 #if defined(__arm__) && defined(USE_LOADER)

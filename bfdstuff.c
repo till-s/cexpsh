@@ -884,7 +884,7 @@ unsigned long vma;
 				 */
 				if ( sect != ld->eh_section || (cexpBfdDebug & DEBUG_RELOC) )
 				{
-					fprintf(stderr, "WARNING:\n");
+					fprintf(stderr, "INFO:\n");
 					fprintf(stderr, "Ignoring/skipping reloc   [0x%08lx = %s@%s]\n",
 					                (unsigned long)bfd_asymbol_value(*ppsym),
 					                bfd_asymbol_name(*ppsym),
@@ -1704,7 +1704,9 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		else  {
 			s = cexpSymLookup( (char*)*psym, 0 );
 			if ( !s ) {
-				fprintf(stderr,"WARNING: no existing symtab entry found for section '%s'\n", (char*)*psym);
+				if ( cexpBfdDebug & DEBUG_RELOC ) {
+				fprintf(stderr,"INFO: no existing symtab entry found for section '%s'\n", (char*)*psym);
+				}
 				/* remove this slot */
 				tsym = psym +1;
 				while ( (*(tsym-1) = *tsym) )

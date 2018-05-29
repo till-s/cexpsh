@@ -157,7 +157,7 @@ cexpUnredir(CexpParserCtx ctx);
 #define yyparse __cexpparse
 
 %}
-%pure_parser
+%pure-parser
 
 %union {
 	CexpTypedValRec				val;
@@ -241,6 +241,7 @@ cexpUnredir(CexpParserCtx ctx);
 %left		CALL
 %left		'.'
 
+%lex-param {CexpParserCtx ctx}
 %parse-param {CexpParserCtx ctx}
 
 %%

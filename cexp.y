@@ -242,6 +242,7 @@ cexpUnredir(CexpParserCtx ctx);
 %left		CALL
 %left		'.'
 
+%lex-param {CexpParserCtx ctx}
 %parse-param {CexpParserCtx ctx}
 %lex-param   {CexpParserCtx ctx}
 

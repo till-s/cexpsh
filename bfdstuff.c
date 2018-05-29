@@ -99,6 +99,7 @@
 #else
 #include <bfd.h>
 #include <libiberty.h>
+#include <stdint.h>
 
 #ifdef HAVE_ELF_BFD_H
 #include "elf-bfd.h"
@@ -120,6 +121,14 @@
 #define DEBUG_SYM		(1<<3)
 #define DEBUG_CDPRI		(1<<4)
 #define DEBUG_PROGRESS  (1<<5)
+
+#define DEBUG           (0)
+
+#ifdef DEBUG
+int32_t cexpBfdDebug = DEBUG;
+#else
+#define cexpBfdDebug (0)
+#endif
 
 #include "cexp_regex.h"
 
@@ -408,9 +417,9 @@ asymbol		*asym=*(asymbol**)ext_sym;
 int			s;
 CexpType	t=TVoid;
 
-#if DEBUG & DEBUG_SYM
-		printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
-#endif
+		if ( cexpBfdDebug & DEBUG_SYM ) {
+			printf("assigning symbol: %s\n",bfd_asymbol_name(asym));
+		}
 
 		s = elf_get_size(ld->abfd, asym);
 
@@ -490,12 +499,12 @@ LinkData	ld    = (LinkData)arg;
 CexpSegment	seg   = segOf(ld, sect);
 flagword	flags = bfd_get_section_flags(abfd,sect);
 const char	*secn = bfd_get_section_name(abfd,sect);
-#if DEBUG & DEBUG_SECT
+	if ( cexpBfdDebug & DEBUG_SECT ) {
 	printf("Section %s, flags 0x%08x\n", secn, flags);
 	printf("size: %lu, alignment %i\n",
 			(unsigned long)bfd_section_size(abfd,sect),
 			(1<<bfd_get_section_alignment(abfd,sect)));
-#endif
+	}
 	if (SEC_ALLOC & flags) {
 		seg->size+=(1<<bfd_get_section_alignment(abfd,sect))-1;
 		seg->size+=bfd_section_size(abfd,sect);
@@ -572,11 +581,11 @@ LinkData	ld=(LinkData)arg;
 			return;
 		}
 		seg->vmacalc=align_power(seg->vmacalc, bfd_get_section_alignment(abfd,sect));
-#if DEBUG & DEBUG_SECT
+		if ( cexpBfdDebug & DEBUG_SECT ) {
 		printf("%s allocated at 0x%08lx\n",
 				bfd_get_section_name(abfd,sect),
 				(unsigned long)seg->vmacalc);
-#endif
+		}
 		bfd_set_section_vma(abfd,sect,seg->vmacalc);
 		seg->vmacalc+=bfd_section_size(abfd,sect);
 		if
@@ -658,11 +667,11 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 				fprintf(stderr,"Warning: section '%s' exists; discarding...\n", secn);
 
 			/* discard this section (older gcc creating .gnu.linkonce.xxx sections) */
-#if DEBUG & DEBUG_SECT
+			if ( cexpBfdDebug & DEBUG_SECT ) {
 			if ( SEC_ALLOC & flags ) {
 				printf("Removing linkonce section '%s'\n", secn);
 			}
-#endif
+			}
 			bfd_set_section_flags( abfd, sect, bfd_get_section_flags( abfd, sect ) & ~SEC_ALLOC);
 
 			if ( (SEC_GROUP & flags) ) {
@@ -685,9 +694,9 @@ flagword	flags=bfd_get_section_flags(ld->abfd, sect);
 					 */
 					frst = s = elf_next_in_group(sect);
 					while ( s ) {
-#if DEBUG & DEBUG_SECT
+						if ( cexpBfdDebug & DEBUG_SECT ) {
 						printf("Removing linkonce group member '%s'\n",bfd_get_section_name(ld->abfd, s));
-#endif
+						}
 						bfd_set_section_flags( ld->abfd, s, bfd_get_section_flags( ld->abfd, s ) & ~SEC_ALLOC );
 						if ( (s = elf_next_in_group(s)) == frst )
 							break;
@@ -898,14 +907,12 @@ unsigned long vma;
 				/* FIXME: should we add a paranoia check that the 'addend' is zero? gcc only skips
 				 *        NULL relocs in .eh_frame if the relocation value is zero.
 				 */
-#if ! (DEBUG & DEBUG_RELOC)
 				/* reloc referencing a symbol in a dropped linkonce should not happen unless from .eh_frame;
 				 * warn about it:
 				 */
-				if ( sect != ld->eh_section )
-#endif
+				if ( sect != ld->eh_section || (cexpBfdDebug & DEBUG_RELOC) )
 				{
-					fprintf(stderr, "WARNING:\n");
+					fprintf(stderr, "INFO:\n");
 					fprintf(stderr, "Ignoring/skipping reloc   [0x%08lx = %s@%s]\n",
 					                (unsigned long)bfd_asymbol_value(*ppsym),
 					                bfd_asymbol_name(*ppsym),
@@ -918,7 +925,8 @@ unsigned long vma;
 				}
 				continue;
 			}
-#if DEBUG & DEBUG_RELOC
+
+			if ( cexpBfdDebug & DEBUG_RELOC ) {
 			printf("relocating [0x%08lx = %s@%s]\n",
 			        (unsigned long)bfd_asymbol_value(*ppsym),
 					bfd_asymbol_name(*ppsym),
@@ -929,7 +937,7 @@ unsigned long vma;
 			       bfd_get_section_name(abfd, sect),
 			       (unsigned long)ppsym
 			      );
-#endif
+			}
 #ifndef _PMBFD_
 			err=bfd_perform_relocation(
 				abfd,
@@ -1044,20 +1052,20 @@ CexpModule	mod = ld->module;
 	/* store the symbol values in the module's ctor/dtor lists */
 	for (i=0; i<ld->nCtors; i++) {
 		mod->ctor_list[i]=(VoidFnPtr)bfd_asymbol_value(ctorsyms[i].sym);
-#if (DEBUG) & DEBUG_CDPRI
+		if ( cexpBfdDebug & DEBUG_CDPRI ) {
 		printf("Ctor %.40s at priority %i\n",
 				bfd_asymbol_name(ctorsyms[i].sym),
 				ctorsyms[i].pri);
-#endif
+		}
 	}
 	/* inverse the order of calling the destructors */
 	for (i=0, j=ld->nDtors-1; i<ld->nDtors; i++,j--) {
 		mod->dtor_list[i]=(VoidFnPtr)bfd_asymbol_value(dtorsyms[j].sym);
-#if (DEBUG) & DEBUG_CDPRI
+		if ( cexpBfdDebug & DEBUG_CDPRI ) {
 		printf("Dtor %.40s at priority %i\n",
 				bfd_asymbol_name(dtorsyms[i].sym),
 				dtorsyms[i].pri);
-#endif
+		}
 	}
 
 	free(ctorsyms);
@@ -1146,7 +1154,7 @@ int			i,errs=0;
 		CexpModule	mod;
 		const char	*symname;
 
-#if DEBUG  & DEBUG_SYM
+		if ( cexpBfdDebug & DEBUG_SYM ) {
 		printf("scanning SYM (flags 0x%08lx, value 0x%08lx) '%s'\n",
 						(unsigned long)sp->flags,
 						(unsigned long)bfd_asymbol_value(sp),
@@ -1163,7 +1171,7 @@ int			i,errs=0;
 						bfd_get_section_name(abfd,sect));
 		}
 		}
-#endif
+		}
 		/* count constructors/destructors */
 		if ((res=isCtorDtor(sp,1/*warn*/,0/*don't care about priority*/))) {
 			if (res>0)
@@ -1376,9 +1384,9 @@ asection	*csect;
 			 */
 			apwr = elf_get_align_pwr(abfd, *ld->new_commons[i]);
 			val=align_power(val,apwr);
-#if DEBUG & DEBUG_COMMON
+			if ( cexpBfdDebug & DEBUG_COMMON ) {
 			printf("New common: %s; align_pwr %i\n",bfd_asymbol_name(*ld->new_commons[i]),apwr);
-#endif
+			}
 			/* copy pointer to old name */
 			bfd_asymbol_name(sp) = bfd_asymbol_name(*ld->new_commons[i]);
 			bfd_asymbol_set_value(sp, val);
@@ -1685,9 +1693,9 @@ CexpModule                      m;
 		fprintf(stderr,"Error creating symbol table\n");
 		goto cleanup;
 	}
-#if (DEBUG & DEBUG_PROGRESS) != 0
+	if ( cexpBfdDebug & DEBUG_PROGRESS ) {
 	fprintf(stderr,"Symbols read\n");
-#endif
+	}
 
 	/* the first thing to be loaded must be the system
 	 * symbol table. Reject to load anything in this case
@@ -1702,9 +1710,9 @@ CexpModule                      m;
 		if (ldr.errors)
 			goto cleanup;
 
-#if (DEBUG & DEBUG_PROGRESS) != 0
+		if ( cexpBfdDebug & DEBUG_PROGRESS ) {
 		fprintf(stderr,"Sections counted\n");
-#endif
+		}
 
 		/* allocate segment space */
 		if ( cexpSegsAllocAll(ldr.segs) ) {
@@ -1720,9 +1728,9 @@ CexpModule                      m;
 if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		}
 
-#if (DEBUG & DEBUG_PROGRESS) != 0
+		if ( cexpBfdDebug & DEBUG_PROGRESS ) {
 		fprintf(stderr,"Segments allocated\n");
-#endif
+		}
 
 		/* compute and set the base addresses for all sections to be allocated */
 		ldr.errors=0;
@@ -1730,18 +1738,18 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		if ( ldr.errors )
 			goto cleanup;
 
-#if (DEBUG & DEBUG_PROGRESS) != 0
+		if ( cexpBfdDebug & DEBUG_PROGRESS ) {
 		fprintf(stderr,"Section VMAs set\n");
-#endif
+		}
 
 		ldr.errors=0;
 		bfd_map_over_sections(ldr.abfd, s_reloc, &ldr);
 		if (ldr.errors)
 			goto cleanup;
 
-#if (DEBUG & DEBUG_PROGRESS) != 0
+		if ( cexpBfdDebug & DEBUG_PROGRESS ) {
 		fprintf(stderr,"Relocs processed\n");
-#endif
+		}
 
 	} else {
 		CexpSym exidxStart, exidxEnd;
@@ -1772,7 +1780,9 @@ if ( chunk ) memset(ldr.segs[i].chunk, 0xee,ldr.segs[i].size); /*TSILL*/
 		else  {
 			s = cexpSymLookup( (char*)*psym, 0 );
 			if ( !s ) {
-				fprintf(stderr,"WARNING: no existing symtab entry found for section '%s'\n", (char*)*psym);
+				if ( cexpBfdDebug & DEBUG_RELOC ) {
+				fprintf(stderr,"INFO: no existing symtab entry found for section '%s'\n", (char*)*psym);
+				}
 				/* remove this slot */
 				tsym = psym +1;
 				while ( (*(tsym-1) = *tsym) )

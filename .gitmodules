@@ -1,0 +1,15 @@
+[submodule "getopt"]
+	path = getopt
+	url = ../mygetopt_r
+[submodule "libtecla"]
+	path = libtecla
+	url = ../rtems-libtecla
+[submodule "m4"]
+	path = m4
+	url = ../rtems-ac-macros
+[submodule "pmbfd"]
+	path = pmbfd
+	url = ../pmbfd
+[submodule "regexp"]
+	path = regexp
+	url = ../spencer-regexp_r

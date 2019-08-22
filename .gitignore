@@ -9,3 +9,12 @@ configure
 depcomp
 install-sh
 missing
+compile
+cexp.output
+cexp.tab.c
+cexp.tab.h
+dummycxx
+jumptab.c
+makefile.top.am
+makefile.top.in
+

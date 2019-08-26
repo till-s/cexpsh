@@ -94,7 +94,10 @@
 static void errmsg(CexpParserCtx ctx, const char *msg, ...);
 static void wrnmsg(CexpParserCtx ctx, const char *msg, ...);
 
-int  yylex();
+union YYSTYPE;
+
+int
+yylex(union YYSTYPE *rval, CexpParserCtx pa);
 
 typedef char *LString;
 
@@ -242,7 +245,6 @@ cexpUnredir(CexpParserCtx ctx);
 %left		CALL
 %left		'.'
 
-%lex-param {CexpParserCtx ctx}
 %parse-param {CexpParserCtx ctx}
 %lex-param   {CexpParserCtx ctx}
 

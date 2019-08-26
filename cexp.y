@@ -85,8 +85,14 @@
 /* ugly hack; helper for word completion */
 #define LEXERR_INCOMPLETE_STRING	-100
 
-void yyerror(const char*msg);
-int  yylex();
+       void yyerror(CexpParserCtx ctx, const char*msg);
+static void errmsg(CexpParserCtx ctx, const char *msg, ...);
+static void wrnmsg(CexpParserCtx ctx, const char *msg, ...);
+
+union YYSTYPE;
+
+int
+yylex(union YYSTYPE *rval, CexpParserCtx pa);
 
 typedef char *LString;
 
@@ -123,7 +129,7 @@ CexpSym rval;
 }
 
 %}
-%pure_parser
+%pure-parser
 
 %union {
 	CexpTypedValRec				val;
@@ -200,6 +206,9 @@ CexpSym rval;
 %right		'!'
 %left		CALL
 %left		'.'
+
+%parse-param {CexpParserCtx ctx}
+%lex-param   {CexpParserCtx ctx}
 
 %%
 

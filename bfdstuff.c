@@ -96,6 +96,11 @@
 #define reloc_get_name(abfd, r)    pmbfd_reloc_get_name(abfd, r)
 #define bfd_asymbol_set_value(s,v) pmbfd_asymbol_set_value(s,v)
 #undef HAVE_ELF_BFD_H
+#if (__GNUC__ > 4) || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)
+#define PMELF_ATTR_MATCH  PMELF_MATCH_ATTRIBUTES_RELAXD
+#else
+#define PMELF_ATTR_MATCH  PMELF_MATCH_ATTRIBUTES_STRICT
+#endif
 #else
 #include <bfd.h>
 #include <libiberty.h>
@@ -1601,8 +1606,8 @@ CexpModule                      m;
 	 * loaded ones. Should be OK even if we are just loading
 	 * the symbol (aka system module).
 	 */
-	for ( m = cexpSystemModule; m; m = m->next ) {
-		if ( pmelf_match_attribute_set(m->fileAttributes, obj_atts) ) {
+	for ( m = cexpSystemModule; m; ) {
+		if ( pmelf_match_attribute_set_adv(m->fileAttributes, obj_atts, PMELF_ATTR_MATCH) ) {
 			fprintf(stderr,
 			        "Mismatch of object file attributes (ABI) with module '%s' found\n",
 					m->name);
@@ -1612,6 +1617,12 @@ CexpModule                      m;
 				goto cleanup;
 			}
 		}
+
+#if ( PMELF_ATTR_MATCH == PMELF_MATCH_ATTRIBUTES_RELAXD )
+		m = 0;
+#else
+		m = m->next;
+#endif
 	}
 #endif
 

@@ -132,7 +132,7 @@ int32_t cexpBfdDebug = DEBUG;
 #include "cexp_regex.h"
 
 /* magic symbol names for C++ support; probably gcc specific */
-#define CTOR_DTOR_PATTERN		"^_+GLOBAL_[_.$][ID][_.$]"
+#define CTOR_DTOR_PATTERN		"^_+GLOBAL_([_.$]|_sub_)[ID][_.$]"
 /* static/global CTOR/DTOR has no init_priority (highest priority is 1) */
 #define INIT_PRIO_NONE			1000000
 #ifdef OBSOLETE_EH_STUFF	/* old suselinux-ppc modified gcc needed that */

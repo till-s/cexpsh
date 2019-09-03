@@ -1,6 +1,5 @@
 #ifndef CEXP_REGEX_H
 #define CEXP_REGEX_H
-/* $Id$ */
 
 /* Portability wrapper for different regex implementations */
 

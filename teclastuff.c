@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* Support for tecla features (such as word completion etc.) */
 

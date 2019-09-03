@@ -155,7 +155,7 @@ cross-%:
 install-%:
 	$(MAKE) -C build-$* install
 
-REVISION=$(filter-out $$%,$$Name$$)
+REVISION=$(shell git describe --always --dirty)
 tar: regexp prep
 	@if [ -z $(REVISION) ] ; then \
 		echo "I need a version checked out with a revision tag to make a tarball";\

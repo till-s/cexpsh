@@ -93,8 +93,6 @@ xsyms_CPPFLAGS   = -I$(srcdir)/pmbfd
 xsyms_LDADD      = -Lpmbfd -lpmbfd -lpmelf
 endif #USEBFD
 
-xsyms_CPPFLAGS  += $(GITREV)
-
 if USELOADER
 SEGS_SRCS        = cexpsegs.c cexpsegs-alloc.c
 endif
@@ -155,7 +153,7 @@ libcexp_a_SOURCES=$(SRCS)
 EXTRA_libcexp_a_SOURCES=$(EXTRA_SRCS)
 
 AM_CPPFLAGS   = -I@srcdir@/regexp
-AM_CPPFLAGS  += $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS) $(GITREV)
+AM_CPPFLAGS  += $(MDBGCFLAGS) $(SYMINCS) $(CONFIG_THREADS) $(TECLAINCS)
 
 libcexp_a_LIBADD      = $(XTRAOBJS)
 libcexp_a_DEPENDENCIES=$(SYMDEPS) $(XTRAOBJS) builddate.o
@@ -225,6 +223,3 @@ dist-hook:
 		echo "Need tagged version to cut a dist!";   \
 		exit 1;                                      \
 	fi
-
-GITREV:=-DGITREV="\"$(shell cd $(srcdir); git describe --always)\""
-

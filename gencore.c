@@ -139,8 +139,8 @@ const bfd_arch_info_type *arch = bfd_scan_arch("");
 	fprintf(stderr,
 		"       Generate a core file from a raw memory image.\n");
 	fprintf(stderr,
-		"       Built for a '%s' target; "GITREV"\n",
-		bfd_target_list()[0]);
+		"       Built for a '%s' target; %s\n",
+		bfd_target_list()[0], PACKAGE_VERSION);
 	fprintf(stderr,
 		"       Author: Till Straumann, 2004; License: GPL\n");
 	fputc('\n', stderr);

@@ -293,7 +293,7 @@ fprintf(stderr,"       %s implementation using PMBFD\n",nm);
 #else
 fprintf(stderr,"       %s implementation using BFD\n",nm);
 #endif
-fprintf(stderr,"	   "GITREV"\n\n");
+fprintf(stderr,"	   %s\n\n", PACKAGE_VERSION);
 fprintf(stderr,"       strip an object file leaving only the symbol table\n");
 fprintf(stderr,"       -h this info\n");
 fprintf(stderr,"       -a just print target machine description\n");

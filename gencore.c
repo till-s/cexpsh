@@ -1,3 +1,4 @@
+
 /* Utility to create a (elf) core file from a raw memory image.
  * For selected architectures (currently ppc32, i386 and m68k),
  * recording registers in the core file (netbsd layout) is supported.

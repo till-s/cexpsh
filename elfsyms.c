@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* routines to extract information from an ELF symbol table */
 

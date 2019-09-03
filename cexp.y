@@ -1,5 +1,4 @@
 %{
-/* $Id$ */
 /* Grammar definition and lexical analyzer for Cexp */
 /* Author: Till Straumann <strauman@slac.stanford.edu>, 2/2002 */
 

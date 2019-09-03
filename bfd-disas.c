@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* Interface to the BFD disassembler */
 

@@ -1,4 +1,3 @@
-/* $Id$ */
 #ifndef CEXP_HELP_H
 #define CEXP_HELP_H
 

@@ -1,7 +1,6 @@
 #ifndef CEXP_TYPES_H
 #define CEXP_TYPES_H
 
-/* $Id$ */
 
 /* Interface to the Cexp C-type 'engine' */
 

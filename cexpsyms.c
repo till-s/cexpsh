@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* generic symbol table handling */
 

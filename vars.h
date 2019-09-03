@@ -1,6 +1,5 @@
 #ifndef CEXP_VARS_H
 #define CEXP_VARS_H
-/* $Id$ */
 
 #include "cexpsyms.h"
 

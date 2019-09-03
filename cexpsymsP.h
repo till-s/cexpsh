@@ -1,4 +1,3 @@
-/* $Id$ */
 /* private interface to cexp symbols (only seen by code implementing the symboltable) */
 
 /*

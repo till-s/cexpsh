@@ -1,4 +1,3 @@
-/* $Id$ */
 
 /* 'xsyms' utility implementation using BFD
  *

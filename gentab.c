@@ -1,4 +1,3 @@
-/* $Id$ */
 #include <stdio.h>
 
 /* 'gentab' is a utility to generate the CEXP function call

@@ -1,5 +1,4 @@
 %{
-/* $Id$ */
 /* Grammar definition and lexical analyzer for Cexp */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

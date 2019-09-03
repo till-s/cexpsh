@@ -2,7 +2,6 @@ What is Cexp?
 -------------
 
  -- Brought to you by Till Straumann <strauman@slac.stanford.edu> --
- -- $Id$ --
 
 The Cexp utility is a C-expression interpreter which
 gives its user access to all symbols present in the currently

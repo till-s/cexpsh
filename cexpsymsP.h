@@ -1,4 +1,3 @@
-/* $Id$ */
 /* private interface to cexp symbols (only seen by code implementing the symboltable) */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

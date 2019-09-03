@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* default implementation of memory segments (1 single segment using malloc/free) */
 
 /* SLAC Software Notices, Set 4 OTT.002a, 2004 FEB 03

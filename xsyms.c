@@ -1,5 +1,3 @@
-/* $Id$ */
-
 /* 'xsyms' utility implementation using BFD or pmbfd/pmelf
  *
  * 'xsyms' can be used to extract the symbol table from a
@@ -289,7 +287,6 @@ fprintf(stderr,"       %s implementation using PMBFD\n",nm);
 #else
 fprintf(stderr,"       %s implementation using BFD\n",nm);
 #endif
-fprintf(stderr,"	   $Id$\n\n");
 fprintf(stderr,"       strip an object file leaving only the symbol table\n");
 fprintf(stderr,"       -h this info\n");
 fprintf(stderr,"       -a just print target machine description\n");

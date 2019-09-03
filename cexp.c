@@ -284,7 +284,7 @@ usage(char *nm)
 static void
 version(char *nm)
 {
-	fprintf(stderr,"This is CEXP release $Name$, build date %s\n",cexp_build_date);
+	fprintf(stderr,"This is CEXP release %s, build date %s\n", PACKAGE_VERSION, cexp_build_date);
 }
 
 static void

@@ -89,7 +89,6 @@ if (chpt)
 	nm=chpt+1;
 fprintf(stderr,"usage: %s [-p] [-z] [-h] [<infile> [<outfile>] ]\n", nm);
 fprintf(stderr,"       %s implementation using LIBELF\n",nm);
-fprintf(stderr,"       $Id$\n\n");
 fprintf(stderr,"       strip an ELF file leaving only the symbol table\n");
 fprintf(stderr,"       - if there's no <infile>, operate on stdin/out as a filter\n");
 fprintf(stderr,"       - if there's no <outfile>, just list section headers\n");

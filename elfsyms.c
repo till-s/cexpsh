@@ -264,6 +264,7 @@ cexpSlurpElf(const char *filename, CexpModule mod)
 {
 Elf_Stream	  elf=0;
 Elf_Ehdr      ehdr;
+uint32_t      e_type;
 Pmelf_Shtab   shtab  = 0;
 Pmelf_Symtab  symtab = 0;
 CexpSymTbl	  rval=0,csymt=0;
@@ -372,7 +373,7 @@ FILE        *f = 0;
 	     || ! (shtab  = pmelf_getshtab(elf, &ehdr))
 	     || ! (symtab = pmelf_getsymtab(elf, shtab)) )
 		goto cleanup;
-	
+
 	/* convert the symbol table */
 	lmaps = cexpLinkMapBuild( 0, 0 );
 
@@ -380,14 +381,14 @@ FILE        *f = 0;
 	args.offset = 0;
 
 	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
-		nsyms = symcnt(
-				(void*)symtab->syms.p_t64,
+		e_type = ehdr.e64.e_type;
+		nsyms  = symcnt((void*)symtab->syms.p_t64,
 				sizeof(Elf64_Sym), symtab->nsyms,
 				filter64,
 				&args);
 	} else {
-		nsyms = symcnt(
-				(void*)symtab->syms.p_t32,
+		e_type = ehdr.e32.e_type;
+		nsyms  = symcnt((void*)symtab->syms.p_t32,
 				sizeof(Elf32_Sym), symtab->nsyms,
 				filter32,
 				&args);
@@ -402,10 +403,15 @@ FILE        *f = 0;
 	if ( ! csymt )
 		goto cleanup;
 
-	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
+	args.strtab = symtab->strtab;
+	args.offset = 0;
 
-		args.strtab = symtab->strtab;
-		args.offset = 0;
+	if ( ET_DYN == e_type && lmaps ) {
+		/* must relocate main sh-object */
+		args.offset = lmaps->offset;
+	}
+
+	if ( ELFCLASS64 == ehdr.e_ident[EI_CLASS] ) {
 
 		csymt = cexpAddSymTbl(
 				csymt,
@@ -414,22 +420,21 @@ FILE        *f = 0;
 				filter64,assign64,
 				&args,
 				0);
+
 		for ( map = lmaps; map; map = map->next ) {
 			args.strtab = map->strtab;
 			args.offset = map->offset;
 			cexpAddSymTbl(
-				csymt,
-				(void*)map->elfsyms + sizeof(Elf64_Sym) * map->firstsym,
-				sizeof(Elf64_Sym), map->nsyms - map->firstsym,
-				filter64, assign64,
-				&args,
-				(map->flags & CEXP_LINK_MAP_STATIC_STRINGS) ? CEXP_SYMTBL_FLAG_NO_STRCPY : 0
-			);
+					csymt,
+					(void*)map->elfsyms + sizeof(Elf64_Sym) * map->firstsym,
+					sizeof(Elf64_Sym), map->nsyms - map->firstsym,
+					filter64, assign64,
+					&args,
+					(map->flags & CEXP_LINK_MAP_STATIC_STRINGS) ? CEXP_SYMTBL_FLAG_NO_STRCPY : 0
+					);
 		}
-	} else {
 
-		args.strtab = symtab->strtab;
-		args.offset = 0;
+	} else {
 
 		csymt = cexpAddSymTbl(
 				csymt,
@@ -438,18 +443,20 @@ FILE        *f = 0;
 				filter32,assign32,
 				&args,
 				0);
+
 		for ( map = lmaps; map; map = map->next ) {
 			args.strtab = map->strtab;
 			args.offset = map->offset;
 			cexpAddSymTbl(
-				csymt,
-				(void*)map->elfsyms + sizeof(Elf32_Sym) * map->firstsym,
-				sizeof(Elf32_Sym), map->nsyms - map->firstsym,
-				filter32, assign32,
-				&args,
-				(map->flags & CEXP_LINK_MAP_STATIC_STRINGS) ? CEXP_SYMTBL_FLAG_NO_STRCPY : 0
-			);
+					csymt,
+					(void*)map->elfsyms + sizeof(Elf32_Sym) * map->firstsym,
+					sizeof(Elf32_Sym), map->nsyms - map->firstsym,
+					filter32, assign32,
+					&args,
+					(map->flags & CEXP_LINK_MAP_STATIC_STRINGS) ? CEXP_SYMTBL_FLAG_NO_STRCPY : 0
+					);
 		}
+
 	}
 
 	cexpSortSymTbl( csymt );

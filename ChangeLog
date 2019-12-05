@@ -1,4 +1,7 @@
 Changes since CEXP-2.3.1
+  20191204:
+ - elfsyms.c: recent gcc generates 'main' as a shared object.
+   When loading the main symbol table the symbols must be relocated.
 Changes since CEXP-2.3.0
   20180320:
  - cexplock.c: rhel6 needs #define _XOPEN_SOURCE 500
